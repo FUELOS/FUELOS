@@ -18,7 +18,19 @@ from app.models.shift import Shift
 from app.models.transaction import Transaction
 from app.models.base import UserRole, ShiftStatus, PaymentMethod
 from app.auth.dependencies import get_current_user, require_role
-from app.schemas.shift import ShiftOpen, ShiftClose, ShiftResponse
+from app.schemas.shift import (
+    ChannelBreakdown,
+    ReconciliationInfo,
+    ShiftOpen,
+    ShiftClose,
+    ShiftResponse,
+)
+from app.services.reconciliation import (
+    DEFAULT_TOLERANCE,
+    KURUS,
+    reconcile,
+    to_api_status,
+)
 
 router = APIRouter(prefix="/api/shifts", tags=["Shifts"])
 
@@ -42,6 +54,11 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
     Vardiyayı satış toplamları, beklenen nakit ve mutabakat fark analiziyle zenginleştirir.
     Beklenen Kasa Nakit = Açılış Nakit + O vardiyadaki Nakit Satışlar
     Kasa Farkı = Kapanış Nakit - Beklenen Kasa Nakit
+
+    K-001 Mutabakat Motoru (DEC-002): kanal ilanı modeliyle çalışır —
+    Nakit = fiziksel sayım farkı (kapanış - açılış), diğer kanallar ilan
+    edilmişse ilan, edilmediyse kayıtlı satış tutarı. Durum sınıflandırması
+    DEC-001 toleransıyla yapılır (|fark| <= 1 TL -> matched).
     """
     tx_res = await db.execute(
         select(
@@ -55,26 +72,101 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
                 ),
                 0,
             ).label("cash_sales"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (Transaction.payment_method == PaymentMethod.CREDIT_CARD, Transaction.amount),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("pos_sales"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (Transaction.payment_method == PaymentMethod.EFT, Transaction.amount),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("eft_sales"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (Transaction.payment_method == PaymentMethod.VERESIYE, Transaction.amount),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("credit_sales"),
         ).where(Transaction.shift_id == shift.id)
     )
     row = tx_res.one()
     total_sales = Decimal(str(row.total_sales))
     cash_sales = Decimal(str(row.cash_sales))
+    pos_sales = Decimal(str(row.pos_sales))
+    eft_sales = Decimal(str(row.eft_sales))
+    credit_sales = Decimal(str(row.credit_sales))
     opening_cash = Decimal(str(shift.opening_cash))
     expected_cash = opening_cash + cash_sales
 
     cash_diff = None
     recon_status = "open"
+    reconciliation = None
 
     if shift.status == ShiftStatus.CLOSED and shift.closing_cash is not None:
         closing_cash = Decimal(str(shift.closing_cash))
         cash_diff = closing_cash - expected_cash
-        if cash_diff == 0:
-            recon_status = "matched"     # Tam Mutabakat
-        elif cash_diff < 0:
-            recon_status = "shortage"    # Kasa Açığı
+
+        net_cash = closing_cash - opening_cash
+        if net_cash >= 0:
+            # ── K-001: kanal ilanı modeli (DEC-002) ──
+            declared = {
+                "pos": Decimal(str(shift.declared_pos)) if shift.declared_pos is not None else pos_sales,
+                "cash": net_cash,
+                "eft": Decimal(str(shift.declared_eft)) if shift.declared_eft is not None else eft_sales,
+                "credit": Decimal(str(shift.declared_credit)) if shift.declared_credit is not None else credit_sales,
+            }
+            recorded = {
+                "pos": pos_sales,
+                "cash": cash_sales,
+                "eft": eft_sales,
+                "credit": credit_sales,
+            }
+
+            result = reconcile(
+                {
+                    "total_sales": total_sales,
+                    "pos": declared["pos"],
+                    "cash": declared["cash"],
+                    "eft": declared["eft"],
+                    "credit": declared["credit"],
+                }
+            )
+            reconciliation = ReconciliationInfo(
+                status=to_api_status(result),
+                difference=result.difference,
+                tolerance=DEFAULT_TOLERANCE,
+                channels=[
+                    ChannelBreakdown(
+                        channel=channel,
+                        declared=declared[channel],
+                        recorded=recorded[channel],
+                        difference=(recorded[channel] - declared[channel]).quantize(KURUS),
+                    )
+                    for channel in ("pos", "cash", "eft", "credit")
+                ],
+            )
+            recon_status = reconciliation.status
         else:
-            recon_status = "surplus"     # Kasa Fazlası
+            # Geçersiz/eski kayıt: sayılan nakit açılıştan az — K-001
+            # çalıştırılamaz, eski kasa sınıflandırması korunur.
+            if cash_diff == 0:
+                recon_status = "matched"     # Tam Mutabakat
+            elif cash_diff < 0:
+                recon_status = "shortage"    # Kasa Açığı
+            else:
+                recon_status = "surplus"     # Kasa Fazlası
 
     return ShiftResponse(
         id=shift.id,
@@ -93,6 +185,7 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
         expected_cash=expected_cash,
         cash_difference=cash_diff,
         reconciliation_status=recon_status,
+        reconciliation=reconciliation,
     )
 
 
@@ -283,10 +376,22 @@ async def close_shift(
             detail="Bu vardiya zaten kapatılmış",
         )
 
+    # ── Kanal ilanı doğrulaması (DEC-002) ──
+    # Sayılan kapanış nakdi açılış nakdinden az olamaz: net nakit (cash kanalı)
+    # motorun girdi sözleşmesi gereği negatif olamaz.
+    if Decimal(str(data.closing_cash)) - Decimal(str(shift.opening_cash)) < 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Sayılan kapanış nakdi açılış nakdinden az olamaz — açılış/kapanış tutarlarını kontrol edin",
+        )
+
     # Vardiyayı kapat
     shift.status = ShiftStatus.CLOSED
     shift.end_time = datetime.now(timezone.utc)
     shift.closing_cash = data.closing_cash
+    shift.declared_pos = data.declared_pos
+    shift.declared_eft = data.declared_eft
+    shift.declared_credit = data.declared_credit
     if data.notes:
         shift.notes = f"{shift.notes}\n--- Kapanış notu ---\n{data.notes}" if shift.notes else data.notes
 

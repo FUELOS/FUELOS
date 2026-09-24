@@ -76,6 +76,21 @@ class Shift(TimestampMixin, Base):
         nullable=True,
         comment="Vardiya kapanışındaki kasa nakit tutarı (TL)",
     )
+    declared_pos: Mapped[float | None] = mapped_column(
+        Numeric(12, 2),
+        nullable=True,
+        comment="Kapanışta ilan edilen POS tahsilatı — cihaz raporu (DEC-002)",
+    )
+    declared_eft: Mapped[float | None] = mapped_column(
+        Numeric(12, 2),
+        nullable=True,
+        comment="Kapanışta ilan edilen EFT tahsilatı (DEC-002)",
+    )
+    declared_credit: Mapped[float | None] = mapped_column(
+        Numeric(12, 2),
+        nullable=True,
+        comment="Kapanışta ilan edilen veresiye tutarı (DEC-002)",
+    )
     notes: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,

@@ -46,3 +46,6 @@ frontend/.vite/
 *.sqlite3
 .DS_Store
 Thumbs.db
+
+# Logs (runtime)
+*.log
