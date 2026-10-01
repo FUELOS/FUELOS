@@ -21,6 +21,7 @@ from app.api.users import router as users_router
 from app.api.shifts import router as shifts_router
 from app.api.transactions import router as transactions_router
 from app.api.dashboard import router as dashboard_router
+from app.api.simulate import router as simulate_router
 
 settings = get_settings()
 
@@ -75,6 +76,7 @@ app.include_router(users_router)
 app.include_router(shifts_router)
 app.include_router(transactions_router)
 app.include_router(dashboard_router)
+app.include_router(simulate_router)
 
 
 # ─── Health Check ───

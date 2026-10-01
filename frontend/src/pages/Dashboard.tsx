@@ -6,6 +6,8 @@ import { useLanguage } from "@/context/LanguageContext";
 import { OpenShiftModal } from "@/components/modals/OpenShiftModal";
 import { CloseShiftModal } from "@/components/modals/CloseShiftModal";
 import { AddTransactionModal } from "@/components/modals/AddTransactionModal";
+import { POSSimulatorModal } from "@/components/modals/POSSimulatorModal";
+import { QRSimulatorModal } from "@/components/modals/QRSimulatorModal";
 import {
   Calendar,
   Clock,
@@ -41,6 +43,8 @@ export const Dashboard: React.FC = () => {
   const [isOpenShiftOpen, setIsOpenShiftOpen] = useState<boolean>(false);
   const [isCloseShiftOpen, setIsCloseShiftOpen] = useState<boolean>(false);
   const [isAddTxOpen, setIsAddTxOpen] = useState<boolean>(false);
+  const [isPOSOpen, setIsPOSOpen] = useState<boolean>(false);
+  const [isQROpen, setIsQROpen] = useState<boolean>(false);
   const [targetShift, setTargetShift] = useState<{
     shift_id: string;
     station_name: string;
@@ -298,6 +302,38 @@ export const Dashboard: React.FC = () => {
                         </span>
                       </div>
                     </div>
+                  </div>
+
+                  {/* POS + QR Simülatör Butonları */}
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={() => {
+                        setTargetShift({
+                          shift_id: worker.shift_id,
+                          station_name: worker.station_name,
+                          user_name: worker.user_name,
+                        });
+                        setIsPOSOpen(true);
+                      }}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-[11px] font-black hover:bg-blue-100 dark:hover:bg-blue-900/40 transition active:scale-95"
+                    >
+                      <CreditCard size={12} />
+                      <span>Sanal POS</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setTargetShift({
+                          shift_id: worker.shift_id,
+                          station_name: worker.station_name,
+                          user_name: worker.user_name,
+                        });
+                        setIsQROpen(true);
+                      }}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 text-[11px] font-black hover:bg-purple-100 dark:hover:bg-purple-900/40 transition active:scale-95"
+                    >
+                      <ArrowRightLeft size={12} />
+                      <span>QR / FAST</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -705,6 +741,34 @@ export const Dashboard: React.FC = () => {
         }}
         onSuccess={() => fetchDashboardData()}
       />
+
+      {/* POS Simülatör Modal */}
+      {targetShift && (
+        <POSSimulatorModal
+          isOpen={isPOSOpen}
+          shiftId={targetShift.shift_id}
+          workerName={targetShift.user_name}
+          onClose={() => {
+            setIsPOSOpen(false);
+            setTargetShift(null);
+          }}
+          onSuccess={() => fetchDashboardData()}
+        />
+      )}
+
+      {/* QR / FAST Simülatör Modal */}
+      {targetShift && (
+        <QRSimulatorModal
+          isOpen={isQROpen}
+          shiftId={targetShift.shift_id}
+          workerName={targetShift.user_name}
+          onClose={() => {
+            setIsQROpen(false);
+            setTargetShift(null);
+          }}
+          onSuccess={() => fetchDashboardData()}
+        />
+      )}
     </div>
   );
 };
