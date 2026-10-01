@@ -5,7 +5,7 @@ import { Sidebar } from "./Sidebar";
 
 export const Layout: React.FC = () => {
   return (
-    <div className="min-h-screen bg-[#f0f2f5] dark:bg-[#090d16] flex text-[#344767] dark:text-slate-100 antialiased transition-colors duration-200">
+    <div className="min-h-screen bg-[#f4f7fe] dark:bg-[#080d1a] flex text-[#2b3674] dark:text-slate-100 antialiased transition-colors duration-200">
       {/* Floating Capsule Sidebar */}
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">

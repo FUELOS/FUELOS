@@ -1,37 +1,65 @@
 import React from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { LogOut, UserCircle2, ShieldCheck, Building2, Sun, Moon } from "lucide-react";
 
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { language, setLanguage } = useLanguage();
 
   const getRoleBadge = (role?: string) => {
     switch (role) {
       case "super_admin":
-        return <span className="bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1"><ShieldCheck size={12} /> SuperAdmin</span>;
+        return <span className="bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1"><ShieldCheck size={12} /> SuperAdmin</span>;
       case "station_manager":
-        return <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1"><Building2 size={12} /> İstasyon Müdürü</span>;
+        return <span className="bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1"><Building2 size={12} /> İstasyon Müdürü</span>;
       case "cashier":
-        return <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1"><UserCircle2 size={12} /> Kasiyer</span>;
+        return <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1"><UserCircle2 size={12} /> Kasiyer</span>;
       default:
         return null;
     }
   };
 
   return (
-    <header className="h-16 px-4 sm:px-6 md:px-8 flex items-center justify-between sticky top-0 z-30 bg-[#f0f2f5]/80 dark:bg-slate-950/80 backdrop-blur-md transition-colors duration-200">
+    <header className="h-16 px-4 sm:px-6 md:px-8 flex items-center justify-between sticky top-0 z-30 bg-[#f4f7fe]/80 dark:bg-slate-950/80 backdrop-blur-md transition-colors duration-200">
       <div className="flex items-center gap-3">
         <div className="md:hidden flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-slate-950 font-black shadow-md">
+          <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black shadow-md">
             <span>F</span>
           </div>
           <span className="font-extrabold text-base text-slate-800 dark:text-white">FuelOS</span>
         </div>
       </div>
 
-      <div className="flex items-center gap-3 sm:gap-4">
+      <div className="flex items-center gap-2.5 sm:gap-3.5">
+        {/* Language Switcher Button (TR 🇹🇷 / EN 🇬🇧) */}
+        <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-1 shadow-sm">
+          <button
+            onClick={() => setLanguage("tr")}
+            className={`px-2.5 py-1 rounded-xl text-xs font-black transition-all ${
+              language === "tr"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+            }`}
+            title="Türkçe"
+          >
+            TR
+          </button>
+          <button
+            onClick={() => setLanguage("en")}
+            className={`px-2.5 py-1 rounded-xl text-xs font-black transition-all ${
+              language === "en"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+            }`}
+            title="English"
+          >
+            EN
+          </button>
+        </div>
+
         {/* Dark / Light Mode Toggle Button */}
         <button
           onClick={toggleTheme}
@@ -41,12 +69,12 @@ export const Navbar: React.FC = () => {
           {theme === "dark" ? (
             <>
               <Sun size={16} className="text-amber-400 fill-amber-400/20" />
-              <span className="hidden sm:inline">Açık Mod</span>
+              <span className="hidden sm:inline">Light</span>
             </>
           ) : (
             <>
               <Moon size={16} className="text-slate-600 fill-slate-200" />
-              <span className="hidden sm:inline">Koyu Mod</span>
+              <span className="hidden sm:inline">Dark</span>
             </>
           )}
         </button>

@@ -54,7 +54,6 @@ export interface Shift {
   notes: string | null;
   created_at: string;
   updated_at: string;
-  // Akıllı Kasa Mutabakat Alanları
   total_sales?: string | number;
   cash_sales?: string | number;
   expected_cash?: string | number | null;
@@ -76,24 +75,49 @@ export interface Transaction {
   created_at: string;
 }
 
-export interface ActiveShiftInfo {
+// Görsel 1: İşçi bazlı satış modeli
+export interface WorkerShiftStats {
   shift_id: string;
-  station_name: string;
+  user_id: string;
   user_name: string;
+  avatar_url?: string | null;
+  station_name: string;
   start_time: string;
   opening_cash: string | number;
+  dispensed_liters: string | number;
+  cash_sales: string | number;
+  pos_sales: string | number;
+  fast_sales: string | number;
+  total_sales: string | number;
 }
 
+// Görsel 2: Ürün kırılım modeli
+export interface ProductBreakdownItem {
+  product_name: string;
+  liters: string | number;
+  cash_sales: string | number;
+  pos_sales: string | number;
+  fast_sales: string | number;
+  total_sales: string | number;
+  share_percent: number;
+}
+
+// Görsel 1 & 2: Dashboard ana mutabakat modeli
 export interface DashboardResponse {
-  today_total_sales: string | number;
-  today_total_liters: string | number;
-  today_transaction_count: number;
-  today_cash: string | number;
-  today_credit_card: string | number;
-  today_eft: string | number;
-  today_veresiye: string | number;
-  active_shift_count: number;
-  active_shifts: ActiveShiftInfo[];
+  active_station_name: string;
+  active_station_id?: string | null;
+  current_date_str: string;
+  shift_time_range: string;
+  opening_cash: string | number;
+  total_cash_sales: string | number;
+  total_pos_sales: string | number;
+  total_fast_sales: string | number;
+  total_dispensed_liters: string | number;
+  total_sales_revenue: string | number;
+  expected_cash: string | number;
+  reconciliation_completed: boolean;
+  active_workers: WorkerShiftStats[];
+  product_breakdown: ProductBreakdownItem[];
   total_stations: number;
   total_users: number;
 }
