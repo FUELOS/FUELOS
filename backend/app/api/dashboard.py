@@ -150,10 +150,13 @@ async def get_dashboard(
     worker_stats_map = {}
     for row in active_shift_rows:
         s = row.Shift
+        # worker_name: shift'te kayıtlı isim varsa kullan, yoksa user'ın adını kullan
+        display_name = s.worker_name if s.worker_name else row.user_name
         worker_stats_map[s.id] = {
             "shift_id": str(s.id),
             "user_id": str(s.user_id),
-            "user_name": row.user_name,
+            "user_name": display_name,
+            "avatar_url": s.worker_avatar,  # emoji kodu (m1,f2..) veya base64
             "station_name": row.station_name,
             "start_time": s.start_time,
             "opening_cash": Decimal(str(s.opening_cash)),

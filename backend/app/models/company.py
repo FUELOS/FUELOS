@@ -6,7 +6,7 @@ Bir FuelOS müşterisi — bir veya birden fazla istasyona sahip akaryakıt işl
 import uuid
 from typing import TYPE_CHECKING, List
 
-from sqlalchemy import Boolean, String
+from sqlalchemy import Boolean, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -52,6 +52,12 @@ class Company(TimestampMixin, Base):
         default=True,
         nullable=False,
         comment="Aktif/pasif durumu",
+    )
+    reconciliation_tolerance: Mapped[float] = mapped_column(
+        Numeric(10, 2),
+        default=1.00,
+        nullable=False,
+        comment="Kasa mutabakat tolerans limiti (TL)",
     )
 
     # ── İlişkiler ──

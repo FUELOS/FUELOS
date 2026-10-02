@@ -6,6 +6,8 @@ import { useLanguage } from "@/context/LanguageContext";
 import { OpenShiftModal } from "@/components/modals/OpenShiftModal";
 import { CloseShiftModal } from "@/components/modals/CloseShiftModal";
 import { AddTransactionModal } from "@/components/modals/AddTransactionModal";
+import { POSSimulatorModal } from "@/components/modals/POSSimulatorModal";
+import { QRSimulatorModal } from "@/components/modals/QRSimulatorModal";
 import {
   Calendar,
   Clock,
@@ -41,6 +43,8 @@ export const Dashboard: React.FC = () => {
   const [isOpenShiftOpen, setIsOpenShiftOpen] = useState<boolean>(false);
   const [isCloseShiftOpen, setIsCloseShiftOpen] = useState<boolean>(false);
   const [isAddTxOpen, setIsAddTxOpen] = useState<boolean>(false);
+  const [isPOSOpen, setIsPOSOpen] = useState<boolean>(false);
+  const [isQROpen, setIsQROpen] = useState<boolean>(false);
   const [targetShift, setTargetShift] = useState<{
     shift_id: string;
     station_name: string;
@@ -118,12 +122,34 @@ export const Dashboard: React.FC = () => {
     );
   }
 
-  // İşçi profil görselleri için fallback renkli avatarlar
-  const workerPhotos = [
-    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400",
-    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400",
-    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=400",
-  ];
+  // ── Avatar yardımcı fonksiyonu ──
+  const MALE_EMOJI: Record<string, string> = { m1: "👨", m2: "👨‍🦱", m3: "👨‍🦳", m4: "🧔" };
+  const FEMALE_EMOJI: Record<string, string> = { f1: "👩", f2: "👩‍🦱", f3: "👩‍🦳", f4: "👩‍🦰" };
+
+  const WorkerAvatar: React.FC<{ avatar: string | null | undefined; name: string }> = ({ avatar, name }) => {
+    // base64 fotoğraf
+    if (avatar && avatar.startsWith("data:image")) {
+      return <img src={avatar} alt={name} className="w-full h-full object-cover" />;
+    }
+    // emoji avatar kodu
+    const emoji = avatar ? (MALE_EMOJI[avatar] || FEMALE_EMOJI[avatar]) : null;
+    if (emoji) {
+      return (
+        <div className="w-full h-full flex items-center justify-center bg-blue-50 dark:bg-blue-900/20">
+          <span className="text-5xl">{emoji}</span>
+        </div>
+      );
+    }
+    // Fallback: renkli initial
+    const initials = name ? name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "?";
+    const colors = ["bg-blue-500", "bg-emerald-500", "bg-purple-500", "bg-amber-500", "bg-rose-500"];
+    const colorIdx = name ? name.charCodeAt(0) % colors.length : 0;
+    return (
+      <div className={`w-full h-full flex items-center justify-center ${colors[colorIdx]}`}>
+        <span className="text-2xl font-black text-white">{initials}</span>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -223,11 +249,7 @@ export const Dashboard: React.FC = () => {
               >
                 {/* İşçi Fotoğrafı / Avatarı */}
                 <div className="w-24 sm:w-28 h-32 sm:h-36 rounded-2xl overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 relative">
-                  <img
-                    src={worker.avatar_url || workerPhotos[index % workerPhotos.length]}
-                    alt={worker.user_name}
-                    className="w-full h-full object-cover"
-                  />
+                  <WorkerAvatar avatar={worker.avatar_url} name={worker.user_name} />
                   <div className="absolute bottom-1 right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" />
                 </div>
 
@@ -298,6 +320,52 @@ export const Dashboard: React.FC = () => {
                         </span>
                       </div>
                     </div>
+                  </div>
+
+                  {/* POS + QR + Satış Fiş Butonları */}
+                  <div className="grid grid-cols-3 gap-1.5 mt-3">
+                    <button
+                      onClick={() => {
+                        setTargetShift({
+                          shift_id: worker.shift_id,
+                          station_name: worker.station_name,
+                          user_name: worker.user_name,
+                        });
+                        setIsAddTxOpen(true);
+                      }}
+                      className="flex items-center justify-center gap-1 py-2 px-1 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 text-[10px] font-black hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition active:scale-95"
+                    >
+                      <PlusCircle size={11} />
+                      <span>Dolum / Fiş</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setTargetShift({
+                          shift_id: worker.shift_id,
+                          station_name: worker.station_name,
+                          user_name: worker.user_name,
+                        });
+                        setIsPOSOpen(true);
+                      }}
+                      className="flex items-center justify-center gap-1 py-2 px-1 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-[10px] font-black hover:bg-blue-100 dark:hover:bg-blue-900/40 transition active:scale-95"
+                    >
+                      <CreditCard size={11} />
+                      <span>Sanal POS</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setTargetShift({
+                          shift_id: worker.shift_id,
+                          station_name: worker.station_name,
+                          user_name: worker.user_name,
+                        });
+                        setIsQROpen(true);
+                      }}
+                      className="flex items-center justify-center gap-1 py-2 px-1 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 text-[10px] font-black hover:bg-purple-100 dark:hover:bg-purple-900/40 transition active:scale-95"
+                    >
+                      <ArrowRightLeft size={11} />
+                      <span>QR / FAST</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -448,60 +516,63 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* ── 4. AKILLI MUTABAKAT BİLGİLENDİRME & KASA DENGE KARTI (Görsel 1 & 2) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Sol Kutu: Açılış + Nakit = Beklenen Kasa (Görsel 2) */}
-        <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
-          <div>
-            <div className="text-xs text-slate-400 font-bold">{t("summary.opening_cash")}</div>
-            <div className="text-xl font-black text-slate-900 dark:text-white mt-1">
-              {formatCurrency(data?.opening_cash)}
-            </div>
-          </div>
-          <div className="text-xl font-bold text-slate-300 dark:text-slate-600">+</div>
-          <div>
-            <div className="text-xs text-emerald-600 dark:text-emerald-400 font-bold">{t("summary.cash_sales")}</div>
-            <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-              {formatCurrency(data?.total_cash_sales)}
-            </div>
-          </div>
-          <div className="text-xl font-bold text-slate-300 dark:text-slate-600">=</div>
-          <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-2xl p-3 text-right">
-            <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-bold">{t("summary.expected_cash")}</div>
-            <div className="text-xl font-black text-emerald-700 dark:text-emerald-300 mt-0.5">
-              {formatCurrency(data?.expected_cash)}
-            </div>
-          </div>
-        </div>
-
-        {/* Sağ Kutu: Yeşil Büyük "Vardiya Mutabakatı Tamamlandı" Kartı (Görsel 1 & 2) */}
-        <div className="lg:col-span-2 bg-emerald-50/90 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-lg shadow-emerald-600/30">
-              <CheckCircle2 size={30} className="stroke-[2.5]" />
-            </div>
-            <div>
-              <div className="text-lg font-black text-emerald-900 dark:text-emerald-200">
-                {t("status.completed_title")}
+      {/* ── 4. KASA DENGE FORMÜLÜ + MUTABAKAT KARTI ── */}
+      <div className="space-y-4">
+        {/* Formül Satırı: Açılış + Nakit = Beklenen Kasa */}
+        <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-slate-800">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <div className="flex-1 min-w-[120px]">
+              <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">{t("summary.opening_cash")}</div>
+              <div className="text-xl font-black text-slate-900 dark:text-white mt-1">
+                {formatCurrency(data?.opening_cash)}
               </div>
-              <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
-                {t("status.completed_desc")}
-              </p>
+            </div>
+            <div className="text-2xl font-black text-slate-300 dark:text-slate-600">+</div>
+            <div className="flex-1 min-w-[120px]">
+              <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider">{t("summary.cash_sales")}</div>
+              <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+                {formatCurrency(data?.total_cash_sales)}
+              </div>
+            </div>
+            <div className="text-2xl font-black text-slate-300 dark:text-slate-600">=</div>
+            <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-2xl px-5 py-3 flex-1 min-w-[150px]">
+              <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-bold uppercase tracking-wider">{t("summary.expected_cash")}</div>
+              <div className="text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-1">
+                {formatCurrency(data?.expected_cash)}
+              </div>
             </div>
           </div>
-
-          <div className="flex items-center gap-3 text-xs font-semibold text-emerald-800 dark:text-emerald-300 shrink-0">
-            <span className="flex items-center gap-1">
-              <Calendar size={13} />
-              <span>{data?.current_date_str || "27 Eylül 2026"}</span>
-            </span>
-            <span>•</span>
-            <span className="flex items-center gap-1">
-              <Clock size={13} />
-              <span>{data?.shift_time_range || "06:00 - 14:00"}</span>
-            </span>
-          </div>
         </div>
+
+        {/* Mutabakat Durumu Kartı */}
+        {data?.reconciliation_completed ? (
+          <div className="bg-emerald-50/90 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-lg shadow-emerald-600/30">
+                <CheckCircle2 size={26} className="stroke-[2.5]" />
+              </div>
+              <div>
+                <div className="text-base font-black text-emerald-900 dark:text-emerald-200">
+                  {t("status.completed_title")}
+                </div>
+                <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
+                  {t("status.completed_desc")}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 text-xs font-semibold text-emerald-800 dark:text-emerald-300 shrink-0">
+              <span className="flex items-center gap-1">
+                <Calendar size={13} />
+                <span>{data?.current_date_str || "27 Eylül 2026"}</span>
+              </span>
+              <span>•</span>
+              <span className="flex items-center gap-1">
+                <Clock size={13} />
+                <span>{data?.shift_time_range || "06:00 - 14:00"}</span>
+              </span>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* ── 5. OPSİYONEL ÜRÜN BAZLI DETAY (Görsel 2: Benzin, Motorin, LPG & Donut Chart) ── */}
@@ -705,6 +776,34 @@ export const Dashboard: React.FC = () => {
         }}
         onSuccess={() => fetchDashboardData()}
       />
+
+      {/* POS Simülatör Modal */}
+      {targetShift && (
+        <POSSimulatorModal
+          isOpen={isPOSOpen}
+          shiftId={targetShift.shift_id}
+          workerName={targetShift.user_name}
+          onClose={() => {
+            setIsPOSOpen(false);
+            setTargetShift(null);
+          }}
+          onSuccess={() => fetchDashboardData()}
+        />
+      )}
+
+      {/* QR / FAST Simülatör Modal */}
+      {targetShift && (
+        <QRSimulatorModal
+          isOpen={isQROpen}
+          shiftId={targetShift.shift_id}
+          workerName={targetShift.user_name}
+          onClose={() => {
+            setIsQROpen(false);
+            setTargetShift(null);
+          }}
+          onSuccess={() => fetchDashboardData()}
+        />
+      )}
     </div>
   );
 };

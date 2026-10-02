@@ -1,18 +1,35 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { Clock, Receipt, BarChart3, Building2, Settings, Fuel } from "lucide-react";
+import { Clock, Receipt, BarChart3, Building2, Settings, Fuel, LayoutDashboard } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
+import { useAuth } from "@/context/AuthContext";
 
 export const Sidebar: React.FC = () => {
   const { t } = useLanguage();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "super_admin";
 
-  const navItems = [
-    { to: "/", label: t("nav.shift"), icon: Clock },
+  // SuperAdmin: sistem yönetimi odaklı menü
+  const adminNavItems = [
+    { to: "/", label: "Sistem Paneli", icon: LayoutDashboard },
+    { to: "/shifts", label: t("nav.shift"), icon: Clock },
+    { to: "/stations", label: t("nav.station"), icon: Building2 },
     { to: "/transactions", label: t("nav.transactions"), icon: Receipt },
     { to: "/reports", label: t("nav.reports"), icon: BarChart3 },
-    { to: "/stations", label: t("nav.station"), icon: Building2 },
     { to: "/settings", label: t("nav.settings"), icon: Settings },
   ];
+
+  // Müdür / Kasiyer: vardiya odaklı menü
+  const managerNavItems = [
+    { to: "/", label: t("nav.shift"), icon: Clock },
+    { to: "/stations", label: t("nav.station"), icon: Building2 },
+    { to: "/transactions", label: t("nav.transactions"), icon: Receipt },
+    { to: "/reports", label: t("nav.reports"), icon: BarChart3 },
+    { to: "/settings", label: t("nav.settings"), icon: Settings },
+  ];
+
+  const navItems = isAdmin ? adminNavItems : managerNavItems;
+
 
   return (
     <aside className="w-64 my-4 ml-4 rounded-3xl bg-[#0b1329] text-white p-4 flex flex-col justify-between shrink-0 hidden md:flex shadow-2xl shadow-slate-950/30 border border-slate-800/80">

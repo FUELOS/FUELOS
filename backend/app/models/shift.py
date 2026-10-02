@@ -6,13 +6,14 @@ Vardiya açılır → satışlar kaydedilir → vardiya kapatılır.
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import (
     DateTime,
     Enum as SAEnum,
     ForeignKey,
     Numeric,
+    String,
     Text,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -22,6 +23,7 @@ from app.database import Base
 from app.models.base import ShiftStatus, TimestampMixin, generate_uuid
 
 if TYPE_CHECKING:
+    from app.models.pump import Pump
     from app.models.station import Station
     from app.models.transaction import Transaction
     from app.models.user import User
@@ -58,6 +60,11 @@ class Shift(TimestampMixin, Base):
         DateTime(timezone=True),
         nullable=True,
         comment="Vardiya bitiş zamanı (açıkken NULL)",
+    )
+    planned_end_time: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Planlanan otomatik kapanış zamanı (opsiyonel)",
     )
     status: Mapped[ShiftStatus] = mapped_column(
         SAEnum(ShiftStatus, name="shift_status", values_callable=lambda x: [e.value for e in x], create_constraint=True),
@@ -96,6 +103,23 @@ class Shift(TimestampMixin, Base):
         nullable=True,
         comment="Vardiya notları",
     )
+    pump_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pumps.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Bağlı pompa (nullable)",
+    )
+    worker_name: Mapped[Optional[str]] = mapped_column(
+        String(200),
+        nullable=True,
+        comment="İşçi adı (serbest metin)",
+    )
+    worker_avatar: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="İşçi avatarı — base64 veya avatar kodu",
+    )
 
     # ── İlişkiler ──
     station: Mapped["Station"] = relationship(
@@ -104,6 +128,10 @@ class Shift(TimestampMixin, Base):
     )
     user: Mapped["User"] = relationship(
         "User",
+        back_populates="shifts",
+    )
+    pump: Mapped[Optional["Pump"]] = relationship(
+        "Pump",
         back_populates="shifts",
     )
     transactions: Mapped[List["Transaction"]] = relationship(

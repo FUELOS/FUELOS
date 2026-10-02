@@ -21,6 +21,11 @@ from app.api.users import router as users_router
 from app.api.shifts import router as shifts_router
 from app.api.transactions import router as transactions_router
 from app.api.dashboard import router as dashboard_router
+from app.api.simulate import router as simulate_router
+from app.api.pumps import router as pumps_router
+from app.api.admin_dashboard import router as admin_dashboard_router
+from app.api.station_detail import router as station_detail_router
+from app.api.settings import router as settings_router
 
 settings = get_settings()
 
@@ -75,6 +80,11 @@ app.include_router(users_router)
 app.include_router(shifts_router)
 app.include_router(transactions_router)
 app.include_router(dashboard_router)
+app.include_router(simulate_router)
+app.include_router(pumps_router)
+app.include_router(admin_dashboard_router)
+app.include_router(station_detail_router)
+app.include_router(settings_router)
 
 
 # ─── Health Check ───

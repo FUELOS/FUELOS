@@ -15,6 +15,7 @@ from app.models.base import TimestampMixin, generate_uuid
 
 if TYPE_CHECKING:
     from app.models.company import Company
+    from app.models.pump import Pump
     from app.models.shift import Shift
     from app.models.transaction import Transaction
     from app.models.user import User
@@ -86,6 +87,12 @@ class Station(TimestampMixin, Base):
         "Transaction",
         back_populates="station",
         lazy="selectin",
+    )
+    pumps: Mapped[List["Pump"]] = relationship(
+        "Pump",
+        back_populates="station",
+        lazy="selectin",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

@@ -134,6 +134,11 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
                 "credit": credit_sales,
             }
 
+            # Dinamik tolerans: Şirket ayarından al (yoksa DEFAULT_TOLERANCE)
+            tolerance_val = DEFAULT_TOLERANCE
+            if shift.station and shift.station.company and shift.station.company.reconciliation_tolerance is not None:
+                tolerance_val = Decimal(str(shift.station.company.reconciliation_tolerance))
+
             result = reconcile(
                 {
                     "total_sales": total_sales,
@@ -141,12 +146,13 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
                     "cash": declared["cash"],
                     "eft": declared["eft"],
                     "credit": declared["credit"],
-                }
+                },
+                tolerance=tolerance_val,
             )
             reconciliation = ReconciliationInfo(
                 status=to_api_status(result),
                 difference=result.difference,
-                tolerance=DEFAULT_TOLERANCE,
+                tolerance=tolerance_val,
                 channels=[
                     ChannelBreakdown(
                         channel=channel,
@@ -174,6 +180,10 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
         user_id=shift.user_id,
         start_time=shift.start_time,
         end_time=shift.end_time,
+        planned_end_time=shift.planned_end_time,
+        worker_name=shift.worker_name,
+        worker_avatar=shift.worker_avatar,
+        pump_id=shift.pump_id,
         status=shift.status,
         opening_cash=opening_cash,
         closing_cash=Decimal(str(shift.closing_cash)) if shift.closing_cash is not None else None,
@@ -294,27 +304,67 @@ async def open_shift(
         target_user_id = target_user.id
 
     # ── Açık Vardiya Kontrolü ──
-    existing_open = await db.execute(
-        select(Shift).where(
-            and_(
-                Shift.user_id == target_user_id,
-                Shift.status == ShiftStatus.OPEN,
+    # Eğer pompa seçildiyse: Bu istasyonda aynı pompada zaten açık bir vardiya var mı?
+    if data.pump_id:
+        existing_pump = await db.execute(
+            select(Shift).where(
+                and_(
+                    Shift.station_id == data.station_id,
+                    Shift.pump_id == data.pump_id,
+                    Shift.status == ShiftStatus.OPEN,
+                )
             )
         )
-    )
-    if existing_open.scalar_one_or_none() is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Bu personelin zaten açık bir vardiyası var. Önce mevcut vardiyayı kapatın.",
+        if existing_pump.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Bu pompada şu anda açık bir vardiya var. Lütfen önce mevcut pompa vardiyasını kapatın veya başka bir pompa seçin.",
+            )
+
+    # Eğer işçi ismi girildiyse: Bu istasyonda aynı isimli işçinin açık vardiyası var mı?
+    if data.worker_name and data.worker_name.strip():
+        existing_worker = await db.execute(
+            select(Shift).where(
+                and_(
+                    Shift.station_id == data.station_id,
+                    Shift.worker_name == data.worker_name.strip(),
+                    Shift.status == ShiftStatus.OPEN,
+                )
+            )
         )
+        if existing_worker.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"'{data.worker_name.strip()}' isimli işçinin bu istasyonda zaten açık bir vardiyası var.",
+            )
+
+    # Eğer ne pompa ne de işçi ismi girilmemişse (eski klasik kasiyer oturumu):
+    if not data.pump_id and not (data.worker_name and data.worker_name.strip()):
+        existing_open = await db.execute(
+            select(Shift).where(
+                and_(
+                    Shift.user_id == target_user_id,
+                    Shift.status == ShiftStatus.OPEN,
+                )
+            )
+        )
+        if existing_open.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Bu personelin zaten açık bir vardiyası var. Önce mevcut vardiyayı kapatın.",
+            )
 
     shift = Shift(
         station_id=data.station_id,
         user_id=target_user_id,
         start_time=datetime.now(timezone.utc),
+        planned_end_time=data.planned_end_time,
         status=ShiftStatus.OPEN,
         opening_cash=data.opening_cash,
         notes=data.notes,
+        pump_id=data.pump_id,
+        worker_name=data.worker_name,
+        worker_avatar=data.worker_avatar,
     )
     db.add(shift)
     await db.flush()
