@@ -1,0 +1,42 @@
+pragma language_version 0.23.0;
+
+import CompactStandardLibrary;
+
+export enum ReconciliationClass { MATCHED, SHORTAGE, SURPLUS }
+
+export struct FinancialInputs {
+  total_sales: Uint<64>;
+  pos: Uint<64>;
+  cash: Uint<64>;
+  eft: Uint<64>;
+  credit: Uint<64>;
+}
+
+witness financialInputs(): FinancialInputs;
+
+// The sole public application field. Its initial value is not a verification.
+export ledger reconciliationClass: ReconciliationClass;
+
+// No ledger operations in private branches: publish only the final class.
+circuit classify(input: FinancialInputs): ReconciliationClass {
+  const first: Uint<65> = input.pos + input.cash;
+  const second: Uint<65> = input.eft + input.credit;
+  const calculated_total: Uint<66> = first + second;
+  const sales: Uint<66> = input.total_sales;
+  const tolerance: Uint<66> = 100;
+  if (sales >= calculated_total) {
+    const difference: Uint<66> = sales - calculated_total;
+    return difference <= tolerance
+      ? ReconciliationClass.MATCHED : ReconciliationClass.SHORTAGE;
+  } else {
+    const difference: Uint<66> = calculated_total - sales;
+    return difference <= tolerance
+      ? ReconciliationClass.MATCHED : ReconciliationClass.SURPLUS;
+  }
+}
+
+export circuit reconcile(claim: ReconciliationClass): [] {
+  const actual = classify(financialInputs());
+  assert(actual == claim, "Reconciliation class mismatch");
+  reconciliationClass = disclose(claim);
+}
