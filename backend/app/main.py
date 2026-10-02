@@ -25,6 +25,7 @@ from app.api.simulate import router as simulate_router
 from app.api.pumps import router as pumps_router
 from app.api.admin_dashboard import router as admin_dashboard_router
 from app.api.station_detail import router as station_detail_router
+from app.api.settings import router as settings_router
 
 settings = get_settings()
 
@@ -83,6 +84,7 @@ app.include_router(simulate_router)
 app.include_router(pumps_router)
 app.include_router(admin_dashboard_router)
 app.include_router(station_detail_router)
+app.include_router(settings_router)
 
 
 # ─── Health Check ───

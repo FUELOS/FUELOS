@@ -134,6 +134,11 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
                 "credit": credit_sales,
             }
 
+            # Dinamik tolerans: Şirket ayarından al (yoksa DEFAULT_TOLERANCE)
+            tolerance_val = DEFAULT_TOLERANCE
+            if shift.station and shift.station.company and shift.station.company.reconciliation_tolerance is not None:
+                tolerance_val = Decimal(str(shift.station.company.reconciliation_tolerance))
+
             result = reconcile(
                 {
                     "total_sales": total_sales,
@@ -141,12 +146,13 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
                     "cash": declared["cash"],
                     "eft": declared["eft"],
                     "credit": declared["credit"],
-                }
+                },
+                tolerance=tolerance_val,
             )
             reconciliation = ReconciliationInfo(
                 status=to_api_status(result),
                 difference=result.difference,
-                tolerance=DEFAULT_TOLERANCE,
+                tolerance=tolerance_val,
                 channels=[
                     ChannelBreakdown(
                         channel=channel,
