@@ -21,6 +21,7 @@ class ShiftOpen(BaseModel):
     pump_id: uuid.UUID | None = None  # Bağlı pompa (nullable)
     worker_name: str | None = None    # İşçi adı (serbest metin)
     worker_avatar: str | None = None  # İşçi avatarı — base64 veya avatar kodu
+    planned_end_time: datetime | None = None  # Otomatik bitiş saati (opsiyonel)
 
 
 class ShiftClose(BaseModel):
@@ -82,5 +83,9 @@ class ShiftResponse(BaseModel):
     cash_difference: Decimal | None = None
     reconciliation_status: str | None = None  # 'matched' | 'shortage' | 'surplus' | 'open'
     reconciliation: ReconciliationInfo | None = None  # K-001 motor özeti (DEC-002)
+    planned_end_time: datetime | None = None
+    worker_name: str | None = None
+    worker_avatar: str | None = None
+    pump_id: uuid.UUID | None = None
 
     model_config = {"from_attributes": True}

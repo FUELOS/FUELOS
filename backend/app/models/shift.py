@@ -61,6 +61,11 @@ class Shift(TimestampMixin, Base):
         nullable=True,
         comment="Vardiya bitiş zamanı (açıkken NULL)",
     )
+    planned_end_time: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Planlanan otomatik kapanış zamanı (opsiyonel)",
+    )
     status: Mapped[ShiftStatus] = mapped_column(
         SAEnum(ShiftStatus, name="shift_status", values_callable=lambda x: [e.value for e in x], create_constraint=True),
         default=ShiftStatus.OPEN,

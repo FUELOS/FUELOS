@@ -1,15 +1,50 @@
-import React, { useState } from "react";
+/**
+ * FuelOS — Yeni Akaryakıt Satış & Pompa Otomasyon Fişi Girişi
+ * - %100 Akaryakıt Odaklı (Market/Diğer kaldırıldı)
+ * - Personel RFID Kartı Tek Tıkla Seçimi (Dropdown kaldırıldı)
+ * - İstasyon Pompa Seçimi (Pompa 1, 2, 3, 4...)
+ * - Ödeme Yöntemi (Varsayılan: Nakit - Kart çekilmediyse otomatik nakit sayılır)
+ */
+
+import React, { useState, useEffect } from "react";
 import { apiClient } from "@/lib/api";
-import { PaymentMethod, TransactionType } from "@/types";
-import { X, PlusCircle, AlertCircle, Loader2, Fuel, ShoppingBag, MoreHorizontal, Wallet, CreditCard, Building, Receipt } from "lucide-react";
+import { PaymentMethod } from "@/types";
+import {
+  X,
+  AlertCircle,
+  Loader2,
+  Fuel,
+  Wallet,
+  CreditCard,
+  ArrowRightLeft,
+  Receipt,
+  User,
+  Cpu,
+  CheckCircle2,
+} from "lucide-react";
+
+interface ShiftOption {
+  shift_id: string;
+  station_name: string;
+  user_name: string;
+  worker_name?: string;
+  worker_avatar?: string | null;
+  pump_label?: string | null;
+}
 
 interface AddTransactionModalProps {
   isOpen: boolean;
-  activeShifts: { shift_id: string; station_name: string; user_name: string }[];
+  activeShifts: ShiftOption[];
   defaultShiftId?: string | null;
   onClose: () => void;
   onSuccess: () => void;
 }
+
+const FUEL_TYPES = [
+  { name: "Kurşunsuz 95 (Benzin)", priceApprox: 44.5 },
+  { name: "Motorin (Dizel)", priceApprox: 45.2 },
+  { name: "Otogaz (LPG)", priceApprox: 25.8 },
+];
 
 export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   isOpen,
@@ -19,16 +54,17 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   onSuccess,
 }) => {
   const [selectedShiftId, setSelectedShiftId] = useState<string>("");
-  const [type, setType] = useState<TransactionType>("fuel");
+  const [selectedPumpLabel, setSelectedPumpLabel] = useState<string>("Pompa 1");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [amount, setAmount] = useState<string>("");
   const [liters, setLiters] = useState<string>("");
   const [fuelType, setFuelType] = useState<string>("Motorin (Dizel)");
-  const [description, setDescription] = useState<string>("");
+  const [plateNumber, setPlateNumber] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  React.useEffect(() => {
+  // Modal açıldığında varsayılan atamalar
+  useEffect(() => {
     if (isOpen) {
       setError(null);
       if (defaultShiftId) {
@@ -36,45 +72,69 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       } else if (activeShifts.length > 0) {
         setSelectedShiftId(activeShifts[0].shift_id);
       }
+      setPaymentMethod("cash"); // Varsayılan: Nakit (kart çekilmediyse nakit kabul edilir)
+      setAmount("");
+      setLiters("");
+      setPlateNumber("");
     }
   }, [isOpen, defaultShiftId, activeShifts]);
 
   if (!isOpen) return null;
 
+  // Tutar girildiğinde yaklaşık litreyi otomatik hesaplama desteği
+  const handleAmountChange = (val: string) => {
+    setAmount(val);
+    const parsed = parseFloat(val);
+    const selectedFuel = FUEL_TYPES.find((f) => f.name === fuelType);
+    if (!isNaN(parsed) && parsed > 0 && selectedFuel) {
+      const autoLiters = (parsed / selectedFuel.priceApprox).toFixed(2);
+      setLiters(autoLiters);
+    }
+  };
+
+  // Litre girildiğinde tutarı otomatik hesaplama desteği
+  const handleLitersChange = (val: string) => {
+    setLiters(val);
+    const parsed = parseFloat(val);
+    const selectedFuel = FUEL_TYPES.find((f) => f.name === fuelType);
+    if (!isNaN(parsed) && parsed > 0 && selectedFuel) {
+      const autoAmount = (parsed * selectedFuel.priceApprox).toFixed(2);
+      setAmount(autoAmount);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedShiftId) {
-      setError("İşlem eklemek için açık bir vardiya seçilmelidir");
+      setError("İşlem eklemek için açık bir personel vardiyası seçilmelidir");
       return;
     }
 
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      setError("Lütfen geçerli ve pozitif bir tutar girin");
+      setError("Lütfen geçerli ve pozitif bir satış tutarı girin");
       return;
     }
 
-    const payload: any = {
+    const parsedLiters = parseFloat(liters);
+    if (isNaN(parsedLiters) || parsedLiters <= 0) {
+      setError("Verilen yakıt litresi zorunludur ve pozitif olmalıdır");
+      return;
+    }
+
+    const descParts = [];
+    if (selectedPumpLabel) descParts.push(selectedPumpLabel);
+    if (plateNumber.trim()) descParts.push(`Plaka: ${plateNumber.trim().toUpperCase()}`);
+
+    const payload = {
       shift_id: selectedShiftId,
-      type,
+      type: "fuel",
       payment_method: paymentMethod,
       amount: parsedAmount,
-      description: description.trim() || null,
+      liters: parsedLiters,
+      fuel_type: fuelType,
+      description: descParts.length > 0 ? descParts.join(" - ") : null,
     };
-
-    if (type === "fuel") {
-      const parsedLiters = parseFloat(liters);
-      if (isNaN(parsedLiters) || parsedLiters <= 0) {
-        setError("Yakıt satışı için litre bilgisi zorunludur ve pozitif olmalıdır");
-        return;
-      }
-      if (!fuelType.trim()) {
-        setError("Yakıt türü seçilmelidir");
-        return;
-      }
-      payload.liters = parsedLiters;
-      payload.fuel_type = fuelType;
-    }
 
     try {
       setLoading(true);
@@ -82,10 +142,6 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       await apiClient.post("/transactions", payload);
       onSuccess();
       onClose();
-      // Reset form
-      setAmount("");
-      setLiters("");
-      setDescription("");
     } catch (err: any) {
       const msg = err.response?.data?.detail || "Satış kaydı eklenirken bir hata oluştu";
       setError(msg);
@@ -95,114 +151,192 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-        {/* Material Header */}
-        <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-gradient-to-r from-amber-900/30 to-orange-900/30">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-emerald-500/10 to-teal-500/10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/25">
-              <PlusCircle size={18} />
+            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-600/30">
+              <Fuel size={20} />
             </div>
             <div>
-              <h3 className="font-bold text-lg text-white">Yeni Satış / İşlem Kaydı</h3>
-              <p className="text-xs text-slate-400">Pompa veya market satış fişi girişi</p>
+              <h3 className="font-black text-lg text-slate-900 dark:text-white">Pompa Satış & Fiş Girişi</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Kart okutma & yazar kasa otomasyon dolumu
+              </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-200 p-1.5 rounded-xl hover:bg-slate-800 transition"
+            className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white transition"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 max-h-[82vh] overflow-y-auto">
           {error && (
-            <div className="p-3.5 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-xs flex items-start gap-2.5">
-              <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            <div className="p-3.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded-2xl text-red-600 dark:text-red-400 text-xs flex items-start gap-2.5">
+              <AlertCircle size={15} className="shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
-          {activeShifts.length === 0 ? (
-            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-300 text-xs leading-relaxed">
-              Şu anda açık bir vardiya bulunmuyor. Satış kaydı girebilmek için önce bir vardiya başlatmalısınız.
-            </div>
-          ) : (
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                Aktif Vardiya Seçimi *
-              </label>
-              <select
-                value={selectedShiftId}
-                onChange={(e) => setSelectedShiftId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-amber-500 transition"
-              >
-                {activeShifts.map((s) => (
-                  <option key={s.shift_id} value={s.shift_id}>
-                    {s.station_name} — {s.user_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Transaction Type Buttons */}
+          {/* ── 1. PERSONEL KARTI SEÇİMİ (Kartlar Halinde, Dropdown Yok) ── */}
           <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-              İşlem Türü
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <User size={13} className="text-blue-500" />
+                Kartını Okutan Personel (Aktif Vardiya) *
+              </span>
+              <span className="text-[10px] text-slate-400 font-normal">Tek tıkla seçin</span>
             </label>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setType("fuel")}
-                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
-                  type === "fuel"
-                    ? "bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 border-amber-500 shadow-md shadow-amber-500/20"
-                    : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
-                }`}
-              >
-                <Fuel size={15} />
-                <span>Akaryakıt</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setType("market")}
-                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
-                  type === "market"
-                    ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-blue-500 shadow-md shadow-blue-500/20"
-                    : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
-                }`}
-              >
-                <ShoppingBag size={15} />
-                <span>Market</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setType("other")}
-                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
-                  type === "other"
-                    ? "bg-gradient-to-r from-purple-500 to-indigo-500 text-white border-purple-500 shadow-md shadow-purple-500/20"
-                    : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
-                }`}
-              >
-                <MoreHorizontal size={15} />
-                <span>Diğer</span>
-              </button>
+
+            {activeShifts.length === 0 ? (
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-2xl text-amber-700 dark:text-amber-300 text-xs">
+                Şu anda açık bir personel vardiyası bulunmuyor. Satış girmeden önce lütfen vardiya başlatın.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {activeShifts.map((s) => {
+                  const isSelected = selectedShiftId === s.shift_id;
+                  const displayName = s.worker_name || s.user_name;
+                  return (
+                    <button
+                      key={s.shift_id}
+                      type="button"
+                      onClick={() => setSelectedShiftId(s.shift_id)}
+                      className={`p-3 rounded-2xl border text-left transition flex items-center gap-2.5 ${
+                        isSelected
+                          ? "border-blue-500 bg-blue-50/80 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 shadow-sm"
+                          : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:border-slate-300 text-slate-700 dark:text-slate-300"
+                      }`}
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-xs shrink-0">
+                        {displayName.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-black truncate">{displayName}</div>
+                        <div className="text-[10px] text-slate-400 truncate">
+                          {s.pump_label || "Gezici Personel"}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ── 2. DOLUM YAPILAN POMPA ── */}
+          <div>
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+              <Cpu size={13} className="text-emerald-500" />
+              Dolum Yapılan Pompa Ünitesi
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {["Pompa 1", "Pompa 2", "Pompa 3", "Pompa 4"].map((pLabel) => (
+                <button
+                  key={pLabel}
+                  type="button"
+                  onClick={() => setSelectedPumpLabel(pLabel)}
+                  className={`py-2 px-2 rounded-xl border text-xs font-bold transition text-center ${
+                    selectedPumpLabel === pLabel
+                      ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 shadow-sm"
+                      : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                  }`}
+                >
+                  {pLabel}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Payment Method */}
+          {/* ── 3. YAKIT TÜRÜ ── */}
           <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-              Ödeme Kanalı
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+              Yakıt Ürün Türü
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {FUEL_TYPES.map((f) => (
+                <button
+                  key={f.name}
+                  type="button"
+                  onClick={() => {
+                    setFuelType(f.name);
+                    if (amount) {
+                      const autoLiters = (parseFloat(amount) / f.priceApprox).toFixed(2);
+                      setLiters(autoLiters);
+                    }
+                  }}
+                  className={`p-2.5 rounded-2xl border text-left transition ${
+                    fuelType === f.name
+                      ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 shadow-sm"
+                      : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="text-[11px] font-black leading-tight">{f.name.split(" ")[0]}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5 font-mono">~{f.priceApprox} ₺/L</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── 4. TUTAR VE LİTRE ── */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                Satış Tutarı (₺) *
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  value={amount}
+                  onChange={(e) => handleAmountChange(e.target.value)}
+                  placeholder="850.00"
+                  className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition pr-8"
+                />
+                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">₺</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                Litre Miktarı *
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  value={liters}
+                  onChange={(e) => handleLitersChange(e.target.value)}
+                  placeholder="18.80"
+                  className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition pr-8"
+                />
+                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">L</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ── 5. ÖDEME YÖNTEMİ (Varsayılan Nakit - Kart Çekilmediyse Nakit) ── */}
+          <div>
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+              <span>Ödeme Tahsilat Kanalı *</span>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                Kart çekilmediyse otomatik nakit sayılır
+              </span>
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
-                { id: "cash", label: "Nakit", icon: Wallet, activeClass: "from-emerald-500 to-teal-500 text-slate-950 shadow-emerald-500/20" },
-                { id: "credit_card", label: "POS / Kart", icon: CreditCard, activeClass: "from-sky-500 to-blue-500 text-white shadow-sky-500/20" },
-                { id: "eft", label: "EFT / Banka", icon: Building, activeClass: "from-indigo-500 to-purple-500 text-white shadow-indigo-500/20" },
-                { id: "veresiye", label: "Veresiye", icon: Receipt, activeClass: "from-amber-500 to-orange-500 text-slate-950 shadow-amber-500/20" },
+                { id: "cash", label: "Nakit (Fiş)", sub: "Elden alındı", icon: Wallet, color: "emerald" },
+                { id: "credit_card", label: "Pompa POS", sub: "Banka kartı", icon: CreditCard, color: "blue" },
+                { id: "eft", label: "QR / FAST", sub: "Anlık transfer", icon: ArrowRightLeft, color: "purple" },
+                { id: "veresiye", label: "Veresiye", sub: "Cari hesap", icon: Receipt, color: "amber" },
               ].map((pm) => {
                 const Icon = pm.icon;
                 const isSelected = paymentMethod === pm.id;
@@ -211,102 +345,50 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                     key={pm.id}
                     type="button"
                     onClick={() => setPaymentMethod(pm.id as PaymentMethod)}
-                    className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    className={`p-2.5 rounded-2xl border text-center transition flex flex-col items-center justify-center ${
                       isSelected
-                        ? `bg-gradient-to-r ${pm.activeClass} border-transparent shadow-md`
-                        : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                        ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 shadow-sm"
+                        : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:border-slate-300"
                     }`}
                   >
-                    <Icon size={13} />
-                    <span>{pm.label}</span>
+                    <Icon size={16} className={isSelected ? "text-emerald-600" : "text-slate-400"} />
+                    <div className="text-xs font-black mt-1">{pm.label}</div>
+                    <div className="text-[9px] text-slate-400">{pm.sub}</div>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Amount & Liters */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                Satış Tutarı (TL) *
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                required
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="Örn: 850.00"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 font-mono font-medium focus:outline-none focus:border-amber-500 transition"
-              />
-            </div>
-
-            {type === "fuel" && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Litre Miktarı *
-                </label>
-                <input
-                  type="number"
-                  step="0.001"
-                  min="0.001"
-                  required
-                  value={liters}
-                  onChange={(e) => setLiters(e.target.value)}
-                  placeholder="Örn: 20.500"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 font-mono font-medium focus:outline-none focus:border-amber-500 transition"
-                />
-              </div>
-            )}
-          </div>
-
-          {type === "fuel" && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                Yakıt Ürün Türü *
-              </label>
-              <select
-                value={fuelType}
-                onChange={(e) => setFuelType(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-amber-500 transition"
-              >
-                <option value="Motorin (Dizel)">Motorin (Dizel)</option>
-                <option value="Kurşunsuz 95 (Benzin)">Kurşunsuz 95 (Benzin)</option>
-                <option value="Kurşunsuz 98 (V-Max)">Kurşunsuz 98 (V-Max)</option>
-                <option value="Otogaz (LPG)">Otogaz (LPG)</option>
-              </select>
-            </div>
-          )}
-
+          {/* Plaka (Opsiyonel) */}
           <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-              Plaka / Açıklama (Opsiyonel)
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+              Araç Plakası (Opsiyonel)
             </label>
             <input
               type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Örn: 34 VR 1234 - Pompa 2"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-amber-500 transition"
+              value={plateNumber}
+              onChange={(e) => setPlateNumber(e.target.value)}
+              placeholder="Örn: 06 ABC 123"
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 uppercase font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
             />
           </div>
 
-          <div className="pt-3 flex items-center justify-end gap-3">
+          {/* İşlemi Kaydet Butonu */}
+          <div className="pt-2 flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 text-sm text-slate-400 hover:text-slate-200 rounded-xl hover:bg-slate-800 transition"
+              className="px-4 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition"
             >
               Vazgeç
             </button>
             <button
               type="submit"
               disabled={loading || activeShifts.length === 0}
-              className="px-5 py-2.5 text-sm font-bold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 rounded-xl shadow-lg shadow-amber-500/25 transition flex items-center gap-2 disabled:opacity-50 active:scale-95"
+              className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black text-sm flex items-center gap-2 shadow-lg shadow-emerald-600/30 transition active:scale-95"
             >
-              {loading && <Loader2 size={16} className="animate-spin text-slate-950" />}
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
               <span>İşlemi Sisteme Kaydet</span>
             </button>
           </div>

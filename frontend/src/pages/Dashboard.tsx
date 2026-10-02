@@ -322,8 +322,22 @@ export const Dashboard: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* POS + QR Simülatör Butonları */}
-                  <div className="flex gap-2 mt-3">
+                  {/* POS + QR + Satış Fiş Butonları */}
+                  <div className="grid grid-cols-3 gap-1.5 mt-3">
+                    <button
+                      onClick={() => {
+                        setTargetShift({
+                          shift_id: worker.shift_id,
+                          station_name: worker.station_name,
+                          user_name: worker.user_name,
+                        });
+                        setIsAddTxOpen(true);
+                      }}
+                      className="flex items-center justify-center gap-1 py-2 px-1 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 text-[10px] font-black hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition active:scale-95"
+                    >
+                      <PlusCircle size={11} />
+                      <span>Dolum / Fiş</span>
+                    </button>
                     <button
                       onClick={() => {
                         setTargetShift({
@@ -333,9 +347,9 @@ export const Dashboard: React.FC = () => {
                         });
                         setIsPOSOpen(true);
                       }}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-[11px] font-black hover:bg-blue-100 dark:hover:bg-blue-900/40 transition active:scale-95"
+                      className="flex items-center justify-center gap-1 py-2 px-1 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-[10px] font-black hover:bg-blue-100 dark:hover:bg-blue-900/40 transition active:scale-95"
                     >
-                      <CreditCard size={12} />
+                      <CreditCard size={11} />
                       <span>Sanal POS</span>
                     </button>
                     <button
@@ -347,9 +361,9 @@ export const Dashboard: React.FC = () => {
                         });
                         setIsQROpen(true);
                       }}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 text-[11px] font-black hover:bg-purple-100 dark:hover:bg-purple-900/40 transition active:scale-95"
+                      className="flex items-center justify-center gap-1 py-2 px-1 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 text-[10px] font-black hover:bg-purple-100 dark:hover:bg-purple-900/40 transition active:scale-95"
                     >
-                      <ArrowRightLeft size={12} />
+                      <ArrowRightLeft size={11} />
                       <span>QR / FAST</span>
                     </button>
                   </div>
