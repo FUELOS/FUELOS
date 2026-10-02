@@ -136,8 +136,17 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
 
             # Dinamik tolerans: Şirket ayarından al (yoksa DEFAULT_TOLERANCE)
             tolerance_val = DEFAULT_TOLERANCE
-            if shift.station and shift.station.company and shift.station.company.reconciliation_tolerance is not None:
-                tolerance_val = Decimal(str(shift.station.company.reconciliation_tolerance))
+            try:
+                from app.models.company import Company
+                comp_tol = await db.scalar(
+                    select(Company.reconciliation_tolerance)
+                    .join(Station, Station.company_id == Company.id)
+                    .where(Station.id == shift.station_id)
+                )
+                if comp_tol is not None:
+                    tolerance_val = Decimal(str(comp_tol))
+            except Exception:
+                pass
 
             result = reconcile(
                 {
