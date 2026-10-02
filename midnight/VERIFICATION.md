@@ -3,6 +3,12 @@
 Real proof generation is implemented and tested. Independent cryptographic
 verification by a separate consumer has not been implemented or tested.
 
+Tolerance is now a public integer-kurus argument and ledger field, with bounds
+0..100000. A verifier must check it against the authorized closing policy, not
+merely accept whichever tolerance the prover supplies. The standalone PoC does
+not yet fetch or authenticate the backend's saved shift tolerance. Public class
+and tolerance tampering both require negative verification tests in the next stage.
+
 ## Official API boundary
 
 The pinned Midnight.js protocol 4.1.1 exposes ledger-v8 8.1.0 through

@@ -24,4 +24,13 @@ describe.sequential('real proof server 8.1.0 (no network deployment)', () => {
       .rejects.toMatchObject({ name: 'ProvingStageError', stage: 'execution' });
     console.info('A -> SHORTAGE: rejected at execution; check/prove not called');
   });
+  it('proves a 3 TL difference at public tolerance 5 TL', async () => {
+    const input = { total_sales: 300n, pos: 0n, cash: 0n, eft: 0n, credit: 0n };
+    const result = await proveReconciliation(input, ReconciliationClass.MATCHED, 500n);
+    expect(result.proof.byteLength).toBeGreaterThan(0);
+    expect(result.tolerance).toBe(500n);
+    await expect(proveReconciliation(input, ReconciliationClass.MATCHED, 100n))
+      .rejects.toMatchObject({ stage: 'execution' });
+    console.info(JSON.stringify({ case: 'dynamic-tolerance', check: 'passed', prove: 'passed', proofBytes: result.proof.byteLength }));
+  }, 360_000);
 });

@@ -19,13 +19,13 @@ export class ProvingStageError extends Error {
 }
 
 /** Returned data is PRIVATE, ephemeral, and must never be logged or persisted. */
-export function executeReconciliation(input: ReconciliationPrivateState, claim: ReconciliationClass) {
+export function executeReconciliation(input: ReconciliationPrivateState, claim: ReconciliationClass, tolerance: bigint = 100n) {
   try {
     const contract = new Contract<ReconciliationPrivateState>(witnesses);
     const coin = '00'.repeat(32);
     const initial = contract.initialState(createConstructorContext(input, coin));
     const context = createCircuitContext(dummyContractAddress(), coin, initial.currentContractState, input);
-    const { proofData } = contract.impureCircuits.reconcile(context, claim);
+    const { proofData } = contract.impureCircuits.reconcile(context, claim, tolerance);
     const serializedPreimage = proofDataIntoSerializedPreimage(
       proofData.input,
       proofData.output,

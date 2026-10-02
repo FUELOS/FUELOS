@@ -8,12 +8,12 @@ import { vectors } from './vectors.js';
 const classes = [Class.MATCHED, Class.SHORTAGE, Class.SURPLUS];
 const zero: FinancialInputs = { total_sales: 0n, pos: 0n, cash: 0n, eft: 0n, credit: 0n };
 
-function execute(input: FinancialInputs, claim: Class) {
+function execute(input: FinancialInputs, claim: Class, tolerance: bigint = 100n) {
   const contract = new Contract<ReconciliationPrivateState>(witnesses);
   const coin = '00'.repeat(32);
   const initial = contract.initialState(createConstructorContext(input, coin));
   const context = createCircuitContext(dummyContractAddress(), coin, initial.currentContractState, initial.currentPrivateState);
-  return contract.impureCircuits.reconcile(context, claim);
+  return contract.impureCircuits.reconcile(context, claim, tolerance);
 }
 
 function checkClaims(name: string, input: FinancialInputs, expected: Class) {
@@ -75,7 +75,36 @@ describe('public/private boundary', () => {
       expect(a.proofData.publicTranscript.length).toBeGreaterThan(0);
       expect(a.proofData.publicTranscript).toEqual(b.proofData.publicTranscript);
       expect(a.proofData.privateTranscriptOutputs).not.toEqual(b.proofData.privateTranscriptOutputs);
-      expect(Object.keys(ledger(a.context.currentQueryContext.state))).toEqual(['reconciliationClass']);
+      expect(Object.keys(ledger(a.context.currentQueryContext.state))).toEqual(['reconciliationClass', 'reconciliationTolerance']);
     });
   }
+});
+
+describe('public tolerance policy', () => {
+  for (const tolerance of [0n, 100n, 500n, 100000n]) {
+    for (const side of ['total_sales', 'cash'] as const) {
+      it(`${side}: ${tolerance} boundary is inclusive`, () => {
+        const call = execute({ ...zero, [side]: tolerance }, Class.MATCHED, tolerance);
+        expect(ledger(call.context.currentQueryContext.state).reconciliationTolerance).toBe(tolerance);
+        expect(() => execute({ ...zero, [side]: tolerance + 1n }, Class.MATCHED, tolerance)).toThrow();
+        execute({ ...zero, [side]: tolerance + 1n }, side === 'cash' ? Class.SURPLUS : Class.SHORTAGE, tolerance);
+      });
+    }
+  }
+  for (const tolerance of [-1n, 100001n, 131072n]) {
+    it(`rejects invalid tolerance ${tolerance}`, () => {
+      expect(() => execute(zero, Class.MATCHED, tolerance)).toThrow();
+    });
+  }
+  it('binds public tolerance even when the class is unchanged', () => {
+    const a = execute(zero, Class.MATCHED, 100n);
+    const b = execute(zero, Class.MATCHED, 500n);
+    expect(a.proofData.publicTranscript).not.toEqual(b.proofData.publicTranscript);
+  });
+  it('3 TL shortage becomes matched at 5 TL', () => {
+    const input = { ...zero, total_sales: 300n };
+    execute(input, Class.SHORTAGE, 100n);
+    execute(input, Class.MATCHED, 500n);
+    expect(() => execute(input, Class.MATCHED, 100n)).toThrow();
+  });
 });

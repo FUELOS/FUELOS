@@ -58,11 +58,11 @@ to inputs already normalized to whole kurus within these bounds.
 The contract, not the TypeScript witness, computes:
 
 - `calculated_total = pos + cash + eft + credit`
-- absolute difference at most **100**, inclusive: `MATCHED`
-- sales exceed the collection total by more than 100: `SHORTAGE`
-- collection total exceeds sales by more than 100: `SURPLUS`
+- absolute difference at most the public tolerance, inclusive: `MATCHED`
+- sales exceed the collection total by more than the public tolerance: `SHORTAGE`
+- collection total exceeds sales by more than the public tolerance: `SURPLUS`
 
-The fixed tolerance is not a caller-controlled parameter. Each pair of channels
+Tolerance is a public circuit argument in integer kurus (0 through 100000), with a TypeScript default of 100. It must come from the saved closing policy in a future FuelOS integration. Each pair of channels
 fits `Uint<65>`; their sum is at most `4 * (2^64 - 1) = 2^66 - 4`, so it fits
 `Uint<66>`. Sales are widened to the same type. Subtraction is performed only
 after comparison, with the larger operand first, preventing unsigned underflow.
@@ -79,11 +79,11 @@ the caller's local private state. It supplies data only; generated runtime
 validation checks witness types/ranges, and the Compact circuit determines
 the class. No separate TypeScript implementation of reconciliation is used.
 
-The exported `reconcile(claim)` circuit checks that its private computation
-equals the supplied enum claim, then writes only that claim into the public
+The exported `reconcile(claim, tolerance)` circuit checks that its private computation
+equals the supplied enum claim, then writes that claim into the public
 `reconciliationClass` ledger field through explicit `disclose(claim)`.
 `disclose()` alone is not publication: the ledger operation makes the class
-public. There are no ledger operations inside the private arithmetic branches.
+public. The public `reconciliationTolerance` field also records the disclosed tolerance. There are no ledger operations inside the private arithmetic branches.
 
 | Enum | Encoding | FuelOS API equivalent |
 | --- | --- | --- |
@@ -93,10 +93,10 @@ public. There are no ledger operations inside the private arithmetic branches.
 
 Neither monetary inputs, calculated total nor exact difference are public
 contract fields or return values. The circuit returns an empty tuple.
-The class reveals only the category (including which side exceeds tolerance).
+The public state reveals the category and tolerance, but no private amount or exact difference.
 
 The default initial ledger class is MATCHED because the enum starts at zero;
-it is **not** evidence that reconciliation has run. This one-field prototype
+it is **not** evidence that reconciliation has run. This prototype
 records only the last successful call and is not a historical shift registry.
 
 ## Proof semantics and limitations
@@ -106,7 +106,7 @@ an invalid computation. A falsely claimed class causes the circuit assertion
 to fail. Invalid witness amounts are rejected as well.
 
 The proof statement is: "these private amounts imply this public class under
-the fixed 100-kurus policy." Logic tests execute this relation; the separate
+the disclosed tolerance policy." Logic tests execute this relation; the separate
 proof tests generate real proofs. Independent verification and network
 acceptance are not claimed by either test suite.
 
@@ -132,7 +132,7 @@ Total and difference in this table/vector metadata are local expectations,
 not public circuit outputs. The tests inspect the actual compiled circuit's
 class/ledger and require rejection of both incorrect enum claims per vector.
 
-65 tests cover:
+The original 65 tests cover:
 
 - A-E: 15 correct/incorrect claim checks.
 - Zero, -100/-101 boundaries, maximum values, four maximum channels and a
@@ -141,10 +141,10 @@ class/ledger and require rejection of both incorrect enum claims per vector.
   missing values: 25 generated-runtime validation checks.
 - Unknown public enum: 1 rejection check.
 - Each class with distinct private inputs: 3 checks of identical public
-  inputs/outputs/transcripts, different private transcripts, and the sole
-  public ledger field. These are regression checks, not a cryptographic audit.
+  inputs/outputs/transcripts, different private transcripts, and the
+  public ledger fields. These are regression checks, not a cryptographic audit.
 
-Verified in WSL: `npm test` completed with **65 passed**, including compiler
+After the tolerance update, `npm test` completed with **78 passed**, including compiler
 0.31.1 and TypeScript checks.
 
 ## Generated files
@@ -162,7 +162,7 @@ managed/reconciliation/
 ```
 
 Metadata confirms language 0.23.0, runtime 0.16.0, a provable `reconcile`
-circuit, one enum argument, one financial witness and one enum ledger field.
+circuit, an enum claim and integer tolerance argument, one financial witness, and public class/tolerance ledger fields.
 
 ## Real local proving
 
@@ -182,14 +182,14 @@ Compiler 0.31.1 replaces the output directory: running `npm test` or
 `npm run compile:full` again before `npm run test:proof`. The proof command
 deliberately does not invoke the fast compile script.
 
-Full compilation produces these nonempty artifacts in addition to the files
+Full compilation produces these artifacts in addition to the files
 above (observed sizes for this contract/compiler):
 
 | Artifact under managed/reconciliation | Bytes |
 | --- | ---: |
-| keys/reconcile.prover | 149048 |
+| keys/reconcile.prover | 281517 |
 | keys/reconcile.verifier | 1351 |
-| zkir/reconcile.bzkir | 184 |
+| zkir/reconcile.bzkir | 234 |
 
 Docker Engine is installed inside Ubuntu/WSL from Docker's official APT
 repository. Docker Desktop is not required for this setup. The user has not
@@ -229,9 +229,9 @@ The returned binary proof stays in memory. Tests log only case, public class,
 stage outcomes and proof length. Keys and ZKIR are loaded from the filesystem,
 not exposed through an HTTP artifact service.
 
-Actual WSL results: A/MATCHED, B/SHORTAGE and E/SURPLUS each passed execution,
+Updated public-tolerance WSL results: A/MATCHED, B/SHORTAGE and E/SURPLUS each passed execution,
 check and prove, returning **2940 bytes** each. A/SHORTAGE failed during circuit
-execution before HTTP calls. The real proof suite passed **4/4** tests.
+execution before HTTP calls. A separate 3 TL difference / 5 TL public tolerance case also produced 2940 bytes. The real proof suite passed **5/5** tests.
 `check()` checks constraints; it is not independent verification of a proof.
 See [the independent verification note](VERIFICATION.md) for the next stage.
 
