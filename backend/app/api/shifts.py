@@ -173,11 +173,10 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
                 ],
             )
             recon_status = reconciliation.status
-        else:
             # Geçersiz/eski kayıt: sayılan nakit açılıştan az — K-001
-            # çalıştırılamaz, eski kasa sınıflandırması korunur.
-            if cash_diff == 0:
-                recon_status = "matched"     # Tam Mutabakat
+            # çalıştırılamaz, tolerans kontrolü uygulanır.
+            if abs(cash_diff) <= tolerance_val:
+                recon_status = "matched"     # Tolerans Dahilinde Eşleşti
             elif cash_diff < 0:
                 recon_status = "shortage"    # Kasa Açığı
             else:
