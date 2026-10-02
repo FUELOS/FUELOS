@@ -294,19 +294,55 @@ async def open_shift(
         target_user_id = target_user.id
 
     # ── Açık Vardiya Kontrolü ──
-    existing_open = await db.execute(
-        select(Shift).where(
-            and_(
-                Shift.user_id == target_user_id,
-                Shift.status == ShiftStatus.OPEN,
+    # Eğer pompa seçildiyse: Bu istasyonda aynı pompada zaten açık bir vardiya var mı?
+    if data.pump_id:
+        existing_pump = await db.execute(
+            select(Shift).where(
+                and_(
+                    Shift.station_id == data.station_id,
+                    Shift.pump_id == data.pump_id,
+                    Shift.status == ShiftStatus.OPEN,
+                )
             )
         )
-    )
-    if existing_open.scalar_one_or_none() is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Bu personelin zaten açık bir vardiyası var. Önce mevcut vardiyayı kapatın.",
+        if existing_pump.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Bu pompada şu anda açık bir vardiya var. Lütfen önce mevcut pompa vardiyasını kapatın veya başka bir pompa seçin.",
+            )
+
+    # Eğer işçi ismi girildiyse: Bu istasyonda aynı isimli işçinin açık vardiyası var mı?
+    if data.worker_name and data.worker_name.strip():
+        existing_worker = await db.execute(
+            select(Shift).where(
+                and_(
+                    Shift.station_id == data.station_id,
+                    Shift.worker_name == data.worker_name.strip(),
+                    Shift.status == ShiftStatus.OPEN,
+                )
+            )
         )
+        if existing_worker.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"'{data.worker_name.strip()}' isimli işçinin bu istasyonda zaten açık bir vardiyası var.",
+            )
+
+    # Eğer ne pompa ne de işçi ismi girilmemişse (eski klasik kasiyer oturumu):
+    if not data.pump_id and not (data.worker_name and data.worker_name.strip()):
+        existing_open = await db.execute(
+            select(Shift).where(
+                and_(
+                    Shift.user_id == target_user_id,
+                    Shift.status == ShiftStatus.OPEN,
+                )
+            )
+        )
+        if existing_open.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Bu personelin zaten açık bir vardiyası var. Önce mevcut vardiyayı kapatın.",
+            )
 
     shift = Shift(
         station_id=data.station_id,
