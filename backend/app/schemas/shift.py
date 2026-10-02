@@ -18,6 +18,9 @@ class ShiftOpen(BaseModel):
     user_id: uuid.UUID | None = None  # SuperAdmin / Müdür başka personel adına açabilir
     opening_cash: Decimal = Decimal("0.00")
     notes: str | None = None
+    pump_id: uuid.UUID | None = None  # Bağlı pompa (nullable)
+    worker_name: str | None = None    # İşçi adı (serbest metin)
+    worker_avatar: str | None = None  # İşçi avatarı — base64 veya avatar kodu
 
 
 class ShiftClose(BaseModel):

@@ -315,6 +315,9 @@ async def open_shift(
         status=ShiftStatus.OPEN,
         opening_cash=data.opening_cash,
         notes=data.notes,
+        pump_id=data.pump_id,
+        worker_name=data.worker_name,
+        worker_avatar=data.worker_avatar,
     )
     db.add(shift)
     await db.flush()

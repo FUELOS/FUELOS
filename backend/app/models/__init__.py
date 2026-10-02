@@ -15,6 +15,7 @@ from app.models.station import Station
 from app.models.user import User
 from app.models.shift import Shift
 from app.models.transaction import Transaction
+from app.models.pump import Pump
 
 __all__ = [
     # Modeller
@@ -23,6 +24,7 @@ __all__ = [
     "User",
     "Shift",
     "Transaction",
+    "Pump",
     # Enum'lar
     "UserRole",
     "ShiftStatus",
