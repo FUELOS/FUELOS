@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from "react";
 import { apiClient } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
 import {
   QrCode,
   X,
@@ -39,7 +40,7 @@ interface QRResult {
 }
 
 // Sanal QR SVG — gerçekçi piksel deseni
-const FakeQRCode: React.FC<{ amount: string; seed: number }> = ({ amount, seed }) => {
+const FakeQRCode: React.FC<{ amount: string; seed: number; label: string }> = ({ amount, seed, label }) => {
   // Deterministik piksel matrisi (seed'e göre)
   const size = 11;
   const cells: boolean[][] = Array.from({ length: size }, (_, r) =>
@@ -72,7 +73,7 @@ const FakeQRCode: React.FC<{ amount: string; seed: number }> = ({ amount, seed }
           <Zap size={12} className="text-white fill-white" />
         </div>
         <span className="text-xs font-black text-slate-700 dark:text-slate-200">
-          FAST / QR Ödeme
+          {label}
         </span>
       </div>
       {amount && parseFloat(amount) > 0 && (
@@ -91,6 +92,7 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { t, language } = useLanguage();
   const [step, setStep] = useState<"form" | "qr" | "processing" | "result">("form");
   const [amount, setAmount] = useState("");
   const [liters, setLiters] = useState("");
@@ -128,7 +130,7 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
   const handleShowQR = () => {
     const amountNum = parseFloat(amount);
     if (!amount || isNaN(amountNum) || amountNum <= 0) {
-      setError("Geçerli bir tutar girin.");
+      setError(language === "tr" ? "Geçerli bir tutar girin." : "Enter a valid amount.");
       return;
     }
     setError(null);
@@ -152,7 +154,7 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
       onSuccess(); // Dashboard'u yenile
       setStep("result");
     } catch (err: any) {
-      setError(err.response?.data?.detail || "QR ödeme gerçekleştirilemedi.");
+      setError(err.response?.data?.detail || (language === "tr" ? "QR ödeme gerçekleştirilemedi." : "QR payment failed."));
       setStep("qr");
     } finally {
       setLoading(false);
@@ -178,7 +180,9 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
               <QrCode size={20} className="text-white" />
             </div>
             <div>
-              <div className="text-white font-black text-base">QR / FAST Ödeme</div>
+              <div className="text-white font-black text-base">
+                {language === "tr" ? "QR / FAST Ödeme" : "QR / FAST Payment"}
+              </div>
               <div className="text-purple-200 text-xs font-medium">{workerName}</div>
             </div>
           </div>
@@ -195,14 +199,15 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
           {step === "form" && (
             <div className="space-y-4">
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                Tutarı girin, QR kod oluşturun. Müşteri uygulamasıyla okutulduğunda
-                FAST transferi otomatik vardiyaya işlenir.
+                {language === "tr"
+                  ? "Tutarı girin, QR kod oluşturun. Müşteri uygulamasıyla okutulduğunda FAST transferi otomatik vardiyaya işlenir."
+                  : "Enter the amount and generate QR code. Once scanned by customer banking app, the FAST transfer is recorded in the active shift."}
               </p>
 
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
-                    Ödeme Tutarı (₺)
+                    {language === "tr" ? "Ödeme Tutarı (₺)" : "Payment Amount (₺)"}
                   </label>
                   <input
                     type="number"
@@ -217,7 +222,7 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
                   <div>
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
                       <Fuel size={11} className="inline mr-1" />
-                      Yakıt Türü
+                      {language === "tr" ? "Yakıt Türü" : "Fuel Type"}
                     </label>
                     <div className="relative">
                       <select
@@ -234,7 +239,7 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
-                      Litre (opsiyonel)
+                      {language === "tr" ? "Litre (opsiyonel)" : "Liters (optional)"}
                     </label>
                     <input
                       type="number"
@@ -273,7 +278,7 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
                 className="w-full py-3.5 rounded-2xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-black flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 transition active:scale-95"
               >
                 <QrCode size={18} />
-                <span>QR Kod Oluştur</span>
+                <span>{language === "tr" ? "QR Kod Oluştur" : "Generate QR Code"}</span>
               </button>
             </div>
           )}
@@ -281,11 +286,15 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
           {/* ADIM 2: QR Göster */}
           {step === "qr" && (
             <div className="space-y-4">
-              <FakeQRCode amount={amount} seed={qrSeed} />
+              <FakeQRCode
+                amount={amount}
+                seed={qrSeed}
+                label={language === "tr" ? "FAST / QR Ödeme" : "FAST / QR Payment"}
+              />
 
               {/* Geri sayım */}
               <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
-                <span>QR Geçerlilik</span>
+                <span>{language === "tr" ? "QR Geçerlilik" : "QR Validity"}</span>
                 <span className={`font-mono font-black ${countdown < 30 ? "text-red-500" : "text-slate-700 dark:text-slate-200"}`}>
                   {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, "0")}
                 </span>
@@ -307,14 +316,14 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
                   className="py-3 rounded-2xl border border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 font-bold text-sm hover:bg-purple-50 dark:hover:bg-purple-900/20 flex items-center justify-center gap-1.5 transition"
                 >
                   <RefreshCw size={14} />
-                  Yenile
+                  {language === "tr" ? "Yenile" : "Refresh"}
                 </button>
                 <button
                   onClick={handleConfirmPayment}
                   className="py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black text-sm flex items-center justify-center gap-1.5 shadow-lg shadow-purple-600/30 transition active:scale-95"
                 >
                   <Zap size={14} className="fill-white" />
-                  Ödemeyi Onayla
+                  {language === "tr" ? "Ödemeyi Onayla" : "Confirm Payment"}
                 </button>
               </div>
 
@@ -322,7 +331,7 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
                 onClick={() => setStep("form")}
                 className="w-full text-xs text-slate-400 hover:text-slate-600 transition"
               >
-                ← Geri
+                {language === "tr" ? "← Geri" : "← Back"}
               </button>
             </div>
           )}
@@ -334,11 +343,20 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
                 <Loader2 size={32} className="text-purple-600 animate-spin" />
               </div>
               <div className="text-base font-black text-slate-900 dark:text-white">
-                FAST Transfer Alınıyor...
+                {language === "tr" ? "FAST Transfer Alınıyor..." : "Receiving FAST Transfer..."}
               </div>
               <div className="text-xs text-slate-500 dark:text-slate-400 text-center leading-relaxed">
-                Banka webhook'u bekleniyor.<br />
-                İşleminiz gerçekleştiriliyor.
+                {language === "tr" ? (
+                  <>
+                    Banka webhook'u bekleniyor.<br />
+                    İşleminiz gerçekleştiriliyor.
+                  </>
+                ) : (
+                  <>
+                    Waiting for bank webhook.<br />
+                    Processing transaction.
+                  </>
+                )}
               </div>
               <div className="flex gap-1">
                 {[0, 1, 2].map((i) => (
@@ -360,7 +378,7 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
                   <CheckCircle2 size={36} className="text-emerald-600 stroke-[2.5]" />
                 </div>
                 <div className="text-base font-black text-slate-900 dark:text-white">
-                  Transfer Alındı!
+                  {language === "tr" ? "Transfer Alındı!" : "Transfer Received!"}
                 </div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 text-center">
                   {result.message}
@@ -370,11 +388,11 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
               {/* Transfer Detayları */}
               <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 space-y-3 border border-slate-200 dark:border-slate-700">
                 <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
-                  — FAST TRANSFER DEKONTU —
+                  {language === "tr" ? "— FAST TRANSFER DEKONTU —" : "— FAST TRANSFER RECEIPT —"}
                 </div>
 
                 {[
-                  { icon: User, label: "Gönderen", value: result.sender_name, color: "text-slate-800 dark:text-slate-200" },
+                  { icon: User, label: language === "tr" ? "Gönderen" : "Sender", value: result.sender_name, color: "text-slate-800 dark:text-slate-200" },
                   { icon: CreditCard, label: "IBAN", value: result.sender_iban.slice(0, 12) + "****", color: "text-slate-600 dark:text-slate-400 font-mono text-xs" },
                   { icon: ArrowRightLeft, label: "FAST Ref", value: result.fast_ref, color: "text-purple-600 font-mono text-xs" },
                   { icon: QrCode, label: "QR Ref", value: result.qr_ref.slice(0, 16), color: "text-slate-500 dark:text-slate-400 font-mono text-xs" },
@@ -389,7 +407,7 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
                 ))}
 
                 <div className="border-t border-slate-200 dark:border-slate-700 pt-3 flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-500">TUTAR</span>
+                  <span className="text-xs font-bold text-slate-500">{language === "tr" ? "TUTAR" : "AMOUNT"}</span>
                   <span className="text-xl font-black text-purple-600">
                     {formatCurrency(result.amount)}
                   </span>
@@ -401,13 +419,13 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
                   onClick={reset}
                   className="py-3 rounded-2xl border border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 font-bold text-sm hover:bg-purple-50 dark:hover:bg-purple-900/20 transition"
                 >
-                  Yeni QR
+                  {language === "tr" ? "Yeni QR" : "New QR"}
                 </button>
                 <button
                   onClick={handleClose}
                   className="py-3 rounded-2xl bg-slate-800 dark:bg-slate-700 text-white font-bold text-sm hover:bg-slate-700 transition"
                 >
-                  Kapat
+                  {t("common.close")}
                 </button>
               </div>
             </div>
@@ -417,3 +435,4 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
     </div>
   );
 };
+

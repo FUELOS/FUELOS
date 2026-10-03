@@ -168,20 +168,19 @@ async def run_full_flow_test():
         print("\n" + "-" * 50)
         print("📊 CANLI DASHBOARD API VERİ RAPORU")
         print("-" * 50)
-        print(f"Toplam Günlük Ciro        : {dash['today_total_sales']} ₺")
-        print(f"Toplam Satılan Yakıt Hacmi: {dash['today_total_liters']} Litre")
-        print(f"Toplam İşlem Sayısı       : {dash['today_transaction_count']} Adet")
-        print(f"  • Nakit Tahsilat        : {dash['today_cash']} ₺")
-        print(f"  • Kredi Kartı (POS)     : {dash['today_credit_card']} ₺")
-        print(f"  • Veresiye Kaydı        : {dash['today_veresiye']} ₺")
-        print(f"Aktif Vardiya Sayısı      : {dash['active_shift_count']}")
+        print(f"Toplam Günlük Ciro        : {dash['total_sales_revenue']} ₺")
+        print(f"Toplam Satılan Yakıt Hacmi: {dash['total_dispensed_liters']} Litre")
+        print(f"  • Nakit Tahsilat        : {dash['total_cash_sales']} ₺")
+        print(f"  • Kredi Kartı (POS)     : {dash['total_pos_sales']} ₺")
+        print(f"  • FAST / EFT Kaydı      : {dash['total_fast_sales']} ₺")
+        print(f"Aktif İşçi / Vardiya Sayısı: {len(dash['active_workers'])}")
         print(f"Kayıtlı İstasyon Sayısı   : {dash['total_stations']}")
         print(f"Aktif Kullanıcı Sayısı    : {dash['total_users']}")
         print("-" * 50)
 
-        assert float(dash['today_total_sales']) >= 4600.0, "Total sales mismatch"
-        assert float(dash['today_total_liters']) >= 120.0, "Total liters mismatch"
-        assert dash['active_shift_count'] >= 1, "Active shift count mismatch"
+        assert float(dash['total_sales_revenue']) >= 4600.0, "Total sales mismatch"
+        assert float(dash['total_dispensed_liters']) >= 120.0, "Total liters mismatch"
+        assert len(dash['active_workers']) >= 1, "Active workers count mismatch"
 
         print("\n🎉 TÜM TESTLER VE İŞ MANTIKLARI %100 BAŞARIYLA TAMAMLANDI!\n")
 

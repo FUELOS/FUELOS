@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { apiClient } from "@/lib/api";
 import { Transaction, Station } from "@/types";
 import { formatCurrency, formatNumber, formatDateTime } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
 import { AddTransactionModal } from "@/components/modals/AddTransactionModal";
 import {
   Receipt,
@@ -18,6 +19,9 @@ import {
 } from "lucide-react";
 
 export const TransactionsPage: React.FC = () => {
+  const { t, language } = useLanguage();
+  const tr = language === "tr";
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [stations, setStations] = useState<Station[]>([]);
   const [selectedStationId, setSelectedStationId] = useState<string>("");
@@ -59,19 +63,19 @@ export const TransactionsPage: React.FC = () => {
       case "fuel":
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
-            <Fuel size={13} /> Akaryakıt
+            <Fuel size={13} /> {t("tx.fuel")}
           </span>
         );
       case "market":
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
-            <ShoppingBag size={13} /> Market
+            <ShoppingBag size={13} /> {t("tx.market")}
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
-            <MoreHorizontal size={13} /> Diğer
+            <MoreHorizontal size={13} /> {t("tx.other")}
           </span>
         );
     }
@@ -80,13 +84,13 @@ export const TransactionsPage: React.FC = () => {
   const getPaymentBadge = (method: string) => {
     switch (method) {
       case "cash":
-        return <span className="text-emerald-600 font-bold text-xs flex items-center gap-1.5"><Wallet size={13} /> Nakit</span>;
+        return <span className="text-emerald-600 font-bold text-xs flex items-center gap-1.5"><Wallet size={13} /> {t("tx.cash")}</span>;
       case "credit_card":
-        return <span className="text-blue-600 font-bold text-xs flex items-center gap-1.5"><CreditCard size={13} /> POS / Kart</span>;
+        return <span className="text-blue-600 font-bold text-xs flex items-center gap-1.5"><CreditCard size={13} /> {t("tx.pos")}</span>;
       case "eft":
-        return <span className="text-indigo-600 font-bold text-xs flex items-center gap-1.5"><Building size={13} /> EFT / Havale</span>;
+        return <span className="text-indigo-600 font-bold text-xs flex items-center gap-1.5"><Building size={13} /> {t("tx.fast")}</span>;
       case "veresiye":
-        return <span className="text-amber-600 font-bold text-xs flex items-center gap-1.5"><Receipt size={13} /> Veresiye</span>;
+        return <span className="text-amber-600 font-bold text-xs flex items-center gap-1.5"><Receipt size={13} /> {t("tx.credit")}</span>;
       default:
         return <span className="text-slate-500 text-xs">{method}</span>;
     }
@@ -98,18 +102,18 @@ export const TransactionsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-            <span>Operasyon</span>
+            <span>{t("tx.breadcrumb")}</span>
             <ChevronRight size={12} />
-            <span className="text-amber-500">Satış Defteri</span>
+            <span className="text-amber-500">{t("tx.sub_breadcrumb")}</span>
           </div>
-          <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+          <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-zinc-900 flex items-center justify-center text-white shadow-md">
               <Receipt size={20} />
             </div>
-            <span>Satış ve İşlem Kayıtları</span>
+            <span>{t("tx.title")}</span>
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Akaryakıt pompaları ve istasyon marketinden yapılan gerçek zamanlı işlem akışı
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            {t("tx.subtitle")}
           </p>
         </div>
 
@@ -118,9 +122,9 @@ export const TransactionsPage: React.FC = () => {
             <select
               value={selectedStationId}
               onChange={(e) => setSelectedStationId(e.target.value)}
-              className="bg-white border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-amber-500 transition shadow-sm"
+              className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-amber-500 transition shadow-sm"
             >
-              <option value="">Tüm İstasyonlar</option>
+              <option value="">{t("header.all_stations")}</option>
               {stations.map((st) => (
                 <option key={st.id} value={st.id}>
                   {st.name} ({st.code})
@@ -132,8 +136,8 @@ export const TransactionsPage: React.FC = () => {
           <button
             onClick={fetchData}
             disabled={refreshing}
-            className="p-2.5 rounded-2xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition shadow-sm"
-            title="Yenile"
+            className="p-2.5 rounded-2xl bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 hover:bg-slate-50 transition shadow-sm"
+            title={t("header.refresh")}
           >
             <RefreshCw size={16} className={refreshing ? "animate-spin text-amber-500" : ""} />
           </button>
@@ -143,24 +147,24 @@ export const TransactionsPage: React.FC = () => {
             className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 text-xs font-black flex items-center gap-2 shadow-md shadow-amber-500/25 transition active:scale-95"
           >
             <PlusCircle size={15} />
-            <span>Yeni Satış Kaydı</span>
+            <span>{t("tx.new_record")}</span>
           </button>
         </div>
       </div>
 
       {/* Summary Highlight Cards */}
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white dark:bg-slate-900/90 p-5 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-md dark:shadow-xl shadow-slate-200/60 dark:shadow-slate-950/50">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white dark:bg-[#0f172a] p-5 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-sm">
           <div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">TOPLAM CİRO HACMİ</div>
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("tx.card_total_rev")}</div>
             <div className="text-xl font-black text-slate-800 dark:text-white mt-1">{formatCurrency(summary.total_amount)}</div>
           </div>
           <div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">TOPLAM YAKIT LİTRESİ</div>
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("tx.card_total_liters")}</div>
             <div className="text-xl font-black text-amber-600 dark:text-amber-400 mt-1">{formatNumber(summary.total_fuel_liters, 2)} Lt</div>
           </div>
           <div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">NAKİT / POS DAĞILIMI</div>
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("tx.card_cash_pos")}</div>
             <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-2 flex items-center gap-2">
               <span className="text-emerald-600 dark:text-emerald-400">{formatCurrency(summary.cash_total)}</span>
               <span className="text-slate-400">/</span>
@@ -168,7 +172,7 @@ export const TransactionsPage: React.FC = () => {
             </div>
           </div>
           <div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">VERESİYE ALACAKLAR</div>
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("tx.card_credit")}</div>
             <div className="text-xl font-black text-amber-600 dark:text-amber-400 mt-1">{formatCurrency(summary.veresiye_total)}</div>
           </div>
         </div>
@@ -179,21 +183,21 @@ export const TransactionsPage: React.FC = () => {
           <Loader2 size={36} className="animate-spin text-amber-500" />
         </div>
       ) : transactions.length === 0 ? (
-        <div className="p-10 text-center bg-white dark:bg-slate-900/90 border border-slate-100 dark:border-slate-800 rounded-3xl text-slate-500 dark:text-slate-400 text-sm shadow-sm">
-          Henüz kayıtlı bir satış/işlem bulunmuyor.
+        <div className="p-10 text-center bg-white dark:bg-[#0f172a] border border-slate-100 dark:border-slate-800 rounded-3xl text-slate-500 dark:text-slate-400 text-sm shadow-sm">
+          {t("tx.no_records")}
         </div>
       ) : (
-        <div className="overflow-x-auto bg-white dark:bg-slate-900/90 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-md dark:shadow-xl shadow-slate-200/60 dark:shadow-slate-950/50">
+        <div className="overflow-x-auto bg-white dark:bg-[#0f172a] border border-slate-100 dark:border-slate-800 rounded-3xl shadow-sm">
           <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
-            <thead className="bg-[#f8fafc] dark:bg-slate-950/60 text-slate-400 uppercase text-[11px] font-bold border-b border-slate-100 dark:border-slate-800">
+            <thead className="bg-[#f8fafc] dark:bg-slate-900/60 text-slate-400 uppercase text-[11px] font-bold border-b border-slate-100 dark:border-slate-800">
               <tr>
-                <th className="px-5 py-3.5">İşlem Saati</th>
-                <th className="px-5 py-3.5">Tür</th>
-                <th className="px-5 py-3.5">Ürün / Yakıt Türü</th>
-                <th className="px-5 py-3.5">Miktar (Litre)</th>
-                <th className="px-5 py-3.5">Tutar</th>
-                <th className="px-5 py-3.5">Ödeme Kanalı</th>
-                <th className="px-5 py-3.5">Açıklama / Plaka</th>
+                <th className="px-5 py-3.5">{t("tx.col_time")}</th>
+                <th className="px-5 py-3.5">{t("tx.col_type")}</th>
+                <th className="px-5 py-3.5">{t("tx.col_product")}</th>
+                <th className="px-5 py-3.5">{t("tx.col_amount_liters")}</th>
+                <th className="px-5 py-3.5">{t("tx.col_total")}</th>
+                <th className="px-5 py-3.5">{t("tx.col_channel")}</th>
+                <th className="px-5 py-3.5">{t("tx.col_note")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-normal">
@@ -204,7 +208,7 @@ export const TransactionsPage: React.FC = () => {
                   </td>
                   <td className="px-5 py-3.5">{getTypeBadge(tx.type)}</td>
                   <td className="px-5 py-3.5 text-slate-800 dark:text-white font-semibold">
-                    {tx.fuel_type || (tx.type === "market" ? "Market Satışı" : "—")}
+                    {tx.fuel_type || (tx.type === "market" ? (tr ? "Market Satışı" : "Convenience Sale") : "—")}
                   </td>
                   <td className="px-5 py-3.5 font-mono font-medium text-slate-600 dark:text-slate-300">
                     {tx.liters ? `${formatNumber(tx.liters, 2)} Lt` : "—"}

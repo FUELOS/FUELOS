@@ -10,6 +10,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { apiClient } from "@/lib/api";
 import { Station } from "@/types";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import {
   X,
   Play,
@@ -59,6 +60,7 @@ type DurationMode = "manual" | "8hours" | "12hours" | "custom";
 
 export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
@@ -207,9 +209,9 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
               <Play size={18} className="fill-white ml-0.5" />
             </div>
             <div>
-              <h3 className="font-black text-lg text-slate-900 dark:text-white">Yeni Vardiya Başlat</h3>
+              <h3 className="font-black text-lg text-slate-900 dark:text-white">{t("modal.open_shift_title")}</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Adım {step}/2 — {step === 1 ? "İstasyon & Süre & Avans" : "İşçi Kartı & Avatar"}
+                {language === "tr" ? `Adım ${step}/2 — ${step === 1 ? "İstasyon & Süre & Avans" : "İşçi Kartı & Avatar"}` : `Step ${step}/2 — ${step === 1 ? "Station, Duration & Float" : "Staff Card & Avatar"}`}
               </p>
             </div>
           </div>
@@ -236,7 +238,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
               <div>
                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                   <Building2 size={13} className="text-blue-500" />
-                  İstasyon
+                  {t("modal.station_select")}
                 </label>
                 <div className="relative">
                   <select
@@ -259,14 +261,14 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
               <div>
                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Timer size={13} className="text-purple-500" />
-                  Vardiya Kapanış Modu (Otomasyon Süresi)
+                  {t("modal.shift_duration")}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { mode: "manual", label: "Manuel Kapanış", desc: "Müdür istediğinde kapatır", icon: Clock },
-                    { mode: "8hours", label: "8 Saatlik Standart", desc: "Süre bitince otomatik uyarı", icon: Timer },
-                    { mode: "12hours", label: "12 Saatlik Vardiya", desc: "Gece / uzun çalışma", icon: Timer },
-                    { mode: "custom", label: "Özel Bitiş Saati", desc: "Belirli bir saatte sonlandır", icon: Clock },
+                    { mode: "manual", label: t("modal.manual_close"), desc: t("modal.manual_close_desc"), icon: Clock },
+                    { mode: "8hours", label: t("modal.hours_8"), desc: t("modal.auto_close_note"), icon: Timer },
+                    { mode: "12hours", label: t("modal.hours_12"), desc: t("modal.auto_close_note"), icon: Timer },
+                    { mode: "custom", label: t("modal.custom_hours"), desc: t("modal.auto_close_note"), icon: Clock },
                   ].map(({ mode, label, desc, icon: Icon }) => (
                     <button
                       key={mode}
@@ -290,7 +292,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                 {/* Özel saat seçimi açıksa */}
                 {durationMode === "custom" && (
                   <div className="mt-2.5 p-3 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800/50 flex items-center gap-3">
-                    <span className="text-xs font-bold text-purple-700 dark:text-purple-300">Bitiş Saati:</span>
+                    <span className="text-xs font-bold text-purple-700 dark:text-purple-300">{language === "tr" ? "Bitiş Saati:" : "End Time:"}</span>
                     <input
                       type="time"
                       required={durationMode === "custom"}
@@ -307,9 +309,9 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <Cpu size={13} className="text-emerald-500" />
-                    Görevli Olduğu Pompa (Opsiyonel)
+                    {t("modal.pump_assign")}
                   </span>
-                  <span className="text-[10px] text-slate-400 font-normal lowercase">Kart tüm pompalarda geçerlidir</span>
+                  <span className="text-[10px] text-slate-400 font-normal lowercase">{language === "tr" ? "kart tüm pompalarda geçerlidir" : "card valid on all pumps"}</span>
                 </label>
 
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
@@ -322,8 +324,8 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                         : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-500 hover:border-slate-300 font-semibold"
                     }`}
                   >
-                    <div className="text-xs">Tüm Pompalar</div>
-                    <div className="text-[9px] text-slate-400">Gezici</div>
+                    <div className="text-xs">{language === "tr" ? "Tüm Pompalar" : "All Pumps"}</div>
+                    <div className="text-[9px] text-slate-400">{language === "tr" ? "Gezici" : "Roaming"}</div>
                   </button>
 
                   {pumps.map((pump) => (
@@ -338,7 +340,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                       }`}
                     >
                       <div className="text-xs">{pump.label}</div>
-                      <div className="text-[9px] text-slate-400">Sabit</div>
+                      <div className="text-[9px] text-slate-400">{language === "tr" ? "Sabit" : "Dedicated"}</div>
                     </button>
                   ))}
                 </div>
@@ -349,9 +351,9 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <Coins size={13} className="text-amber-500" />
-                    Personele Verilen Bozuk Para Avansı (Opsiyonel)
+                    {t("modal.advance_cash")}
                   </span>
-                  <span className="text-[10px] text-slate-400 font-normal">Varsayılan: 0 ₺</span>
+                  <span className="text-[10px] text-slate-400 font-normal">{language === "tr" ? "Varsayılan: 0 ₺" : "Default: 0 ₺"}</span>
                 </label>
                 <div className="relative">
                   <input
@@ -366,7 +368,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">₺</span>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  İşçiye sabah para üstü verebilmesi için avans nakit verildiyse giriniz (yoksa 0 kalabilir).
+                  {t("modal.advance_cash_hint")}
                 </p>
               </div>
 
@@ -376,7 +378,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                 onClick={() => setStep(2)}
                 className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition active:scale-95 text-sm"
               >
-                <span>İşçi Bilgileri & Kartı Tanımla →</span>
+                <span>{t("modal.next_step")} →</span>
               </button>
             </>
           )}
@@ -388,14 +390,14 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
               <div>
                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                   <User size={13} className="text-blue-500" />
-                  İşçi Adı Soyadı *
+                  {t("modal.worker_name")}
                 </label>
                 <input
                   type="text"
                   required
                   value={workerName}
                   onChange={(e) => setWorkerName(e.target.value)}
-                  placeholder="Örn: Mehmet Yılmaz"
+                  placeholder={t("modal.worker_name_ph")}
                   className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                   autoFocus
                 />
@@ -404,11 +406,16 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
               {/* Avatar Mod Seçimi */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                  Profil Görseli / Kart İkonu
+                  {t("modal.avatar_photo")}
                 </label>
                 <div className="grid grid-cols-4 gap-2">
                   {(["male", "female", "photo", "none"] as AvatarMode[]).map((mode) => {
-                    const labels = { male: "Erkek Avatar", female: "Kadın Avatar", photo: "Fotoğraf", none: "Profilsiz" };
+                    const labels = {
+                      male: t("modal.avatar_male"),
+                      female: t("modal.avatar_female"),
+                      photo: t("modal.avatar_custom_photo"),
+                      none: t("modal.avatar_none"),
+                    };
                     const icons = { male: "👨", female: "👩", photo: "📷", none: "⬜" };
                     return (
                       <button
@@ -504,7 +511,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                         }}
                         className="text-xs text-blue-600 dark:text-blue-400 font-bold underline"
                       >
-                        Değiştir
+                        {language === "tr" ? "Değiştir" : "Change"}
                       </button>
                     </div>
                   ) : (
@@ -514,7 +521,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                       className="w-full py-4 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400 hover:border-blue-400 hover:text-blue-600 transition"
                     >
                       <Upload size={18} />
-                      <span className="text-sm font-bold">Fotoğraf Yükle (JPG / PNG)</span>
+                      <span className="text-sm font-bold">{language === "tr" ? "Fotoğraf Yükle (JPG / PNG)" : "Upload Photo (JPG / PNG)"}</span>
                     </button>
                   )}
                 </div>
@@ -535,14 +542,14 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                     )}
                   </div>
                   <div>
-                    <div className="text-xs text-blue-200 font-mono tracking-wider">RFID PERSONEL KARTI</div>
+                    <div className="text-xs text-blue-200 font-mono tracking-wider">{language === "tr" ? "RFID PERSONEL KARTI" : "RFID STAFF CARD"}</div>
                     <div className="text-base font-black leading-tight mt-0.5">
-                      {workerName || "İsimsiz Personel"}
+                      {workerName || (language === "tr" ? "İsimsiz Personel" : "Anonymous Staff")}
                     </div>
                     <div className="text-[11px] text-blue-200 flex items-center gap-1.5 mt-0.5">
-                      <span>{selectedPumpId ? pumps.find((p) => p.id === selectedPumpId)?.label : "Tüm Pompalar (Gezici)"}</span>
+                      <span>{selectedPumpId ? pumps.find((p) => p.id === selectedPumpId)?.label : (language === "tr" ? "Tüm Pompalar (Gezici)" : "All Pumps (Roaming)")}</span>
                       <span>·</span>
-                      <span>{durationMode === "manual" ? "Süresiz" : durationMode === "8hours" ? "8 Saat" : durationMode === "12hours" ? "12 Saat" : customEndTime || "Özel Saat"}</span>
+                      <span>{durationMode === "manual" ? (language === "tr" ? "Süresiz" : "Open-ended") : durationMode === "8hours" ? (language === "tr" ? "8 Saat" : "8 Hours") : durationMode === "12hours" ? (language === "tr" ? "12 Saat" : "12 Hours") : customEndTime || (language === "tr" ? "Özel Saat" : "Custom")}</span>
                     </div>
                   </div>
                 </div>
@@ -552,13 +559,13 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
               {/* Vardiya Notu */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-                  Vardiya Notu (Opsiyonel)
+                  {language === "tr" ? "Vardiya Notu (Opsiyonel)" : "Shift Notes (Optional)"}
                 </label>
                 <textarea
                   rows={2}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Örn: Sabah 08:00 vardiyası başlangıcı..."
+                  placeholder={language === "tr" ? "Örn: Sabah 08:00 vardiyası başlangıcı..." : "e.g. Morning 08:00 shift handover..."}
                   className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition resize-none"
                 />
               </div>
@@ -570,7 +577,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                   onClick={() => setStep(1)}
                   className="px-5 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-sm font-bold hover:bg-slate-50 transition"
                 >
-                  ← Geri
+                  ← {t("modal.back_step")}
                 </button>
                 <button
                   type="submit"
@@ -578,7 +585,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                   className="flex-1 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition active:scale-95 text-sm"
                 >
                   {loading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                  <span>{loading ? "Vardiya Başlatılıyor..." : "Vardiyayı Onayla & Başlat"}</span>
+                  <span>{loading ? (language === "tr" ? "Vardiya Başlatılıyor..." : "Starting Shift...") : t("modal.start_shift_btn")}</span>
                 </button>
               </div>
             </>

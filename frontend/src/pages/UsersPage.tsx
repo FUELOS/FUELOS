@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { apiClient } from "@/lib/api";
 import { User, Station, UserRole } from "@/types";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { formatDateTime } from "@/lib/utils";
 import {
   Users,
@@ -21,6 +22,7 @@ import {
 
 export const UsersPage: React.FC = () => {
   const { user: currentUser } = useAuth();
+  const { t, language } = useLanguage();
   const [users, setUsers] = useState<User[]>([]);
   const [stations, setStations] = useState<Record<string, Station>>({});
   const [loading, setLoading] = useState<boolean>(true);
@@ -55,7 +57,7 @@ export const UsersPage: React.FC = () => {
         setStationId(stationsRes.data[0].id);
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Kullanıcılar yüklenemedi");
+      setError(err.response?.data?.detail || (language === "tr" ? "Kullanıcılar yüklenemedi" : "Failed to load users"));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -88,7 +90,7 @@ export const UsersPage: React.FC = () => {
       setRole("cashier");
       fetchData();
     } catch (err: any) {
-      setModalError(err.response?.data?.detail || "Personel eklenirken hata oluştu");
+      setModalError(err.response?.data?.detail || (language === "tr" ? "Personel eklenirken hata oluştu" : "Error adding user"));
     } finally {
       setModalLoading(false);
     }
@@ -107,14 +109,14 @@ export const UsersPage: React.FC = () => {
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
             <Building2 size={13} className="text-amber-700" />
-            <span>İstasyon Müdürü</span>
+            <span>{t("role.station_manager")}</span>
           </span>
         );
       case "cashier":
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
             <UserCircle2 size={13} className="text-blue-700" />
-            <span>Kasiyer</span>
+            <span>{t("role.cashier")}</span>
           </span>
         );
     }
@@ -126,18 +128,20 @@ export const UsersPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-            <span>Operasyon</span>
+            <span>{language === "tr" ? "Operasyon" : "Operation"}</span>
             <ChevronRight size={12} />
-            <span className="text-amber-500">Kullanıcı & Yetki</span>
+            <span className="text-amber-500">{language === "tr" ? "Kullanıcı & Yetki" : "Users & Access"}</span>
           </div>
           <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-zinc-900 flex items-center justify-center text-white shadow-md">
               <Users size={20} />
             </div>
-            <span>Personel ve Kullanıcı Yönetimi</span>
+            <span>{language === "tr" ? "Personel ve Kullanıcı Yönetimi" : "Staff & User Management"}</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            İstasyon personeli, kasiyerler ve yetkilendirilmiş yöneticiler listesi
+            {language === "tr"
+              ? "İstasyon personeli, kasiyerler ve yetkilendirilmiş yöneticiler listesi"
+              : "List of forecourt staff, cashiers, and station managers"}
           </p>
         </div>
 
@@ -146,7 +150,7 @@ export const UsersPage: React.FC = () => {
             onClick={fetchData}
             disabled={refreshing}
             className="p-2.5 rounded-2xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition shadow-sm"
-            title="Yenile"
+            title={language === "tr" ? "Yenile" : "Refresh"}
           >
             <RefreshCw size={16} className={refreshing ? "animate-spin text-amber-500" : ""} />
           </button>
@@ -157,7 +161,7 @@ export const UsersPage: React.FC = () => {
               className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 text-xs font-black flex items-center gap-2 shadow-md shadow-amber-500/25 transition active:scale-95"
             >
               <UserPlus size={16} />
-              <span>Yeni Personel Tanımla</span>
+              <span>{language === "tr" ? "Yeni Personel Tanımla" : "Add New Staff"}</span>
             </button>
           )}
         </div>
@@ -177,19 +181,19 @@ export const UsersPage: React.FC = () => {
         </div>
       ) : users.length === 0 ? (
         <div className="p-8 text-center bg-white dark:bg-slate-900/90 border border-slate-100 dark:border-slate-800 rounded-3xl text-slate-500 dark:text-slate-400 text-sm shadow-sm">
-          Kayıtlı personel bulunamadı.
+          {language === "tr" ? "Kayıtlı personel bulunamadı." : "No staff records found."}
         </div>
       ) : (
         <div className="overflow-x-auto bg-white dark:bg-slate-900/90 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-md dark:shadow-xl shadow-slate-200/60 dark:shadow-slate-950/50">
           <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
             <thead className="bg-[#f8fafc] dark:bg-slate-950/60 text-slate-400 uppercase text-[11px] font-bold border-b border-slate-100 dark:border-slate-800">
               <tr>
-                <th className="px-5 py-3.5">Ad Soyad</th>
-                <th className="px-5 py-3.5">E-posta</th>
-                <th className="px-5 py-3.5">Yetki Rolü</th>
-                <th className="px-5 py-3.5">Bağlı İstasyon</th>
-                <th className="px-5 py-3.5">Durum</th>
-                <th className="px-5 py-3.5">Kayıt Tarihi</th>
+                <th className="px-5 py-3.5">{language === "tr" ? "Ad Soyad" : "Full Name"}</th>
+                <th className="px-5 py-3.5">{language === "tr" ? "E-posta" : "Email"}</th>
+                <th className="px-5 py-3.5">{language === "tr" ? "Yetki Rolü" : "Role"}</th>
+                <th className="px-5 py-3.5">{language === "tr" ? "Bağlı İstasyon" : "Assigned Station"}</th>
+                <th className="px-5 py-3.5">{language === "tr" ? "Durum" : "Status"}</th>
+                <th className="px-5 py-3.5">{language === "tr" ? "Kayıt Tarihi" : "Registration Date"}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-normal">
@@ -212,18 +216,20 @@ export const UsersPage: React.FC = () => {
                         {stations[u.station_id].name} ({stations[u.station_id].code})
                       </span>
                     ) : (
-                      <span className="text-slate-400 text-xs italic">Merkez / Tüm Şubeler</span>
+                      <span className="text-slate-400 text-xs italic">
+                        {language === "tr" ? "Merkez / Tüm Şubeler" : "HQ / All Branches"}
+                      </span>
                     )}
                   </td>
                   <td className="px-5 py-3.5">
                     {u.is_active ? (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-500/20">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        Aktif
+                        {language === "tr" ? "Aktif" : "Active"}
                       </span>
                     ) : (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                        Pasif
+                        {language === "tr" ? "Pasif" : "Inactive"}
                       </span>
                     )}
                   </td>
@@ -247,7 +253,9 @@ export const UsersPage: React.FC = () => {
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 text-white flex items-center justify-center shadow-md">
                   <UserPlus size={16} />
                 </div>
-                <h3 className="font-bold text-lg text-white">Yeni Personel Tanımla</h3>
+                <h3 className="font-bold text-lg text-white">
+                  {language === "tr" ? "Yeni Personel Tanımla" : "Add New Staff"}
+                </h3>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -267,7 +275,7 @@ export const UsersPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Personel Adı Soyadı *
+                  {language === "tr" ? "Personel Adı Soyadı *" : "Full Name *"}
                 </label>
                 <div className="relative">
                   <UserIcon size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -284,7 +292,7 @@ export const UsersPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                  E-posta (Giriş İçin) *
+                  {language === "tr" ? "E-posta (Giriş İçin) *" : "Email (For Login) *"}
                 </label>
                 <div className="relative">
                   <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -301,7 +309,7 @@ export const UsersPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Geçici Şifre *
+                  {language === "tr" ? "Geçici Şifre *" : "Temporary Password *"}
                 </label>
                 <div className="relative">
                   <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -319,17 +327,17 @@ export const UsersPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Yetki Rolü *
+                    {language === "tr" ? "Yetki Rolü *" : "Role *"}
                   </label>
                   <select
                     value={role}
                     onChange={(e) => setRole(e.target.value as UserRole)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition"
                   >
-                    <option value="cashier">Kasiyer</option>
+                    <option value="cashier">{t("role.cashier")}</option>
                     {currentUser?.role === "super_admin" && (
                       <>
-                        <option value="station_manager">İstasyon Müdürü</option>
+                        <option value="station_manager">{t("role.station_manager")}</option>
                         <option value="super_admin">SuperAdmin</option>
                       </>
                     )}
@@ -339,7 +347,7 @@ export const UsersPage: React.FC = () => {
                 {role !== "super_admin" && (
                   <div>
                     <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Görevli İstasyon *
+                      {language === "tr" ? "Görevli İstasyon *" : "Assigned Station *"}
                     </label>
                     <select
                       value={stationId}
@@ -362,7 +370,7 @@ export const UsersPage: React.FC = () => {
                   onClick={() => setIsModalOpen(false)}
                   className="px-4 py-2.5 text-sm text-slate-400 hover:text-slate-200 rounded-xl hover:bg-slate-800 transition"
                 >
-                  Vazgeç
+                  {t("common.cancel")}
                 </button>
                 <button
                   type="submit"
@@ -370,7 +378,7 @@ export const UsersPage: React.FC = () => {
                   className="px-5 py-2.5 text-sm font-bold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl shadow-lg shadow-indigo-600/25 transition flex items-center gap-2 disabled:opacity-50"
                 >
                   {modalLoading && <Loader2 size={16} className="animate-spin" />}
-                  <span>Personeli Kaydet</span>
+                  <span>{language === "tr" ? "Personeli Kaydet" : "Save Staff"}</span>
                 </button>
               </div>
             </form>

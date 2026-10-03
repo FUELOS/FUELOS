@@ -92,9 +92,9 @@ export const SettingsPage: React.FC = () => {
             <Settings size={22} />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">{t("nav.settings")}</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">{t("settings.title")}</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              FuelOS operasyonel parametreler, kasa toleransı ve kullanıcı tercihleri
+              {t("settings.subtitle")}
             </p>
           </div>
         </div>
@@ -105,21 +105,21 @@ export const SettingsPage: React.FC = () => {
         <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
           <div className="flex items-center gap-2.5 font-black text-sm text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-3">
             <User size={17} className="text-blue-600" />
-            <span>Kullanıcı ve Oturum Bilgileri</span>
+            <span>{t("settings.user_info")}</span>
           </div>
           <div className="space-y-2.5 text-xs">
             <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/60">
-              <span className="text-slate-400 font-medium">Ad Soyad</span>
+              <span className="text-slate-400 font-medium">{t("settings.full_name")}</span>
               <span className="font-bold text-slate-800 dark:text-white">{user?.full_name}</span>
             </div>
             <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/60">
-              <span className="text-slate-400 font-medium">E-posta</span>
+              <span className="text-slate-400 font-medium">{t("settings.email")}</span>
               <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{user?.email}</span>
             </div>
             <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/60">
-              <span className="text-slate-400 font-medium">Yetki Rolü</span>
+              <span className="text-slate-400 font-medium">{t("settings.role")}</span>
               <span className="font-extrabold text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800/40 uppercase">
-                {user?.role === "super_admin" ? "Süper Yönetici" : user?.role === "station_manager" ? "İstasyon Müdürü" : "Kasiyer"}
+                {user?.role === "super_admin" ? t("role.super_admin") : user?.role === "station_manager" ? t("role.station_manager") : t("role.cashier")}
               </span>
             </div>
           </div>
@@ -129,13 +129,13 @@ export const SettingsPage: React.FC = () => {
         <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
           <div className="flex items-center gap-2.5 font-black text-sm text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-3">
             <Globe size={17} className="text-blue-600" />
-            <span>Görünüm ve Sistem Dili</span>
+            <span>{t("settings.appearance")}</span>
           </div>
           <div className="space-y-3.5 text-xs">
             <div className="flex items-center justify-between">
               <div>
-                <div className="font-bold text-slate-800 dark:text-white">Arayüz Dili</div>
-                <div className="text-[11px] text-slate-400">Türkçe veya İngilizce dil seçimi</div>
+                <div className="font-bold text-slate-800 dark:text-white">{t("settings.lang_label")}</div>
+                <div className="text-[11px] text-slate-400">{t("settings.lang_sub")}</div>
               </div>
               <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl">
                 <button
@@ -163,15 +163,15 @@ export const SettingsPage: React.FC = () => {
 
             <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
               <div>
-                <div className="font-bold text-slate-800 dark:text-white">Tema Modu</div>
-                <div className="text-[11px] text-slate-400">Koyu veya aydınlık görünüm</div>
+                <div className="font-bold text-slate-800 dark:text-white">{t("settings.theme_label")}</div>
+                <div className="text-[11px] text-slate-400">{t("settings.theme_sub")}</div>
               </div>
               <button
                 onClick={toggleTheme}
                 className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white font-bold transition hover:bg-slate-200 dark:hover:bg-slate-700"
               >
                 {theme === "dark" ? <Sun size={14} className="text-amber-400" /> : <Moon size={14} className="text-blue-600" />}
-                <span>{theme === "dark" ? "Koyu Mod" : "Açık Mod"}</span>
+                <span>{theme === "dark" ? t("settings.dark_mode") : t("settings.light_mode")}</span>
               </button>
             </div>
           </div>
@@ -186,10 +186,10 @@ export const SettingsPage: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white">
-                  Kasa Mutabakat Tolerans Limiti (DEC-001 / K-001)
+                  {t("settings.tolerance_title")}
                 </h3>
                 <p className="text-[11px] text-slate-400">
-                  Vardiya kapanışında kabul edilebilir kuruş / bozuk para yuvarlama payı
+                  {t("settings.tolerance_sub")}
                 </p>
               </div>
             </div>
@@ -197,7 +197,7 @@ export const SettingsPage: React.FC = () => {
             {toleranceSuccess && (
               <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1 rounded-xl border border-emerald-200 dark:border-emerald-800/40 animate-in fade-in">
                 <CheckCircle2 size={14} />
-                <span>Kaydedildi</span>
+                <span>{t("settings.tolerance_saved")}</span>
               </span>
             )}
           </div>
@@ -214,14 +214,14 @@ export const SettingsPage: React.FC = () => {
             <div className="lg:col-span-7 space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                  Hızlı Tolerans Seçimi
+                  {t("settings.quick_select")}
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
-                    { val: "0.00", label: "0 ₺", sub: "Sıfır Tolerans" },
-                    { val: "1.00", label: "1.00 ₺", sub: "Varsayılan" },
-                    { val: "5.00", label: "5.00 ₺", sub: "Orta Esneklik" },
-                    { val: "10.00", label: "10.00 ₺", sub: "Genişletilmiş" },
+                    { val: "0.00", label: "0 ₺", sub: t("settings.zero_tol") },
+                    { val: "1.00", label: "1.00 ₺", sub: t("settings.default_tol") },
+                    { val: "5.00", label: "5.00 ₺", sub: t("settings.mid_tol") },
+                    { val: "10.00", label: "10.00 ₺", sub: t("settings.high_tol") },
                   ].map(({ val, label, sub }) => (
                     <button
                       key={val}
@@ -247,7 +247,7 @@ export const SettingsPage: React.FC = () => {
               {/* Özel Tutar Girişi */}
               <div className="pt-1">
                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-                  Özel Tolerans Tutarı (₺)
+                  {t("settings.custom_tol")}
                 </label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
@@ -273,13 +273,13 @@ export const SettingsPage: React.FC = () => {
                       className="px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/30 transition active:scale-95"
                     >
                       {savingTolerance ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                      <span>Kaydet</span>
+                      <span>{t("settings.save")}</span>
                     </button>
                   )}
                 </div>
                 {!isManagerOrAdmin && (
                   <p className="text-[11px] text-amber-500 mt-1">
-                    * Tolerans limiti sadece Şirket Yöneticisi ve İstasyon Müdürü tarafından güncellenebilir.
+                    {t("settings.manager_only")}
                   </p>
                 )}
               </div>
@@ -289,16 +289,16 @@ export const SettingsPage: React.FC = () => {
             <div className="lg:col-span-5 p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 space-y-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
               <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
                 <HelpCircle size={14} className="text-blue-500 shrink-0" />
-                <span>Nasıl Çalışır?</span>
+                <span>{t("settings.how_it_works")}</span>
               </div>
               <p>
-                Akaryakıt istasyonlarında bozuk para (kuruş) bulunamaması nedeniyle gerçekleşen küçük yuvarlama farkları kasayı yapay olarak <strong>"Açık"</strong> veya <strong>"Fazla"</strong> göstermemelidir.
+                {t("settings.how_it_works_desc")}
               </p>
               <div className="p-2.5 rounded-xl bg-white dark:bg-[#0b1329] border border-slate-200/60 dark:border-slate-700/40 font-mono text-[11px] text-slate-700 dark:text-slate-300">
-                | Kasa Farkı | ≤ {parseFloat(tolerance || "0").toFixed(2)} ₺ &nbsp;➔&nbsp; <span className="text-emerald-600 font-bold">Eşleşti (Matched)</span>
+                | {language === "tr" ? "Kasa Farkı" : "Cash Variance"} | ≤ {parseFloat(tolerance || "0").toFixed(2)} ₺ &nbsp;➔&nbsp; <span className="text-emerald-600 font-bold">{language === "tr" ? "Eşleşti (Matched)" : "Matched"}</span>
               </div>
               <p className="text-[11px]">
-                Fark bu limiti aştığında vardiya otomatikman <strong>Kasa Açığı (Shortage)</strong> veya <strong>Kasa Fazlası (Surplus)</strong> statüsüne geçer.
+                {t("settings.matched_desc")}
               </p>
             </div>
           </div>

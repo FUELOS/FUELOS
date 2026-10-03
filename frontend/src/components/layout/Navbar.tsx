@@ -7,16 +7,16 @@ import { LogOut, UserCircle2, ShieldCheck, Building2, Sun, Moon } from "lucide-r
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
 
   const getRoleBadge = (role?: string) => {
     switch (role) {
       case "super_admin":
-        return <span className="bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1"><ShieldCheck size={12} /> SuperAdmin</span>;
+        return <span className="bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1"><ShieldCheck size={12} /> {t("role.super_admin")}</span>;
       case "station_manager":
-        return <span className="bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1"><Building2 size={12} /> İstasyon Müdürü</span>;
+        return <span className="bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1"><Building2 size={12} /> {t("role.station_manager")}</span>;
       case "cashier":
-        return <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1"><UserCircle2 size={12} /> Kasiyer</span>;
+        return <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1"><UserCircle2 size={12} /> {t("role.cashier")}</span>;
       default:
         return null;
     }
@@ -89,7 +89,7 @@ export const Navbar: React.FC = () => {
             <button
               onClick={logout}
               className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-white dark:hover:bg-slate-900 transition shadow-sm border border-slate-200/60 dark:border-slate-800"
-              title="Çıkış Yap"
+              title={t("common.logout")}
             >
               <LogOut size={16} />
             </button>
