@@ -336,7 +336,7 @@ export const Dashboard: React.FC = () => {
                       className="flex items-center justify-center gap-1 py-2 px-1 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 text-[10px] font-black hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition active:scale-95"
                     >
                       <PlusCircle size={11} />
-                      <span>Dolum / Fiş</span>
+                      <span>{language === "tr" ? "Dolum / Fiş" : "Fill / Slip"}</span>
                     </button>
                     <button
                       onClick={() => {
@@ -350,7 +350,7 @@ export const Dashboard: React.FC = () => {
                       className="flex items-center justify-center gap-1 py-2 px-1 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-[10px] font-black hover:bg-blue-100 dark:hover:bg-blue-900/40 transition active:scale-95"
                     >
                       <CreditCard size={11} />
-                      <span>Sanal POS</span>
+                      <span>{language === "tr" ? "Sanal POS" : "Virtual POS"}</span>
                     </button>
                     <button
                       onClick={() => {
@@ -666,7 +666,7 @@ export const Dashboard: React.FC = () => {
                     ))}
                     {/* Toplam Satırı */}
                     <tr className="border-t-2 border-slate-200 dark:border-slate-700 font-black text-slate-900 dark:text-white">
-                      <td className="py-3 pr-4 uppercase">TOPLAM</td>
+                      <td className="py-3 pr-4 uppercase">{language === "tr" ? "TOPLAM" : "TOTAL"}</td>
                       <td className="py-3 px-3 text-right font-mono">
                         {formatNumber(data?.total_dispensed_liters, 2)} L
                       </td>

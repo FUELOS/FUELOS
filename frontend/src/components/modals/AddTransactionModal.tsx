@@ -8,6 +8,7 @@
 
 import React, { useState, useEffect } from "react";
 import { apiClient } from "@/lib/api";
+import { useLanguage } from "@/context/LanguageContext";
 import { PaymentMethod } from "@/types";
 import {
   X,
@@ -53,6 +54,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { t, language } = useLanguage();
   const [selectedShiftId, setSelectedShiftId] = useState<string>("");
   const [selectedPumpLabel, setSelectedPumpLabel] = useState<string>("Pompa 1");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
@@ -106,25 +108,25 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedShiftId) {
-      setError("İşlem eklemek için açık bir personel vardiyası seçilmelidir");
+      setError(language === "tr" ? "İşlem eklemek için açık bir personel vardiyası seçilmelidir" : "An active staff shift must be selected");
       return;
     }
 
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      setError("Lütfen geçerli ve pozitif bir satış tutarı girin");
+      setError(language === "tr" ? "Lütfen geçerli ve pozitif bir satış tutarı girin" : "Please enter a valid positive sale amount");
       return;
     }
 
     const parsedLiters = parseFloat(liters);
     if (isNaN(parsedLiters) || parsedLiters <= 0) {
-      setError("Verilen yakıt litresi zorunludur ve pozitif olmalıdır");
+      setError(language === "tr" ? "Verilen yakıt litresi zorunludur ve pozitif olmalıdır" : "Dispensed liters must be a positive number");
       return;
     }
 
     const descParts = [];
     if (selectedPumpLabel) descParts.push(selectedPumpLabel);
-    if (plateNumber.trim()) descParts.push(`Plaka: ${plateNumber.trim().toUpperCase()}`);
+    if (plateNumber.trim()) descParts.push(`${language === "tr" ? "Plaka" : "Plate"}: ${plateNumber.trim().toUpperCase()}`);
 
     const payload = {
       shift_id: selectedShiftId,
@@ -143,7 +145,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       onSuccess();
       onClose();
     } catch (err: any) {
-      const msg = err.response?.data?.detail || "Satış kaydı eklenirken bir hata oluştu";
+      const msg = err.response?.data?.detail || (language === "tr" ? "Satış kaydı eklenirken bir hata oluştu" : "Failed to record sale");
       setError(msg);
     } finally {
       setLoading(false);
@@ -160,9 +162,9 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               <Fuel size={20} />
             </div>
             <div>
-              <h3 className="font-black text-lg text-slate-900 dark:text-white">Pompa Satış & Fiş Girişi</h3>
+              <h3 className="font-black text-lg text-slate-900 dark:text-white">{t("modal.add_sale_title")}</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Kart okutma & yazar kasa otomasyon dolumu
+                {t("modal.add_sale_sub")}
               </p>
             </div>
           </div>
@@ -187,14 +189,14 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <User size={13} className="text-blue-500" />
-                Kartını Okutan Personel (Aktif Vardiya) *
+                {t("modal.select_staff_rfid")} *
               </span>
-              <span className="text-[10px] text-slate-400 font-normal">Tek tıkla seçin</span>
+              <span className="text-[10px] text-slate-400 font-normal">{language === "tr" ? "Tek tıkla seçin" : "One-click select"}</span>
             </label>
 
             {activeShifts.length === 0 ? (
               <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-2xl text-amber-700 dark:text-amber-300 text-xs">
-                Şu anda açık bir personel vardiyası bulunmuyor. Satış girmeden önce lütfen vardiya başlatın.
+                {language === "tr" ? "Şu anda açık bir personel vardiyası bulunmuyor. Satış girmeden önce lütfen vardiya başlatın." : "No open shifts found. Please open a shift before recording sales."}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
@@ -218,7 +220,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                       <div className="min-w-0">
                         <div className="text-xs font-black truncate">{displayName}</div>
                         <div className="text-[10px] text-slate-400 truncate">
-                          {s.pump_label || "Gezici Personel"}
+                          {s.pump_label || (language === "tr" ? "Gezici Personel" : "Roaming Attendant")}
                         </div>
                       </div>
                     </button>
@@ -232,7 +234,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           <div>
             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
               <Cpu size={13} className="text-emerald-500" />
-              Dolum Yapılan Pompa Ünitesi
+              {t("modal.select_pump")}
             </label>
             <div className="grid grid-cols-4 gap-2">
               {["Pompa 1", "Pompa 2", "Pompa 3", "Pompa 4"].map((pLabel) => (
@@ -255,7 +257,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           {/* ── 3. YAKIT TÜRÜ ── */}
           <div>
             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-              Yakıt Ürün Türü
+              {t("modal.fuel_type")}
             </label>
             <div className="grid grid-cols-3 gap-2">
               {FUEL_TYPES.map((f) => (
@@ -286,7 +288,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                Satış Tutarı (₺) *
+                {t("modal.fuel_amount")} *
               </label>
               <div className="relative">
                 <input
@@ -305,7 +307,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 
             <div>
               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                Litre Miktarı *
+                {t("modal.fuel_liters")} *
               </label>
               <div className="relative">
                 <input
@@ -326,17 +328,17 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           {/* ── 5. ÖDEME YÖNTEMİ (Varsayılan Nakit - Kart Çekilmediyse Nakit) ── */}
           <div>
             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-              <span>Ödeme Tahsilat Kanalı *</span>
+              <span>{t("modal.payment_channel")} *</span>
               <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                Kart çekilmediyse otomatik nakit sayılır
+                {language === "tr" ? "Kart çekilmediyse otomatik nakit sayılır" : "Default cash if card not tapped"}
               </span>
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
-                { id: "cash", label: "Nakit (Fiş)", sub: "Elden alındı", icon: Wallet, color: "emerald" },
-                { id: "credit_card", label: "Pompa POS", sub: "Banka kartı", icon: CreditCard, color: "blue" },
-                { id: "eft", label: "QR / FAST", sub: "Anlık transfer", icon: ArrowRightLeft, color: "purple" },
-                { id: "veresiye", label: "Veresiye", sub: "Cari hesap", icon: Receipt, color: "amber" },
+                { id: "cash", label: t("modal.payment_cash"), sub: language === "tr" ? "Elden alındı" : "Direct cash", icon: Wallet, color: "emerald" },
+                { id: "credit_card", label: t("modal.payment_pos"), sub: language === "tr" ? "Banka kartı" : "Bank card", icon: CreditCard, color: "blue" },
+                { id: "eft", label: t("modal.payment_fast"), sub: language === "tr" ? "Anlık transfer" : "Instant wire", icon: ArrowRightLeft, color: "purple" },
+                { id: "veresiye", label: language === "tr" ? "Veresiye" : "Credit", sub: language === "tr" ? "Cari hesap" : "Account balance", icon: Receipt, color: "amber" },
               ].map((pm) => {
                 const Icon = pm.icon;
                 const isSelected = paymentMethod === pm.id;
@@ -363,7 +365,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           {/* Plaka (Opsiyonel) */}
           <div>
             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-              Araç Plakası (Opsiyonel)
+              {t("modal.plate_number")}
             </label>
             <input
               type="text"
@@ -381,7 +383,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               onClick={onClose}
               className="px-4 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition"
             >
-              Vazgeç
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
@@ -389,7 +391,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black text-sm flex items-center gap-2 shadow-lg shadow-emerald-600/30 transition active:scale-95"
             >
               {loading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-              <span>İşlemi Sisteme Kaydet</span>
+              <span>{t("modal.save_sale")}</span>
             </button>
           </div>
         </form>

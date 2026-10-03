@@ -8,6 +8,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { apiClient } from "@/lib/api";
 import { Station } from "@/types";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import {
   Building2,
@@ -118,6 +119,8 @@ const fuelBadgeColor = (ft: string) => {
 
 export const StationsPage: React.FC = () => {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
+  const tr = language === "tr";
   const isAdmin = user?.role === "super_admin";
 
   const [stations, setStations] = useState<Station[]>([]);
@@ -186,11 +189,11 @@ export const StationsPage: React.FC = () => {
       setDetailData(detailRes.data);
       setPumps(pumpsRes.data);
     } catch (err: any) {
-      setError(err.response?.data?.detail || "İstasyon detayı alınamadı");
+      setError(err.response?.data?.detail || (tr ? "İstasyon detayı alınamadı" : "Failed to load station detail"));
     } finally {
       setLoadingDetail(false);
     }
-  }, []);
+  }, [tr]);
 
   useEffect(() => {
     if (selectedStation) fetchDetail(selectedStation.id);
@@ -255,7 +258,7 @@ export const StationsPage: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-slate-400">
         <Loader2 size={36} className="animate-spin text-blue-600" />
-        <span className="text-sm font-semibold">İstasyon bilgileri yükleniyor...</span>
+        <span className="text-sm font-semibold">{tr ? "İstasyon bilgileri yükleniyor..." : "Loading stations data..."}</span>
       </div>
     );
   }
@@ -271,7 +274,7 @@ export const StationsPage: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                {selectedStation ? selectedStation.name : "İstasyon Yönetimi"}
+                {selectedStation ? selectedStation.name : t("st.title")}
               </h1>
               {selectedStation && (
                 <span className="text-xs font-mono font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-2.5 py-0.5 rounded-lg border border-amber-200 dark:border-amber-500/20">
@@ -288,7 +291,7 @@ export const StationsPage: React.FC = () => {
                   </span>
                 </>
               ) : (
-                "İstasyon seçin veya yeni istasyon ekleyin"
+                t("st.subtitle")
               )}
             </p>
           </div>
@@ -301,7 +304,7 @@ export const StationsPage: React.FC = () => {
               onClick={() => fetchDetail(selectedStation.id)}
               disabled={refreshing || loadingDetail}
               className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-blue-600 hover:bg-slate-100 transition shadow-sm"
-              title="Yenile"
+              title={t("header.refresh")}
             >
               <RefreshCw size={16} className={loadingDetail ? "animate-spin text-blue-600" : ""} />
             </button>
@@ -311,13 +314,13 @@ export const StationsPage: React.FC = () => {
             <button
               onClick={() => {
                 setPumpNumber(pumps.length + 1);
-                setPumpLabel(`Pompa ${pumps.length + 1}`);
+                setPumpLabel(tr ? `Pompa ${pumps.length + 1}` : `Pump ${pumps.length + 1}`);
                 setIsPumpModalOpen(true);
               }}
               className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black flex items-center gap-2 shadow-md shadow-blue-600/30 transition active:scale-95"
             >
               <Cpu size={15} />
-              <span>Pompa Ekle</span>
+              <span>{t("st.add_pump")}</span>
             </button>
           )}
 
@@ -327,7 +330,7 @@ export const StationsPage: React.FC = () => {
               className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black flex items-center gap-2 shadow-md shadow-amber-500/30 transition active:scale-95"
             >
               <Plus size={15} />
-              <span>Yeni İstasyon</span>
+              <span>{t("st.new_station")}</span>
             </button>
           )}
         </div>
@@ -386,7 +389,7 @@ export const StationsPage: React.FC = () => {
               <div className="bg-purple-50/80 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-800/40 rounded-3xl p-5 shadow-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wider">
-                    Toplam Satış Tutarı
+                    {t("st.card_revenue")}
                   </span>
                   <div className="w-9 h-9 rounded-xl bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-600">
                     <TrendingUp size={18} />
@@ -396,7 +399,7 @@ export const StationsPage: React.FC = () => {
                   {formatCurrency(detailData.grand_total_revenue)}
                 </div>
                 <div className="text-[11px] text-purple-500/80 dark:text-purple-400/80 font-medium mt-1">
-                  Bugünkü açık vardiya cirosu
+                  {t("st.card_revenue_sub")}
                 </div>
               </div>
 
@@ -404,7 +407,7 @@ export const StationsPage: React.FC = () => {
               <div className="bg-emerald-50/80 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-800/40 rounded-3xl p-5 shadow-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
-                    Toplam Verilen Litre
+                    {t("st.card_liters")}
                   </span>
                   <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600">
                     <Droplet size={18} />
@@ -414,7 +417,7 @@ export const StationsPage: React.FC = () => {
                   {formatNumber(detailData.grand_total_liters, 2)} L
                 </div>
                 <div className="text-[11px] text-emerald-500/80 dark:text-emerald-400/80 font-medium mt-1">
-                  Pompalanan toplam yakıt
+                  {t("st.card_liters_sub")}
                 </div>
               </div>
 
@@ -422,17 +425,17 @@ export const StationsPage: React.FC = () => {
               <div className="bg-blue-50/80 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-800/40 rounded-3xl p-5 shadow-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">
-                    Hizmet Verilen Araç
+                    {t("st.card_vehicles")}
                   </span>
                   <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600">
                     <Car size={18} />
                   </div>
                 </div>
                 <div className="text-2xl sm:text-3xl font-black text-blue-700 dark:text-blue-300 mt-2">
-                  {detailData.grand_total_vehicles} Araç
+                  {detailData.grand_total_vehicles} {t("st.vehicles_count")}
                 </div>
                 <div className="text-[11px] text-blue-500/80 dark:text-blue-400/80 font-medium mt-1">
-                  İstasyona giriş yapan araç sayısı
+                  {t("st.card_vehicles_sub")}
                 </div>
               </div>
             </div>
@@ -448,8 +451,8 @@ export const StationsPage: React.FC = () => {
                     <Cpu size={16} />
                   </div>
                   <div>
-                    <h3 className="font-black text-base text-slate-900 dark:text-white">İstasyon Pompaları</h3>
-                    <p className="text-[11px] text-slate-400">{pumps.length} Pompa Tanımlı</p>
+                    <h3 className="font-black text-base text-slate-900 dark:text-white">{t("st.pumps_title")}</h3>
+                    <p className="text-[11px] text-slate-400">{pumps.length} {t("st.pumps_defined")}</p>
                   </div>
                 </div>
                 <button
@@ -461,19 +464,19 @@ export const StationsPage: React.FC = () => {
                   className="px-2.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 text-blue-600 dark:text-blue-400 text-xs font-bold transition flex items-center gap-1"
                 >
                   <Plus size={13} />
-                  <span>Ekle</span>
+                  <span>{t("st.add_pump")}</span>
                 </button>
               </div>
 
               {pumps.length === 0 ? (
                 <div className="p-8 text-center text-slate-400 text-xs space-y-2">
                   <Fuel size={28} className="mx-auto text-slate-300 dark:text-slate-700" />
-                  <div>Henüz tanımlı pompa bulunmuyor.</div>
+                  <div>{t("st.empty_pumps")}</div>
                   <button
                     onClick={() => setIsPumpModalOpen(true)}
                     className="text-blue-600 font-bold underline"
                   >
-                    İlk pompayı ekleyin
+                    {t("st.empty_pumps_btn")}
                   </button>
                 </div>
               ) : (
@@ -505,11 +508,11 @@ export const StationsPage: React.FC = () => {
                           {assignedWorker ? (
                             <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-100/70 dark:bg-emerald-900/40 px-2 py-0.5 rounded-full">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                              Aktif
+                              {t("st.active")}
                             </span>
                           ) : (
                             <span className="text-[10px] font-medium text-slate-400 bg-slate-200/60 dark:bg-slate-700/60 px-2 py-0.5 rounded-full">
-                              Boşta
+                              {t("st.idle")}
                             </span>
                           )}
                         </div>
@@ -530,14 +533,14 @@ export const StationsPage: React.FC = () => {
 
                         {/* Atanan Personel */}
                         <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/40 flex items-center justify-between text-[11px]">
-                          <span className="text-slate-400 font-medium">Görevli:</span>
+                          <span className="text-slate-400 font-medium">{t("st.duty")}:</span>
                           {assignedWorker ? (
                             <span className="font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-1">
                               <span>👤</span>
                               <span>{assignedWorker.worker_name}</span>
                             </span>
                           ) : (
-                            <span className="text-slate-400 italic">Vardiya Yok</span>
+                            <span className="text-slate-400 italic">{t("st.no_duty")}</span>
                           )}
                         </div>
                       </div>
@@ -555,15 +558,15 @@ export const StationsPage: React.FC = () => {
                     <Users size={16} />
                   </div>
                   <div>
-                    <h3 className="font-black text-base text-slate-900 dark:text-white">İşçi & Vardiya Satışları</h3>
+                    <h3 className="font-black text-base text-slate-900 dark:text-white">{t("st.workers_title")}</h3>
                     <p className="text-[11px] text-slate-400">
-                      {detailData?.workers.length || 0} Aktif Çalışan Personel
+                      {detailData?.workers.length || 0} {t("st.active_workers")}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1 rounded-xl border border-emerald-200 dark:border-emerald-800/40">
                   <CheckCircle size={13} />
-                  <span>Canlı Akış</span>
+                  <span>{t("st.live_stream")}</span>
                 </div>
               </div>
 
@@ -571,10 +574,10 @@ export const StationsPage: React.FC = () => {
                 <div className="p-12 text-center text-slate-400 text-xs space-y-3">
                   <AlertTriangle size={32} className="mx-auto text-slate-300 dark:text-slate-700" />
                   <div className="font-bold text-sm text-slate-600 dark:text-slate-400">
-                    Bu istasyonda şu anda açık bir vardiya bulunmuyor.
+                    {t("st.no_shifts")}
                   </div>
                   <p className="text-slate-400 max-w-sm mx-auto">
-                    Yeni bir işçi ve pompa vardiyası başlatmak için sol menüden Vardiya sekmesine gidin.
+                    {t("st.no_shifts_sub")}
                   </p>
                 </div>
               ) : (
@@ -594,12 +597,12 @@ export const StationsPage: React.FC = () => {
                             </div>
                             <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
                               <span className="font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800/40">
-                                {worker.pump_label || "Genel Vardiya"}
+                                {worker.pump_label || t("st.general_shift")}
                               </span>
                               <span>·</span>
                               <span className="flex items-center gap-1 font-bold text-slate-600 dark:text-slate-300">
                                 <Car size={12} className="text-blue-500" />
-                                {worker.total_vehicles} Araç
+                                {worker.total_vehicles} {t("st.vehicles_count")}
                               </span>
                             </div>
                           </div>
@@ -622,10 +625,10 @@ export const StationsPage: React.FC = () => {
                           <table className="w-full text-xs">
                             <thead>
                               <tr className="text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800/80">
-                                <th className="text-left py-2 px-3">Yakıt Türü</th>
-                                <th className="text-right py-2 px-3">Verilen Litre</th>
-                                <th className="text-right py-2 px-3">Satış Tutarı</th>
-                                <th className="text-right py-2 px-3">Araç Sayısı</th>
+                                <th className="text-left py-2 px-3">{t("st.col_fuel_type")}</th>
+                                <th className="text-right py-2 px-3">{t("st.col_liters")}</th>
+                                <th className="text-right py-2 px-3">{t("st.col_revenue")}</th>
+                                <th className="text-right py-2 px-3">{t("st.col_vehicles")}</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -659,7 +662,7 @@ export const StationsPage: React.FC = () => {
                         </div>
                       ) : (
                         <div className="p-3 text-center text-slate-400 text-xs bg-white dark:bg-slate-900/40 rounded-xl">
-                          Henüz bu vardiyada satış kaydı bulunmuyor.
+                          {t("st.no_sales_yet")}
                         </div>
                       )}
                     </div>
@@ -680,7 +683,7 @@ export const StationsPage: React.FC = () => {
                 <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center">
                   <Building2 size={16} />
                 </div>
-                <h3 className="font-black text-lg text-slate-900 dark:text-white">Yeni İstasyon</h3>
+                <h3 className="font-black text-lg text-slate-900 dark:text-white">{t("st.new_station")}</h3>
               </div>
               <button
                 onClick={() => setIsStationModalOpen(false)}
@@ -698,7 +701,7 @@ export const StationsPage: React.FC = () => {
               )}
               <div>
                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-                  İstasyon Adı *
+                  {t("st.station_name")}
                 </label>
                 <input
                   type="text"
@@ -711,7 +714,7 @@ export const StationsPage: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-                  İstasyon Kodu *
+                  {t("st.station_code")}
                 </label>
                 <input
                   type="text"
@@ -725,7 +728,7 @@ export const StationsPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-                    Şehir *
+                    {t("st.city")}
                   </label>
                   <input
                     type="text"
@@ -738,7 +741,7 @@ export const StationsPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-                    İlçe
+                    {t("st.district")}
                   </label>
                   <input
                     type="text"
@@ -755,7 +758,7 @@ export const StationsPage: React.FC = () => {
                   onClick={() => setIsStationModalOpen(false)}
                   className="flex-1 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-500 text-sm font-bold"
                 >
-                  Vazgeç
+                  {t("common.cancel")}
                 </button>
                 <button
                   type="submit"
@@ -763,7 +766,7 @@ export const StationsPage: React.FC = () => {
                   className="flex-1 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-md transition"
                 >
                   {stModalLoading ? <Loader2 size={14} className="animate-spin" /> : null}
-                  Kaydet
+                  {t("common.save")}
                 </button>
               </div>
             </form>
@@ -780,7 +783,7 @@ export const StationsPage: React.FC = () => {
                 <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center">
                   <Cpu size={16} />
                 </div>
-                <h3 className="font-black text-lg text-slate-900 dark:text-white">Pompa Ekle</h3>
+                <h3 className="font-black text-lg text-slate-900 dark:text-white">{t("st.add_pump_modal_title")}</h3>
               </div>
               <button
                 onClick={() => setIsPumpModalOpen(false)}
@@ -798,7 +801,7 @@ export const StationsPage: React.FC = () => {
               )}
               <div>
                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-                  Pompa Numarası
+                  {t("st.pump_number")}
                 </label>
                 <input
                   type="number"
@@ -811,7 +814,7 @@ export const StationsPage: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-                  Pompa Etiketi *
+                  {t("st.pump_label")}
                 </label>
                 <input
                   type="text"
@@ -824,7 +827,7 @@ export const StationsPage: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-                  Desteklenen Yakıt Türleri (virgülle ayırın)
+                  {t("st.supported_fuels")}
                 </label>
                 <input
                   type="text"
@@ -840,7 +843,7 @@ export const StationsPage: React.FC = () => {
                   onClick={() => setIsPumpModalOpen(false)}
                   className="flex-1 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-500 text-sm font-bold"
                 >
-                  Vazgeç
+                  {t("common.cancel")}
                 </button>
                 <button
                   type="submit"
@@ -848,7 +851,7 @@ export const StationsPage: React.FC = () => {
                   className="flex-1 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm flex items-center justify-center gap-2 shadow-md transition"
                 >
                   {pumpModalLoading ? <Loader2 size={14} className="animate-spin" /> : null}
-                  Ekle
+                  {t("st.add_pump")}
                 </button>
               </div>
             </form>

@@ -5,13 +5,13 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
 
 export const Sidebar: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { user } = useAuth();
   const isAdmin = user?.role === "super_admin";
 
   // SuperAdmin: sistem yönetimi odaklı menü
   const adminNavItems = [
-    { to: "/", label: "Sistem Paneli", icon: LayoutDashboard },
+    { to: "/", label: t("nav.system_panel"), icon: LayoutDashboard },
     { to: "/shifts", label: t("nav.shift"), icon: Clock },
     { to: "/stations", label: t("nav.station"), icon: Building2 },
     { to: "/transactions", label: t("nav.transactions"), icon: Receipt },
@@ -44,7 +44,9 @@ export const Sidebar: React.FC = () => {
               <span>Fuel</span>
               <span className="text-blue-500">OS</span>
             </div>
-            <div className="text-[11px] text-slate-400 font-medium tracking-tight">Akıllı Mutabakat</div>
+            <div className="text-[11px] text-slate-400 font-medium tracking-tight">
+              {language === "tr" ? "Akıllı Mutabakat" : "Smart Reconciliation"}
+            </div>
           </div>
         </div>
 
