@@ -1,17 +1,18 @@
-"""
-FuelOS — Zero-Knowledge Akıllı Mutabakat ve Bağımsız Doğrulama Testleri.
-Compact reconciliation.compact ile tam matematiksel ve semantik uyumu doğrular.
-"""
+"""Unit tests for the backend-to-Midnight proof bridge."""
 
+import base64
+import hashlib
+import os
 import unittest
+import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-import uuid
 
 from app.services.zk_service import (
-    ZKReconciliationEngine,
-    compute_shift_commitment,
-    generate_proof_hash,
+    classify,
+    compute_shift_context_digest,
+    proof_integrity_matches,
+    generate_reconciliation_proof,
     to_kurus_int,
 )
 
@@ -19,100 +20,61 @@ from app.services.zk_service import (
 class TestZKReconciliation(unittest.TestCase):
     def test_to_kurus_int(self):
         self.assertEqual(to_kurus_int(Decimal("1000.00")), 100000)
-        self.assertEqual(to_kurus_int(Decimal("0.01")), 1)
-        self.assertEqual(to_kurus_int(Decimal("0.00")), 0)
-        self.assertEqual(to_kurus_int(None), 0)
         self.assertEqual(to_kurus_int("75.43"), 7543)
+        self.assertEqual(to_kurus_int(None), 0)
+        with self.assertRaises(ValueError):
+            to_kurus_int("-0.01")
 
     def test_compact_parity_vectors(self):
-        # Vektör A: Dengeli (1000 TL Satış, 400 POS + 300 Nakit + 200 EFT + 100 Veresiye = 1000 TL)
-        res_a = ZKReconciliationEngine.classify(
-            sales_kurus=100000,
-            pos_kurus=40000,
-            cash_kurus=30000,
-            eft_kurus=20000,
-            credit_kurus=10000,
-            tolerance_kurus=100,
-        )
-        self.assertEqual(res_a, "matched")
+        vectors = [
+            ((100000, 40000, 30000, 20000, 10000, 100), "matched"),
+            ((250000, 25000, 100000, 75000, 25000, 100), "shortage"),
+            ((100000, 39900, 30000, 20000, 10000, 100), "matched"),
+            ((100000, 39900, 30000, 20000, 9999, 100), "shortage"),
+            ((100000, 40000, 40000, 20000, 10000, 100), "surplus"),
+        ]
+        for arguments, expected in vectors:
+            with self.subTest(expected=expected):
+                self.assertEqual(classify(*arguments), expected)
 
-        # Vektör B: Kasa Açığı (2500 TL Satış, Toplam 2250 TL, 250 TL açık)
-        res_b = ZKReconciliationEngine.classify(
-            sales_kurus=250000,
-            pos_kurus=25000,
-            cash_kurus=100000,
-            eft_kurus=75000,
-            credit_kurus=25000,
-            tolerance_kurus=100,
-        )
-        self.assertEqual(res_b, "shortage")
-
-        # Vektör C: Sınır Dahil Tolerans (+1.00 TL fark, 1.00 TL tolerans) -> MATCHED
-        res_c = ZKReconciliationEngine.classify(
-            sales_kurus=100000,
-            pos_kurus=39900,
-            cash_kurus=30000,
-            eft_kurus=20000,
-            credit_kurus=10000,
-            tolerance_kurus=100,
-        )
-        self.assertEqual(res_c, "matched")
-
-        # Vektör D: Sınır Dışı (+1.01 TL fark, 1.00 TL tolerans) -> SHORTAGE
-        res_d = ZKReconciliationEngine.classify(
-            sales_kurus=100000,
-            pos_kurus=39900,
-            cash_kurus=30000,
-            eft_kurus=20000,
-            credit_kurus=9999,
-            tolerance_kurus=100,
-        )
-        self.assertEqual(res_d, "shortage")
-
-        # Vektör E: Kasa Fazlası (1000 TL Satış, 1100 TL Tahsilat) -> SURPLUS
-        res_e = ZKReconciliationEngine.classify(
-            sales_kurus=100000,
-            pos_kurus=40000,
-            cash_kurus=40000,
-            eft_kurus=20000,
-            credit_kurus=10000,
-            tolerance_kurus=100,
-        )
-        self.assertEqual(res_e, "surplus")
-
-    def test_shift_commitment_determinism(self):
+    def test_shift_context_digest_is_metadata_only_and_deterministic(self):
         shift_id = uuid.uuid4()
         station_id = uuid.uuid4()
         user_id = uuid.uuid4()
-        start_time = datetime(2026, 10, 3, 8, 0, 0, tzinfo=timezone.utc)
-        end_time = datetime(2026, 10, 3, 16, 0, 0, tzinfo=timezone.utc)
+        start = datetime(2026, 10, 3, 8, tzinfo=timezone.utc)
+        end = datetime(2026, 10, 3, 16, tzinfo=timezone.utc)
+        first = compute_shift_context_digest(shift_id, station_id, user_id, start, end, 100)
+        second = compute_shift_context_digest(shift_id, station_id, user_id, start, end, 100)
+        changed = compute_shift_context_digest(uuid.uuid4(), station_id, user_id, start, end, 100)
+        self.assertEqual(first, second)
+        self.assertNotEqual(first, changed)
 
-        c1 = compute_shift_commitment(shift_id, station_id, user_id, start_time, end_time, 100)
-        c2 = compute_shift_commitment(shift_id, station_id, user_id, start_time, end_time, 100)
-        self.assertEqual(c1, c2)
-        self.assertTrue(c1.startswith("fuelos:shift:v1:"))
+    def test_proof_hash_checks_bytes_but_does_not_claim_zk_verification(self):
+        proof = b"real-proof-placeholder-for-integrity-unit-test"
+        encoded = base64.b64encode(proof).decode()
+        digest = hashlib.sha256(proof).hexdigest()
+        self.assertTrue(proof_integrity_matches(encoded, digest))
+        self.assertFalse(proof_integrity_matches(encoded, "0" * 64))
+        self.assertFalse(proof_integrity_matches("not base64", digest))
 
-        # Farklı vardiyada taahhüt değişmeli
-        c3 = compute_shift_commitment(uuid.uuid4(), station_id, user_id, start_time, end_time, 100)
-        self.assertNotEqual(c1, c3)
 
-    def test_standalone_verification_security(self):
-        commitment = "fuelos:shift:v1:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
-        proof_hash = generate_proof_hash("matched", 100, commitment)
-
-        # Geçerli bağımsız doğrulama
-        self.assertTrue(ZKReconciliationEngine.verify_standalone("matched", 100, commitment, proof_hash))
-
-        # Tahrif edilmiş mutabakat sınıfı reddedilir
-        self.assertFalse(ZKReconciliationEngine.verify_standalone("shortage", 100, commitment, proof_hash))
-        self.assertFalse(ZKReconciliationEngine.verify_standalone("surplus", 100, commitment, proof_hash))
-
-        # Tahrif edilmiş tolerans reddedilir
-        self.assertFalse(ZKReconciliationEngine.verify_standalone("matched", 500, commitment, proof_hash))
-
-        # Replay saldırısı (farklı vardiya taahhüdü) reddedilir
-        fake_commitment = "fuelos:shift:v1:9999999999999999999999999999999999999999999999999999999999999999"
-        self.assertFalse(ZKReconciliationEngine.verify_standalone("matched", 100, fake_commitment, proof_hash))
+@unittest.skipUnless(os.getenv("FUELOS_RUN_PROOF_TESTS") == "1", "requires local proof server")
+class TestRealProofBridge(unittest.IsolatedAsyncioTestCase):
+    async def test_vector_a_returns_real_nonempty_proof(self):
+        result = await generate_reconciliation_proof(
+            total_sales=Decimal("1000.00"),
+            pos=Decimal("400.00"),
+            cash=Decimal("300.00"),
+            eft=Decimal("200.00"),
+            credit=Decimal("100.00"),
+            tolerance_tl=Decimal("1.00"),
+        )
+        self.assertEqual(result["status"], "proved")
+        self.assertEqual(result["class"], "matched")
+        self.assertEqual(result["proof_bytes"], 2940)
+        self.assertTrue(result["proof_server_checked"])
+        self.assertFalse(result["ledger_verified"])
+        self.assertTrue(proof_integrity_matches(result["proof"], result["proof_hash"]))
 
 
 if __name__ == "__main__":

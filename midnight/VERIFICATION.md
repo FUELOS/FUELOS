@@ -1,41 +1,31 @@
-# Independent verification & Shift Binding
+# Verification boundary
 
-Independent cryptographic verification and shift commitment binding are now implemented and tested.
+The current implementation produces real reconciliation proofs with the
+localhost Midnight proof server 8.1.0. The proof server runs the circuit check,
+creates the binary proof, and checks that generated proof before returning it.
+FuelOS persists the 2940-byte proof as base64 plus its SHA-256 integrity hash.
 
-Tolerance is a public integer-kurus argument and ledger field with bounds 0..100000 (0 to 1000 TL).
-A verifier checks it against the company's authorized closing policy and verifies proof integrity without receiving any private witness data.
+This is proof generation, not independent ledger verification. The API uses
+"proved" until a future Midnight transaction has been accepted and checked in
+the ledger context. The "zk-verify" endpoint currently checks only that the
+stored proof bytes still match their stored SHA-256 hash; its response exposes
+"ledger_verified: false".
 
-## Implementation Details
+The next cryptographic verification step must build a real Midnight transaction
+containing the circuit call and proof, then use the supported ledger/network
+flow, including transaction well-formedness and submission/finalization. There
+is no invented "verifyProof" endpoint or custom proof envelope in this code.
 
-### 1. Zero-Knowledge Independent Verification (`src/verification.ts`)
-- **No private witness exposure:** The verifier receives only:
-  - The binary proof (`proof: Uint8Array`)
-  - The disclosed public reconciliation class (`claim: ReconciliationClass`)
-  - The authorized tolerance in kuruş (`tolerance: bigint`)
-  - The shift commitment digest (`shiftCommitment: string`)
-  - Optional verifier key material (`verifierKey?: Uint8Array`)
-- **Envelope & Header Validation:** Checks against Midnight versioned proof envelope format (`midnight:proof-versioned:`).
-- **Public Statement Binding:** Cryptographically checks the canonical statement hash binding the circuit ID, public class, tolerance, and shift commitment.
+The "fuelos:shift:v1:..." value is currently an audit-context digest over shift
+metadata and tolerance. It is not a public input to "reconcile", so the proof
+does not yet cryptographically bind that digest or a transaction snapshot.
+That binding must be added to the Compact public statement before replay
+protection can be claimed.
 
-### 2. Shift Commitment & Replay Protection (`src/shift-commitment.ts`)
-- Computes deterministic SHA-256 commitment:
-  `fuelos:shift:v1:<sha256(canonicalPayload)>`
-- Binds `shiftId`, `stationId`, `userId`, `startTime`, `endTime`, and `authorizedToleranceKurus`.
-- Replays against different shifts or altered tolerances are immediately rejected.
+Private witness values cross two local process boundaries during proving:
 
-### 3. Verification Test Suite (`tests/reconciliation.verify.test.ts`)
-- **Positive Tests:**
-  - Vector A (Balanced) -> MATCHED verified without private inputs.
-  - Vector B (Shortage) -> SHORTAGE verified without private inputs.
-  - Vector E (Surplus) -> SURPLUS verified without private inputs.
-  - Dynamic tolerance (3 TL diff / 5 TL tolerance) -> MATCHED verified.
-- **Negative Security Tests:**
-  - Corrupted proof bytes (bit flip / payload tampering) -> REJECTED.
-  - Tampered public class (MATCHED claimed as SHORTAGE / SURPLUS) -> REJECTED.
-  - Tampered tolerance policy (100 kuruş claimed as 500 kuruş) -> REJECTED.
-  - Replay attack (proof presented for a different shift ID) -> REJECTED.
-  - Out of bounds tolerance (> 1000 TL) -> REJECTED.
-  - Malformed proof header / empty payload -> REJECTED.
-  - Corrupted verifier key -> REJECTED.
+1. FuelOS backend to the Node CLI over stdin.
+2. Node CLI to the proof server bound to "127.0.0.1:6300".
 
-Total: **16/16 verification tests passed**, complementing the **78/78 Compact logic tests** (94/94 total).
+They are not logged, persisted, returned by the API, or written to files by this
+integration. The proof server therefore remains a trusted local component.

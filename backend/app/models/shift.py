@@ -148,17 +148,27 @@ class Shift(TimestampMixin, Base):
         Boolean,
         default=False,
         nullable=False,
-        comment="Bağımsız ZK doğrulaması başarılı mı",
+        comment="Midnight ledger doğrulaması başarılı mı",
     )
     zk_verified_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
-        comment="ZK doğrulama zamanı",
+        comment="Midnight ledger doğrulama zamanı",
+    )
+    zk_proved_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Yerel proof server kanıt üretim zamanı",
     )
     zk_proof_hash: Mapped[Optional[str]] = mapped_column(
         String(100),
         nullable=True,
         comment="ZK kanıt özeti (SHA-256)",
+    )
+    zk_proof: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Midnight proof bytes (base64); finansal witness içermez",
     )
 
     # ── İlişkiler ──

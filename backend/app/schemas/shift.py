@@ -94,6 +94,7 @@ class ShiftResponse(BaseModel):
     zk_tolerance: Decimal | None = None
     zk_commitment: str | None = None
     zk_verified: bool = False
+    zk_proved_at: datetime | None = None
     zk_verified_at: datetime | None = None
     zk_proof_hash: str | None = None
 
@@ -101,13 +102,16 @@ class ShiftResponse(BaseModel):
 
 
 class ZKVerificationResponse(BaseModel):
-    """Zero-Knowledge bağımsız doğrulama çıktısı."""
+    """Persisted proof status. Ledger verification is a later network step."""
     shift_id: uuid.UUID
-    verified: bool
+    proof_status: Literal["proved", "verified"]
+    proof_integrity_valid: bool
+    ledger_verified: bool
     public_class: str
     tolerance_tl: Decimal
-    shift_commitment: str
+    shift_context_digest: str
     proof_hash: str
-    verified_at: datetime
-    privacy_notice: str = "Tüm finansal tutarlar (ciro, POS, nakit) gizli tutulmuş, yalnızca eşitlik matematiksel olarak Zero-Knowledge kanıtı ile doğrulanmıştır."
+    proved_at: datetime
+    verified_at: datetime | None = None
+    privacy_notice: str = "Finansal witness değerleri yanıtta yer almaz. Ledger doğrulaması ayrı Midnight network işlemidir."
 

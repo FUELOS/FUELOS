@@ -18,7 +18,9 @@ export interface ShiftCommitmentResult {
 /**
  * Computes a deterministic cryptographic commitment for a FuelOS shift.
  * Binds the shift identity, station, cashier, timestamps, and authorized tolerance.
- * Ensures proof replay protection and auditability without revealing private transaction details.
+ * This is an audit-context digest. The current Compact circuit does not take
+ * this value as a public input, so it must not be described as proof-bound
+ * replay protection until ledger integration adds that binding.
  */
 export function computeShiftCommitment(data: ShiftBindingData): ShiftCommitmentResult {
   if (!data.shiftId || !data.stationId) {

@@ -117,7 +117,7 @@ export const ShiftsPage: React.FC = () => {
             setIsZKModalOpen(true);
           }}
           className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition cursor-pointer shadow-sm active:scale-95"
-          title="Midnight ZK Bağımsız Doğrulama Kanıtını Görüntüle"
+          title="Midnight ZK proof durumunu görüntüle"
         >
           <ShieldCheck size={11} className="text-indigo-500 dark:text-indigo-400" />
           <span>ZK Kanıtı</span>

@@ -1,38 +1,63 @@
-"""
-FuelOS — Midnight Zero-Knowledge Mutabakat Servisi.
-Vardiya kapanış verilerini integer kuruş cinsinden normalize eder,
-kriptografik vardiya taahhüdü oluşturur ve Midnight ZK bağımsız doğrulamasını yürütür.
+"""Bridge from FuelOS shift data to the real local Midnight prover.
 
-Önemli: Özel finansal veriler (satış, POS, nakit, veresiye tutarları) asla
-üçüncü taraflara veya doğrulayıcıya açık olarak iletilmez; yalnızca Zero-Knowledge
-kanıtı ve disclosed durum sınıfı (MATCHED, SHORTAGE, SURPLUS) doğrulanır.
+Private monetary values are sent only to the local Node process and its
+localhost proof server. They are never included in returned errors or logs.
 """
 
+from __future__ import annotations
+
+import asyncio
+import base64
 import hashlib
 import json
+import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Tuple
-
-if TYPE_CHECKING:
-    from app.models.shift import Shift
+from pathlib import Path
+from typing import Any, Literal
 
 KURUS = Decimal("0.01")
 DEFAULT_TOLERANCE = Decimal("1.00")
-
+MAX_INPUT_KURUS = (1 << 64) - 1
+MAX_TOLERANCE_KURUS = 100_000
 ZKClass = Literal["matched", "shortage", "surplus"]
 
 
-def to_kurus_int(val: Decimal | float | int | None) -> int:
-    """TL tutarını tam kuruş integer değerine çevirir (ondalık tozundan arındırılmış)."""
-    if val is None:
+class ZKProofGenerationError(RuntimeError):
+    """Sanitized prover failure; never carries private prover diagnostics."""
+
+    def __init__(self, stage: str = "unknown") -> None:
+        self.stage = stage
+        super().__init__(f"Midnight proof generation failed at stage: {stage}")
+
+
+def to_kurus_int(value: Decimal | float | int | str | None) -> int:
+    if value is None:
         return 0
-    d = Decimal(str(val)).quantize(KURUS)
-    return int(round(d * 100))
+    amount = Decimal(str(value)).quantize(KURUS)
+    result = int(amount * 100)
+    if result < 0 or result > MAX_INPUT_KURUS:
+        raise ValueError("Financial amount is outside the Compact Uint<64> range")
+    return result
 
 
-def compute_shift_commitment(
+def classify(
+    sales_kurus: int,
+    pos_kurus: int,
+    cash_kurus: int,
+    eft_kurus: int,
+    credit_kurus: int,
+    tolerance_kurus: int,
+) -> ZKClass:
+    """Select the public claim; the Compact circuit independently constrains it."""
+    calculated_total = pos_kurus + cash_kurus + eft_kurus + credit_kurus
+    if sales_kurus >= calculated_total:
+        return "matched" if sales_kurus - calculated_total <= tolerance_kurus else "shortage"
+    return "matched" if calculated_total - sales_kurus <= tolerance_kurus else "surplus"
+
+
+def compute_shift_context_digest(
     shift_id: uuid.UUID | str,
     station_id: uuid.UUID | str,
     user_id: uuid.UUID | str | None,
@@ -40,163 +65,109 @@ def compute_shift_commitment(
     end_time: datetime | str | None,
     authorized_tolerance_kurus: int,
 ) -> str:
-    """
-    Vardiya ve yetkili tolerans politikasını kriptografik olarak bağlar.
-    Replay saldırılarına karşı benzersiz SHA-256 taahhüdü üretir.
-    """
-    start_str = start_time.isoformat() if isinstance(start_time, datetime) else str(start_time)
-    end_str = end_time.isoformat() if isinstance(end_time, datetime) else (str(end_time) if end_time else None)
-
+    """Create an audit-context digest. It is not yet a Compact public input."""
     payload = {
         "domain": "FUELOS_RECONCILIATION_V1",
         "shiftId": str(shift_id).lower(),
         "stationId": str(station_id).lower(),
         "userId": str(user_id or "").lower(),
-        "startTime": start_str,
-        "endTime": end_str,
+        "startTime": start_time.isoformat() if isinstance(start_time, datetime) else str(start_time),
+        "endTime": end_time.isoformat() if isinstance(end_time, datetime) else (str(end_time) if end_time else None),
         "authorizedToleranceKurus": str(authorized_tolerance_kurus),
     }
-
-    canonical_json = json.dumps(payload, sort_keys=True)
-    digest = hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
-    return f"fuelos:shift:v1:{digest}"
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return f"fuelos:shift:v1:{hashlib.sha256(canonical.encode()).hexdigest()}"
 
 
-def generate_proof_hash(
-    claim_class: str,
-    tolerance_kurus: int,
-    shift_commitment: str,
-    raw_signature: str = "midnight-reconciliation-v1",
-) -> str:
-    """
-    Bağımsız ZK kanıtı için benzersiz SHA-256 özet değeri oluşturur.
-    """
-    data = f"{raw_signature}:{claim_class}:{tolerance_kurus}:{shift_commitment}"
-    return hashlib.sha256(data.encode("utf-8")).hexdigest()
+def proof_integrity_matches(proof_base64: str, expected_hash: str) -> bool:
+    """Check stored-byte integrity only; this is not ZK or ledger verification."""
+    try:
+        proof = base64.b64decode(proof_base64, validate=True)
+    except (ValueError, TypeError):
+        return False
+    return bool(proof) and hashlib.sha256(proof).hexdigest() == expected_hash
 
 
-class ZKReconciliationEngine:
-    """FuelOS ZK Akıllı Vardiya Mutabakat ve Bağımsız Doğrulama Motoru."""
+def _midnight_dir() -> Path:
+    configured = os.getenv("FUELOS_MIDNIGHT_DIR")
+    return Path(configured) if configured else Path(__file__).resolve().parents[3] / "midnight"
 
-    @staticmethod
-    def classify(
-        sales_kurus: int,
-        pos_kurus: int,
-        cash_kurus: int,
-        eft_kurus: int,
-        credit_kurus: int,
-        tolerance_kurus: int,
-    ) -> ZKClass:
-        """
-        Compact reconciliation.compact devresi ile birebir uyumlu ZK sınıflandırma motoru.
-        Integer kuruş aritmetiği, taşma/alt taşma koruması ve dinamik tolerans sınır dahil.
-        """
-        first = pos_kurus + cash_kurus
-        second = eft_kurus + credit_kurus
-        calculated_total = first + second
 
-        if sales_kurus >= calculated_total:
-            diff = sales_kurus - calculated_total
-            return "matched" if diff <= tolerance_kurus else "shortage"
-        else:
-            diff = calculated_total - sales_kurus
-            return "matched" if diff <= tolerance_kurus else "surplus"
+async def generate_reconciliation_proof(
+    *,
+    total_sales: Decimal,
+    pos: Decimal,
+    cash: Decimal,
+    eft: Decimal,
+    credit: Decimal,
+    tolerance_tl: Decimal,
+) -> dict[str, Any]:
+    """Run Compact execution, proof-server check, and real proof generation."""
+    values = {
+        "totalSales": to_kurus_int(total_sales),
+        "pos": to_kurus_int(pos),
+        "cash": to_kurus_int(cash),
+        "eft": to_kurus_int(eft),
+        "credit": to_kurus_int(credit),
+    }
+    tolerance_kurus = to_kurus_int(tolerance_tl)
+    if tolerance_kurus > MAX_TOLERANCE_KURUS:
+        raise ValueError("Tolerance exceeds the Compact circuit maximum")
+    claim = classify(
+        values["totalSales"], values["pos"], values["cash"],
+        values["eft"], values["credit"], tolerance_kurus,
+    )
+    request = {
+        **{name: str(value) for name, value in values.items()},
+        "toleranceKurus": str(tolerance_kurus),
+        "claim": claim,
+    }
 
-    @classmethod
-    def prove_and_verify(
-        cls,
-        shift: Shift,
-        total_sales: Decimal,
-        pos_declared: Decimal,
-        cash_net: Decimal,
-        eft_declared: Decimal,
-        credit_declared: Decimal,
-        authorized_tolerance_tl: Decimal = DEFAULT_TOLERANCE,
-    ) -> Dict[str, Any]:
-        """
-        1. Finansal verileri kuruş cinsinden normalize eder.
-        2. Yetkili tolerans ile vardiya taahhüdünü bağlar.
-        3. Compact devre mantığıyla kanıt sınıfını oluşturur.
-        4. Bağımsız Zero-Knowledge doğrulamasını tamamlar.
-        5. Hassas girdileri açıklamadan genel doğrulama kanıtı çıktısı üretir.
-        """
-        tolerance_kurus = to_kurus_int(authorized_tolerance_tl)
-        if tolerance_kurus < 0 or tolerance_kurus > 100000:
-            raise ValueError(f"Tolerans sınır dışı: {tolerance_kurus} kuruş (Maks 100.000)")
-
-        sales_k = to_kurus_int(total_sales)
-        pos_k = to_kurus_int(pos_declared)
-        cash_k = to_kurus_int(cash_net)
-        eft_k = to_kurus_int(eft_declared)
-        credit_k = to_kurus_int(credit_declared)
-
-        # 1. Kriptografik taahhüt
-        commitment = compute_shift_commitment(
-            shift_id=shift.id,
-            station_id=shift.station_id,
-            user_id=shift.user_id,
-            start_time=shift.start_time,
-            end_time=shift.end_time or datetime.now(timezone.utc),
-            authorized_tolerance_kurus=tolerance_kurus,
+    npm = os.getenv("FUELOS_NPM_COMMAND") or ("npm.cmd" if os.name == "nt" else "npm")
+    try:
+        process = await asyncio.create_subprocess_exec(
+            npm, "run", "--silent", "prove:cli",
+            cwd=_midnight_dir(),
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-
-        # 2. Compact devre ile ZK sınıflandırması
-        zk_class = cls.classify(
-            sales_kurus=sales_k,
-            pos_kurus=pos_k,
-            cash_kurus=cash_k,
-            eft_kurus=eft_k,
-            credit_kurus=credit_k,
-            tolerance_kurus=tolerance_kurus,
+        stdout, _stderr = await asyncio.wait_for(
+            process.communicate(json.dumps(request).encode()), timeout=360
         )
+    except (OSError, asyncio.TimeoutError) as exc:
+        raise ZKProofGenerationError("process") from exc
 
-        # 3. Kanıt özeti ve bağımsız doğrulama
-        proof_hash = generate_proof_hash(
-            claim_class=zk_class,
-            tolerance_kurus=tolerance_kurus,
-            shift_commitment=commitment,
-        )
+    try:
+        response = json.loads(stdout.decode())
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ZKProofGenerationError("response") from exc
+    if process.returncode != 0 or response.get("status") != "proved":
+        raise ZKProofGenerationError(str(response.get("stage", "unknown")))
 
-        # 4. Bağımsız doğrulama: özel tutarlar olmaksızın doğrulanabilirlik teyidi
-        verified = cls.verify_standalone(
-            claim_class=zk_class,
-            tolerance_kurus=tolerance_kurus,
-            shift_commitment=commitment,
-            proof_hash=proof_hash,
-        )
+    proof_base64 = response.get("proofBase64")
+    proof_hash = response.get("proofHash")
+    if not isinstance(proof_base64, str) or not isinstance(proof_hash, str):
+        raise ZKProofGenerationError("response")
+    if response.get("publicClass") != claim or response.get("toleranceKurus") != str(tolerance_kurus):
+        raise ZKProofGenerationError("public_output")
+    if not proof_integrity_matches(proof_base64, proof_hash):
+        raise ZKProofGenerationError("proof_integrity")
+    try:
+        proof_bytes = int(response["proofBytes"])
+        decoded_size = len(base64.b64decode(proof_base64, validate=True))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ZKProofGenerationError("response") from exc
+    if proof_bytes <= 0 or decoded_size != proof_bytes:
+        raise ZKProofGenerationError("proof_integrity")
 
-        return {
-            "verified": verified,
-            "status": "verified" if verified else "failed",
-            "class": zk_class,
-            "tolerance_tl": authorized_tolerance_tl,
-            "commitment": commitment,
-            "proof_hash": proof_hash,
-            "verified_at": datetime.now(timezone.utc),
-        }
-
-    @staticmethod
-    def verify_standalone(
-        claim_class: str,
-        tolerance_kurus: int,
-        shift_commitment: str,
-        proof_hash: str,
-    ) -> bool:
-        """
-        ÖZEL VERİ İÇERMEYEN BAĞIMSIZ DOĞRULAYICI:
-        Yalnızca (claim_class, tolerance_kurus, shift_commitment, proof_hash) kullanır.
-        Finansal değerler (ciro, pos, nakit) doğrulayıcıya ASLA verilmez.
-        """
-        if claim_class not in ("matched", "shortage", "surplus"):
-            return False
-        if tolerance_kurus < 0 or tolerance_kurus > 100000:
-            return False
-        if not shift_commitment.startswith("fuelos:shift:v1:"):
-            return False
-
-        expected_hash = generate_proof_hash(
-            claim_class=claim_class,
-            tolerance_kurus=tolerance_kurus,
-            shift_commitment=shift_commitment,
-        )
-        return expected_hash == proof_hash
+    return {
+        "status": "proved",
+        "class": claim,
+        "tolerance_tl": tolerance_tl,
+        "proof": proof_base64,
+        "proof_hash": proof_hash,
+        "proof_bytes": proof_bytes,
+        "proof_server_checked": bool(response.get("proofServerChecked")),
+        "ledger_verified": False,
+    }

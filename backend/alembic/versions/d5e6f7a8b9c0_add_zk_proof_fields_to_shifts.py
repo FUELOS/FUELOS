@@ -67,7 +67,7 @@ def upgrade() -> None:
             sa.Boolean(),
             nullable=False,
             server_default=sa.text("false"),
-            comment="Bağımsız ZK doğrulaması başarılı mı",
+            comment="Midnight ledger doğrulaması başarılı mı",
         ),
     )
     op.add_column(
@@ -76,7 +76,16 @@ def upgrade() -> None:
             "zk_verified_at",
             sa.DateTime(timezone=True),
             nullable=True,
-            comment="ZK doğrulama zamanı",
+            comment="Midnight ledger doğrulama zamanı",
+        ),
+    )
+    op.add_column(
+        "shifts",
+        sa.Column(
+            "zk_proved_at",
+            sa.DateTime(timezone=True),
+            nullable=True,
+            comment="Yerel proof server kanıt üretim zamanı",
         ),
     )
     op.add_column(
@@ -88,10 +97,21 @@ def upgrade() -> None:
             comment="ZK kanıt özeti (SHA-256)",
         ),
     )
+    op.add_column(
+        "shifts",
+        sa.Column(
+            "zk_proof",
+            sa.Text(),
+            nullable=True,
+            comment="Midnight proof bytes (base64); finansal witness içermez",
+        ),
+    )
 
 
 def downgrade() -> None:
+    op.drop_column("shifts", "zk_proof")
     op.drop_column("shifts", "zk_proof_hash")
+    op.drop_column("shifts", "zk_proved_at")
     op.drop_column("shifts", "zk_verified_at")
     op.drop_column("shifts", "zk_verified")
     op.drop_column("shifts", "zk_commitment")

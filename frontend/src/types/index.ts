@@ -64,6 +64,7 @@ export interface Shift {
   zk_tolerance?: string | number | null;
   zk_commitment?: string | null;
   zk_verified?: boolean;
+  zk_proved_at?: string | null;
   zk_verified_at?: string | null;
   zk_proof_hash?: string | null;
 }

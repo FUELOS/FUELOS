@@ -42,34 +42,33 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
     try {
       setVerifying(true);
       setVerifyMessage(null);
-      await apiClient.get(`/shifts/${shift.id}/zk-verify`);
-      setVerifyMessage("Doğrulandı");
+      if (shift.zk_proof_status === "proved" || shift.zk_proof_status === "verified") {
+        const response = await apiClient.get(`/shifts/${shift.id}/zk-verify`);
+        setVerifyMessage(
+          response.data.ledger_verified
+            ? "Ledger doğrulaması tamamlandı"
+            : "Proof bütünlüğü geçerli; ledger doğrulaması bekliyor",
+        );
+      } else {
+        await apiClient.post(`/shifts/${shift.id}/zk-prove`);
+        setVerifyMessage("Gerçek proof üretildi; ledger doğrulaması bekliyor");
+      }
       setTimeout(() => setVerifyMessage(null), 3000);
       if (onRefresh) onRefresh();
-    } catch {
-      // If prove needed
-      try {
-        await apiClient.post(`/shifts/${shift.id}/zk-prove`);
-        setVerifyMessage("Kanıt üretildi ve doğrulandı");
-        setTimeout(() => setVerifyMessage(null), 3000);
-        if (onRefresh) onRefresh();
-      } catch (err) {
-        console.error("ZK verification failed", err);
-        setVerifyMessage("Doğrulama başarısız");
-      }
+    } catch (err) {
+      console.error("ZK proof operation failed", err);
+      setVerifyMessage("Proof işlemi tamamlanamadı");
     } finally {
       setVerifying(false);
     }
   };
 
-  const commitment =
-    shift.zk_commitment ||
-    `fuelos:shift:v1:${shift.id.replace(/-/g, "")}0000000000000000`;
-  const proofHash =
-    shift.zk_proof_hash ||
-    `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`;
+  const commitment = shift.zk_commitment;
+  const proofHash = shift.zk_proof_hash;
   const publicClass = (shift.zk_reconciliation_class || shift.reconciliation_status || "matched").toUpperCase();
-  const tolerance = shift.zk_tolerance ? `${shift.zk_tolerance} TL` : "1.00 TL";
+  const tolerance = shift.zk_tolerance != null ? `${shift.zk_tolerance} TL` : "Henüz kanıtlanmadı";
+  const ledgerVerified = shift.zk_verified === true;
+  const proofProduced = shift.zk_proof_status === "proved" || shift.zk_proof_status === "verified";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
@@ -92,7 +91,7 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Gizlilik Korumalı Bağımsız Doğrulama Katmanı
+                Gizlilik Korumalı Proof Üretim Durumu
               </p>
             </div>
           </div>
@@ -113,9 +112,11 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
             <div>
               <div className="text-xs text-slate-400">Doğrulama Durumu</div>
               <div className="text-sm font-bold text-emerald-400">
-                {shift.zk_verified || shift.status === "closed"
+                {ledgerVerified
                   ? "Kriptografik Olarak Doğrulandı"
-                  : "İşleniyor"}
+                  : proofProduced
+                    ? "Proof Üretildi — Ledger Bekleniyor"
+                    : "Proof Henüz Üretilmedi"}
               </div>
             </div>
           </div>
@@ -141,10 +142,11 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
             <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
               <span className="flex items-center gap-1.5">
                 <Lock size={12} className="text-indigo-400" />
-                <span>Vardiya Kriptografik Taahhüdü (Shift Commitment)</span>
+                <span>Vardiya Bağlam Özeti (henüz devreye bağlı değil)</span>
               </span>
               <button
-                onClick={() => copyToClipboard(commitment, "commitment")}
+                onClick={() => commitment && copyToClipboard(commitment, "commitment")}
+                disabled={!commitment}
                 className="text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-1 text-[11px]"
               >
                 {copiedKey === "commitment" ? <Check size={12} /> : <Copy size={12} />}
@@ -152,7 +154,7 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
               </button>
             </div>
             <div className="font-mono text-xs text-slate-200 break-all select-all">
-              {commitment}
+              {commitment || "Proof üretildikten sonra oluşur"}
             </div>
           </div>
 
@@ -163,7 +165,8 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
                 <span>ZK Kanıt Özeti (Proof Hash)</span>
               </span>
               <button
-                onClick={() => copyToClipboard(proofHash, "proof")}
+                onClick={() => proofHash && copyToClipboard(proofHash, "proof")}
+                disabled={!proofHash}
                 className="text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-1 text-[11px]"
               >
                 {copiedKey === "proof" ? <Check size={12} /> : <Copy size={12} />}
@@ -171,7 +174,7 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
               </button>
             </div>
             <div className="font-mono text-xs text-slate-200 break-all select-all">
-              {proofHash}
+              {proofHash || "Proof henüz üretilmedi"}
             </div>
           </div>
 
@@ -195,9 +198,9 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
         <div className="mt-4 p-3.5 rounded-2xl bg-indigo-950/30 border border-indigo-900/40 flex items-start gap-2.5">
           <EyeOff size={16} className="text-indigo-400 shrink-0 mt-0.5" />
           <p className="text-[11px] text-indigo-200/90 leading-relaxed">
-            <span className="font-bold text-indigo-100">Tam Gizlilik Koruması:</span> Toplam ciro,
-            POS dağılımı ve nakit kasası gibi hassas ticari veriler açıklanmamıştır. Yalnızca vardiya
-            mutabakat eşitliği Zero-Knowledge matematiği ile doğrulanmıştır.
+            <span className="font-bold text-indigo-100">Gizli girdiler:</span> Toplam ciro,
+            POS dağılımı ve nakit kasası API yanıtında veya proof içinde açıklanmaz. Proof üretimi
+            yerel proof server tarafından yapılır; bağımsız ledger doğrulaması ağ entegrasyonunda tamamlanır.
           </p>
         </div>
 
@@ -210,8 +213,8 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
               </span>
             )}
             <span className="text-[11px] text-slate-500 font-mono">
-              {shift.zk_verified_at
-                ? new Date(shift.zk_verified_at).toLocaleTimeString()
+              {shift.zk_proved_at
+                ? new Date(shift.zk_proved_at).toLocaleTimeString()
                 : "V1.0 MVP"}
             </span>
           </div>
@@ -223,7 +226,7 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
               className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
             >
               <RefreshCw size={13} className={verifying ? "animate-spin" : ""} />
-              <span>{verifying ? "Doğrulanıyor..." : "Bağımsız Doğrula"}</span>
+              <span>{verifying ? "İşleniyor..." : proofProduced ? "Proof Durumunu Kontrol Et" : "Gerçek Proof Üret"}</span>
             </button>
             <button
               onClick={onClose}
