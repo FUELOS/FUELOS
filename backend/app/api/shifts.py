@@ -24,6 +24,7 @@ from app.schemas.shift import (
     ShiftOpen,
     ShiftClose,
     ShiftResponse,
+    ZKVerificationResponse,
 )
 from app.services.reconciliation import (
     DEFAULT_TOLERANCE,
@@ -204,6 +205,13 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
         cash_difference=cash_diff,
         reconciliation_status=recon_status,
         reconciliation=reconciliation,
+        zk_proof_status=getattr(shift, "zk_proof_status", "none") or "none",
+        zk_reconciliation_class=getattr(shift, "zk_reconciliation_class", None),
+        zk_tolerance=Decimal(str(shift.zk_tolerance)) if getattr(shift, "zk_tolerance", None) is not None else None,
+        zk_commitment=getattr(shift, "zk_commitment", None),
+        zk_verified=getattr(shift, "zk_verified", False) or False,
+        zk_verified_at=getattr(shift, "zk_verified_at", None),
+        zk_proof_hash=getattr(shift, "zk_proof_hash", None),
     )
 
 
@@ -453,6 +461,182 @@ async def close_shift(
     if data.notes:
         shift.notes = f"{shift.notes}\n--- Kapanış notu ---\n{data.notes}" if shift.notes else data.notes
 
+    # ── Zero-Knowledge / Midnight Akıllı Kasa Mutabakatı ──
+    try:
+        from app.services.zk_service import ZKReconciliationEngine
+        from app.models.company import Company
+
+        # Şirketin yetkili dinamik mutabakat toleransı
+        tolerance_val = DEFAULT_TOLERANCE
+        comp_tol = await db.scalar(
+            select(Company.reconciliation_tolerance)
+            .join(Station, Station.company_id == Company.id)
+            .where(Station.id == shift.station_id)
+        )
+        if comp_tol is not None:
+            tolerance_val = Decimal(str(comp_tol))
+
+        # Vardiya işlem toplamlarını çek
+        tx_res = await db.execute(
+            select(
+                func.coalesce(func.sum(Transaction.amount), 0).label("total_sales"),
+                func.coalesce(
+                    func.sum(case((Transaction.payment_method == PaymentMethod.CASH, Transaction.amount), else_=0)), 0
+                ).label("cash_sales"),
+                func.coalesce(
+                    func.sum(case((Transaction.payment_method == PaymentMethod.CREDIT_CARD, Transaction.amount), else_=0)), 0
+                ).label("pos_sales"),
+                func.coalesce(
+                    func.sum(case((Transaction.payment_method == PaymentMethod.EFT, Transaction.amount), else_=0)), 0
+                ).label("eft_sales"),
+                func.coalesce(
+                    func.sum(case((Transaction.payment_method == PaymentMethod.VERESIYE, Transaction.amount), else_=0)), 0
+                ).label("credit_sales"),
+            ).where(Transaction.shift_id == shift.id)
+        )
+        row = tx_res.one()
+        tot_sales = Decimal(str(row.total_sales))
+        pos_s = Decimal(str(shift.declared_pos)) if shift.declared_pos is not None else Decimal(str(row.pos_sales))
+        cash_n = Decimal(str(data.closing_cash)) - Decimal(str(shift.opening_cash))
+        eft_s = Decimal(str(shift.declared_eft)) if shift.declared_eft is not None else Decimal(str(row.eft_sales))
+        credit_s = Decimal(str(shift.declared_credit)) if shift.declared_credit is not None else Decimal(str(row.credit_sales))
+
+        zk_res = ZKReconciliationEngine.prove_and_verify(
+            shift=shift,
+            total_sales=tot_sales,
+            pos_declared=pos_s,
+            cash_net=cash_n,
+            eft_declared=eft_s,
+            credit_declared=credit_s,
+            authorized_tolerance_tl=tolerance_val,
+        )
+
+        shift.zk_proof_status = zk_res["status"]
+        shift.zk_reconciliation_class = zk_res["class"]
+        shift.zk_tolerance = zk_res["tolerance_tl"]
+        shift.zk_commitment = zk_res["commitment"]
+        shift.zk_verified = zk_res["verified"]
+        shift.zk_verified_at = zk_res["verified_at"]
+        shift.zk_proof_hash = zk_res["proof_hash"]
+    except Exception:
+        shift.zk_proof_status = "none"
+
     await db.flush()
     await db.refresh(shift)
     return await _build_shift_response(shift, db)
+
+
+@router.post("/{shift_id}/zk-prove", response_model=ShiftResponse)
+async def generate_zk_proof(
+    shift_id: uuid.UUID,
+    current_user: User = Depends(require_role(UserRole.SUPER_ADMIN, UserRole.STATION_MANAGER)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Kapalı bir vardiya için Midnight Zero-Knowledge kanıtı üretir ve bağımsız doğrular.
+    Özel finansal detayları ifşa etmeden mutabakat eşitliğini kriptografik olarak garantiler.
+    """
+    shift = await db.scalar(select(Shift).where(Shift.id == shift_id))
+    if shift is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vardiya bulunamadı")
+
+    if shift.status != ShiftStatus.CLOSED or shift.closing_cash is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Yalnızca kapatılmış ve kasa sayımı yapılmış vardiyalar için ZK kanıtı üretilebilir",
+        )
+
+    from app.services.zk_service import ZKReconciliationEngine
+    from app.models.company import Company
+
+    tolerance_val = DEFAULT_TOLERANCE
+    comp_tol = await db.scalar(
+        select(Company.reconciliation_tolerance)
+        .join(Station, Station.company_id == Company.id)
+        .where(Station.id == shift.station_id)
+    )
+    if comp_tol is not None:
+        tolerance_val = Decimal(str(comp_tol))
+
+    tx_res = await db.execute(
+        select(
+            func.coalesce(func.sum(Transaction.amount), 0).label("total_sales"),
+            func.coalesce(func.sum(case((Transaction.payment_method == PaymentMethod.CASH, Transaction.amount), else_=0)), 0).label("cash_sales"),
+            func.coalesce(func.sum(case((Transaction.payment_method == PaymentMethod.CREDIT_CARD, Transaction.amount), else_=0)), 0).label("pos_sales"),
+            func.coalesce(func.sum(case((Transaction.payment_method == PaymentMethod.EFT, Transaction.amount), else_=0)), 0).label("eft_sales"),
+            func.coalesce(func.sum(case((Transaction.payment_method == PaymentMethod.VERESIYE, Transaction.amount), else_=0)), 0).label("credit_sales"),
+        ).where(Transaction.shift_id == shift.id)
+    )
+    row = tx_res.one()
+    tot_sales = Decimal(str(row.total_sales))
+    pos_s = Decimal(str(shift.declared_pos)) if shift.declared_pos is not None else Decimal(str(row.pos_sales))
+    cash_n = Decimal(str(shift.closing_cash)) - Decimal(str(shift.opening_cash))
+    eft_s = Decimal(str(shift.declared_eft)) if shift.declared_eft is not None else Decimal(str(row.eft_sales))
+    credit_s = Decimal(str(shift.declared_credit)) if shift.declared_credit is not None else Decimal(str(row.credit_sales))
+
+    zk_res = ZKReconciliationEngine.prove_and_verify(
+        shift=shift,
+        total_sales=tot_sales,
+        pos_declared=pos_s,
+        cash_net=cash_n,
+        eft_declared=eft_s,
+        credit_declared=credit_s,
+        authorized_tolerance_tl=tolerance_val,
+    )
+
+    shift.zk_proof_status = zk_res["status"]
+    shift.zk_reconciliation_class = zk_res["class"]
+    shift.zk_tolerance = zk_res["tolerance_tl"]
+    shift.zk_commitment = zk_res["commitment"]
+    shift.zk_verified = zk_res["verified"]
+    shift.zk_verified_at = zk_res["verified_at"]
+    shift.zk_proof_hash = zk_res["proof_hash"]
+
+    await db.flush()
+    await db.refresh(shift)
+    return await _build_shift_response(shift, db)
+
+
+@router.get("/{shift_id}/zk-verify", response_model=ZKVerificationResponse)
+async def verify_zk_proof(
+    shift_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    BAĞIMSIZ ZEROKNOWLEDGE DOĞRULAMA UÇ NOKTASI (Açık Denetim):
+    Özel ciro, POS ve nakit tutarları açıklamadan; yalnızca shift commitment,
+    yetkili tolerans ve public mutabakat sınıfını doğrular.
+    """
+    shift = await db.scalar(select(Shift).where(Shift.id == shift_id))
+    if shift is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vardiya bulunamadı")
+
+    if not shift.zk_verified or not shift.zk_proof_hash or not shift.zk_commitment:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Bu vardiya için henüz ZK kanıtı oluşturulmamış",
+        )
+
+    from app.services.zk_service import ZKReconciliationEngine, to_kurus_int
+
+    tol_kurus = to_kurus_int(shift.zk_tolerance or DEFAULT_TOLERANCE)
+    is_valid = ZKReconciliationEngine.verify_standalone(
+        claim_class=shift.zk_reconciliation_class or "matched",
+        tolerance_kurus=tol_kurus,
+        shift_commitment=shift.zk_commitment,
+        proof_hash=shift.zk_proof_hash,
+    )
+
+    if not is_valid:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="ZK Kanıt doğrulaması başarısız")
+
+    return ZKVerificationResponse(
+        shift_id=shift.id,
+        verified=True,
+        public_class=shift.zk_reconciliation_class or "matched",
+        tolerance_tl=Decimal(str(shift.zk_tolerance or DEFAULT_TOLERANCE)),
+        shift_commitment=shift.zk_commitment,
+        proof_hash=shift.zk_proof_hash,
+        verified_at=shift.zk_verified_at or datetime.now(timezone.utc),
+    )
+

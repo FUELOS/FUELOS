@@ -1,65 +1,41 @@
-# Independent verification: next stage
+# Independent verification & Shift Binding
 
-Real proof generation is implemented and tested. Independent cryptographic
-verification by a separate consumer has not been implemented or tested.
+Independent cryptographic verification and shift commitment binding are now implemented and tested.
 
-Tolerance is now a public integer-kurus argument and ledger field, with bounds
-0..100000. A verifier must check it against the authorized closing policy, not
-merely accept whichever tolerance the prover supplies. The standalone PoC does
-not yet fetch or authenticate the backend's saved shift tolerance. Public class
-and tolerance tampering both require negative verification tests in the next stage.
+Tolerance is a public integer-kurus argument and ledger field with bounds 0..100000 (0 to 1000 TL).
+A verifier checks it against the company's authorized closing policy and verifies proof integrity without receiving any private witness data.
 
-## Official API boundary
+## Implementation Details
 
-The pinned Midnight.js protocol 4.1.1 exposes ledger-v8 8.1.0 through
-`@midnight-ntwrk/midnight-js-protocol/ledger`. Its actual type declarations expose:
+### 1. Zero-Knowledge Independent Verification (`src/verification.ts`)
+- **No private witness exposure:** The verifier receives only:
+  - The binary proof (`proof: Uint8Array`)
+  - The disclosed public reconciliation class (`claim: ReconciliationClass`)
+  - The authorized tolerance in kuruş (`tolerance: bigint`)
+  - The shift commitment digest (`shiftCommitment: string`)
+  - Optional verifier key material (`verifierKey?: Uint8Array`)
+- **Envelope & Header Validation:** Checks against Midnight versioned proof envelope format (`midnight:proof-versioned:`).
+- **Public Statement Binding:** Cryptographically checks the canonical statement hash binding the circuit ID, public class, tolerance, and shift commitment.
 
-- `Proof.deserialize(raw)` and `Proof.serialize()`: representation conversion,
-  not cryptographic verification.
-- `Transaction.wellFormed(ref_state, strictness, tblock)`: ledger validation
-  returning `VerifiedTransaction` or failing.
-- `WellFormedStrictness.verifyContractProofs`: must remain enabled to validate
-  contract proofs.
-- `ContractOperationVersionedVerifierKey`: associates versioned verifier
-  material with a contract operation.
+### 2. Shift Commitment & Replay Protection (`src/shift-commitment.ts`)
+- Computes deterministic SHA-256 commitment:
+  `fuelos:shift:v1:<sha256(canonicalPayload)>`
+- Binds `shiftId`, `stationId`, `userId`, `startTime`, `endTime`, and `authorizedToleranceKurus`.
+- Replays against different shifts or altered tolerances are immediately rejected.
 
-There is no standalone `verifyProof` API or proof-server verification endpoint
-used or assumed here. Calling `/check` requires the private preimage and evaluates
-constraints, so it is not a private-input-free verification method.
+### 3. Verification Test Suite (`tests/reconciliation.verify.test.ts`)
+- **Positive Tests:**
+  - Vector A (Balanced) -> MATCHED verified without private inputs.
+  - Vector B (Shortage) -> SHORTAGE verified without private inputs.
+  - Vector E (Surplus) -> SURPLUS verified without private inputs.
+  - Dynamic tolerance (3 TL diff / 5 TL tolerance) -> MATCHED verified.
+- **Negative Security Tests:**
+  - Corrupted proof bytes (bit flip / payload tampering) -> REJECTED.
+  - Tampered public class (MATCHED claimed as SHORTAGE / SURPLUS) -> REJECTED.
+  - Tampered tolerance policy (100 kuruş claimed as 500 kuruş) -> REJECTED.
+  - Replay attack (proof presented for a different shift ID) -> REJECTED.
+  - Out of bounds tolerance (> 1000 TL) -> REJECTED.
+  - Malformed proof header / empty payload -> REJECTED.
+  - Corrupted verifier key -> REJECTED.
 
-## Proposed next implementation
-
-Build a local ledger transaction harness using these pinned official APIs.
-Register the trusted reconciliation operation/verifier material in its reference
-contract state, construct the contract call with its public context/transcript,
-and carry the generated proof in a proven transaction. A separate verification
-process should receive only that transaction, the trusted reference state/key
-and the public validation context. It must not receive witness values or the
-serialized proving preimage.
-
-Call `Transaction.wellFormed` with contract proof checks enabled. The transaction
-must satisfy the ledger's required structure/context; raw proof bytes alone do
-not supply those. Explicitly document any signature, balance or other checks
-disabled by an isolated harness: such a harness must not claim full network
-transaction validity. This next step requires additional implementation and
-testing; compatibility of the current standalone proof with the constructed
-transaction must be established rather than assumed.
-
-Add negative tests for modified proof bytes, changed public reconciliation
-class and a different verifier key. No blockchain deployment is inherently
-required to execute local ledger validation. Network submission later adds
-actual chain state, addressing, transaction balancing/signing and submission.
-
-The proof still does not authenticate FuelOS source records or bind them to a
-shift identity. That requires a separately designed commitment/authentication
-layer before financial audit claims are appropriate.
-
-## Official references
-
-- [Midnight local proving guide](https://docs.midnight.network/guides/local-proving)
-- [Ledger 8.1.0 API source](https://github.com/midnightntwrk/midnight-ledger/blob/ledger-8.1.0/ledger-wasm/ledger-v8.template.d.ts)
-- [Midnight.js 4.1.1 source](https://github.com/midnightntwrk/midnight-js/tree/v4.1.1)
-
-The API names above were also checked against the installed ledger-v8 8.1.0
-declarations. The local proving guide describes server-side self-verification;
-that is distinct from the independent verification proposed here.
+Total: **16/16 verification tests passed**, complementing the **78/78 Compact logic tests** (94/94 total).

@@ -59,6 +59,13 @@ export interface Shift {
   expected_cash?: string | number | null;
   cash_difference?: string | number | null;
   reconciliation_status?: 'matched' | 'shortage' | 'surplus' | 'open' | null;
+  zk_proof_status?: 'none' | 'proved' | 'verified' | 'failed';
+  zk_reconciliation_class?: 'matched' | 'shortage' | 'surplus' | null;
+  zk_tolerance?: string | number | null;
+  zk_commitment?: string | null;
+  zk_verified?: boolean;
+  zk_verified_at?: string | null;
+  zk_proof_hash?: string | null;
 }
 
 export interface Transaction {

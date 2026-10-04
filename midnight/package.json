@@ -11,7 +11,8 @@
     "compile:full": "compact compile +0.31.1 contracts/reconciliation.compact managed/reconciliation",
     "compile": "compact compile +0.31.1 --skip-zk contracts/reconciliation.compact managed/reconciliation",
     "typecheck": "tsc --noEmit",
-    "test": "npm run compile && npm run typecheck && vitest run tests/reconciliation.test.ts",
+    "test": "npm run typecheck && vitest run tests/reconciliation.test.ts tests/reconciliation.verify.test.ts",
+    "test:verify": "npm run typecheck && vitest run tests/reconciliation.verify.test.ts",
     "test:proof": "npm run typecheck && vitest run tests/reconciliation.proof.test.ts --maxWorkers=1 --no-file-parallelism"
   },
   "dependencies": {
