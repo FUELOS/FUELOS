@@ -88,4 +88,30 @@ class ShiftResponse(BaseModel):
     worker_avatar: str | None = None
     pump_id: uuid.UUID | None = None
 
+    # ── Zero-Knowledge / Midnight Doğrulama Alanları ──
+    zk_proof_status: str = "none"  # 'none' | 'proved' | 'verified' | 'failed'
+    zk_reconciliation_class: str | None = None
+    zk_tolerance: Decimal | None = None
+    zk_commitment: str | None = None
+    zk_verified: bool = False
+    zk_proved_at: datetime | None = None
+    zk_verified_at: datetime | None = None
+    zk_proof_hash: str | None = None
+
     model_config = {"from_attributes": True}
+
+
+class ZKVerificationResponse(BaseModel):
+    """Persisted proof status. Ledger verification is a later network step."""
+    shift_id: uuid.UUID
+    proof_status: Literal["proved", "verified"]
+    proof_integrity_valid: bool
+    ledger_verified: bool
+    public_class: str
+    tolerance_tl: Decimal
+    shift_context_digest: str
+    proof_hash: str
+    proved_at: datetime
+    verified_at: datetime | None = None
+    privacy_notice: str = "Finansal witness değerleri yanıtta yer almaz. Ledger doğrulaması ayrı Midnight network işlemidir."
+

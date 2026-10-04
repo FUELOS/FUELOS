@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     Enum as SAEnum,
     ForeignKey,
@@ -119,6 +120,55 @@ class Shift(TimestampMixin, Base):
         Text,
         nullable=True,
         comment="İşçi avatarı — base64 veya avatar kodu",
+    )
+
+    # ── Zero-Knowledge / Midnight Doğrulama Alanları ──
+    zk_proof_status: Mapped[str] = mapped_column(
+        String(50),
+        default="none",
+        nullable=False,
+        comment="ZK mutabakat durumu: none, proved, verified, failed",
+    )
+    zk_reconciliation_class: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="Açıklanan ZK mutabakat sınıfı: matched, shortage, surplus",
+    )
+    zk_tolerance: Mapped[Optional[float]] = mapped_column(
+        Numeric(12, 2),
+        nullable=True,
+        comment="ZK kanıtında kullanılan yetkili tolerans (TL)",
+    )
+    zk_commitment: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Vardiya kriptografik taahhüt özeti (replay koruması)",
+    )
+    zk_verified: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        comment="Midnight ledger doğrulaması başarılı mı",
+    )
+    zk_verified_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Midnight ledger doğrulama zamanı",
+    )
+    zk_proved_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Yerel proof server kanıt üretim zamanı",
+    )
+    zk_proof_hash: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="ZK kanıt özeti (SHA-256)",
+    )
+    zk_proof: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Midnight proof bytes (base64); finansal witness içermez",
     )
 
     # ── İlişkiler ──

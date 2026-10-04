@@ -1,8 +1,8 @@
 # FuelOS Compact reconciliation PoC
 
-Independent reconciliation prototype of `backend/app/services/reconciliation.py`,
-with optional real local proving through Docker. No backend/frontend integration,
-database access, blockchain, wallet funding, or deployment is involved.
+Reconciliation implementation of `backend/app/services/reconciliation.py`,
+with real local proving through Docker and an explicit backend/UI integration.
+Blockchain deployment, wallet funding, and ledger verification are not included.
 
 ## Toolchain
 
@@ -110,11 +110,11 @@ the disclosed tolerance policy." Logic tests execute this relation; the separate
 proof tests generate real proofs. Independent verification and network
 acceptance are not claimed by either test suite.
 
-There is no commitment to a FuelOS shift snapshot, authenticated data source,
-authorization, uniqueness or replay protection. Callers can supply arbitrary
-in-range inputs. Consequently this is an arithmetic PoC, not evidence that a
-specific real shift's complete financial records are correct. Those bindings
-belong to a later, separately authorized integration.
+The backend authorizes access to a FuelOS shift, but there is no Compact public
+commitment to its transaction snapshot, uniqueness, or replay protection.
+Callers with backend access can therefore prove in-range reconciliation inputs,
+but the proof alone is not evidence that they are a specific shift's complete
+records. See [VERIFICATION.md](VERIFICATION.md).
 
 ## Tests
 

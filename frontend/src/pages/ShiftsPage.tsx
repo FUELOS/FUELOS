@@ -15,8 +15,10 @@ import {
   AlertTriangle,
   TrendingUp,
   ShieldAlert,
+  ShieldCheck,
   ChevronRight,
 } from "lucide-react";
+import { ZKVerificationModal } from "@/components/modals/ZKVerificationModal";
 
 export const ShiftsPage: React.FC = () => {
   const { t } = useLanguage();
@@ -30,6 +32,8 @@ export const ShiftsPage: React.FC = () => {
   const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
   const [isCloseModal, setIsCloseModal] = useState<boolean>(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
+  const [isZKModalOpen, setIsZKModalOpen] = useState<boolean>(false);
+  const [selectedZKShift, setSelectedZKShift] = useState<Shift | null>(null);
 
   const fetchData = async () => {
     try {
@@ -78,30 +82,47 @@ export const ShiftsPage: React.FC = () => {
     }
 
     const diff = Number(shift.cash_difference ?? 0);
+    let statusPill: React.ReactNode = null;
 
     if (shift.reconciliation_status === "matched" || diff === 0) {
-      return (
+      statusPill = (
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-sm shadow-emerald-500/10">
           <CheckCircle2 size={13} className="text-emerald-400" />
           <span>{t("reports.matched")}</span>
         </span>
       );
-    }
-
-    if (diff < 0) {
-      return (
+    } else if (diff < 0) {
+      statusPill = (
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/25 shadow-sm shadow-rose-500/15">
           <AlertTriangle size={13} className="text-rose-400" />
           <span>{formatCurrency(diff)} {t("shifts.shortage_tag")}</span>
         </span>
       );
+    } else {
+      statusPill = (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-500/10 text-sky-400 border border-sky-500/25 shadow-sm shadow-sky-500/15">
+          <TrendingUp size={13} className="text-sky-400" />
+          <span>+{formatCurrency(diff)} {t("shifts.surplus_tag")}</span>
+        </span>
+      );
     }
 
     return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-500/10 text-sky-400 border border-sky-500/25 shadow-sm shadow-sky-500/15">
-        <TrendingUp size={13} className="text-sky-400" />
-        <span>+{formatCurrency(diff)} {t("shifts.surplus_tag")}</span>
-      </span>
+      <div className="flex items-center gap-2 flex-wrap">
+        {statusPill}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedZKShift(shift);
+            setIsZKModalOpen(true);
+          }}
+          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition cursor-pointer shadow-sm active:scale-95"
+          title="Midnight ZK proof durumunu görüntüle"
+        >
+          <ShieldCheck size={11} className="text-indigo-500 dark:text-indigo-400" />
+          <span>ZK Kanıtı</span>
+        </button>
+      </div>
     );
   };
 
@@ -259,6 +280,16 @@ export const ShiftsPage: React.FC = () => {
           setSelectedShift(null);
         }}
         onSuccess={fetchData}
+      />
+
+      <ZKVerificationModal
+        isOpen={isZKModalOpen}
+        shift={selectedZKShift}
+        onClose={() => {
+          setIsZKModalOpen(false);
+          setSelectedZKShift(null);
+        }}
+        onRefresh={fetchData}
       />
     </div>
   );
