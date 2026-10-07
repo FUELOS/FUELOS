@@ -19,6 +19,7 @@ const translations: Record<Language, Record<string, string>> = {
     "nav.tagline": "Akaryakıt İstasyonları İçin Dijital Operasyon Platformu",
     "nav.system_panel": "Sistem Paneli",
     "nav.manager_panel": "Müdür Paneli",
+    "nav.users": "Kullanıcılar",
 
     // Header & Meta
     "header.title": "Vardiya Mutabakatı",
@@ -307,6 +308,7 @@ const translations: Record<Language, Record<string, string>> = {
     "nav.tagline": "Digital Operations Platform for Fuel Stations",
     "nav.system_panel": "System Admin",
     "nav.manager_panel": "Manager View",
+    "nav.users": "Users",
 
     // Header & Meta
     "header.title": "Shift Reconciliation",

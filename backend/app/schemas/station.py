@@ -15,6 +15,9 @@ class StationCreate(BaseModel):
     city: str
     district: str | None = None
     address: str | None = None
+    subscription_status: str | None = "active"
+    subscription_plan: str | None = "Pro SaaS"
+    monthly_fee: float | None = 4990.0
 
 
 class StationUpdate(BaseModel):

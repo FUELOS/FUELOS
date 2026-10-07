@@ -24,6 +24,7 @@ import {
   ShieldCheck,
   X,
   SlidersHorizontal,
+  Plus,
 } from "lucide-react";
 
 interface StationSummary {
@@ -114,6 +115,50 @@ export const SuperAdminDashboard: React.FC = () => {
       alert(err.response?.data?.detail || "Güncelleme başarısız");
     } finally {
       setModalLoading(false);
+    }
+  };
+
+  // Yeni İstasyon Ekleme State & Handler
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newCode, setNewCode] = useState("");
+  const [newCity, setNewCity] = useState("");
+  const [newDistrict, setNewDistrict] = useState("");
+  const [newAddress, setNewAddress] = useState("");
+  const [newPlan, setNewPlan] = useState("Pro SaaS");
+  const [newFee, setNewFee] = useState<number>(4990);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const handleCreateStation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName.trim() || !newCode.trim() || !newCity.trim()) {
+      setCreateError(tr ? "Lütfen zorunlu alanları (Ad, Kod, Şehir) doldurun." : "Please fill required fields (Name, Code, City).");
+      return;
+    }
+    try {
+      setCreateLoading(true);
+      setCreateError(null);
+      await apiClient.post("/stations", {
+        name: newName.trim(),
+        code: newCode.trim().toUpperCase(),
+        city: newCity.trim(),
+        district: newDistrict.trim() || undefined,
+        address: newAddress.trim() || undefined,
+        subscription_plan: newPlan,
+        monthly_fee: Number(newFee),
+      });
+      setIsCreateModalOpen(false);
+      setNewName("");
+      setNewCode("");
+      setNewCity("");
+      setNewDistrict("");
+      setNewAddress("");
+      fetch();
+    } catch (err: any) {
+      setCreateError(err.response?.data?.detail || (tr ? "İstasyon eklenemedi" : "Failed to create station"));
+    } finally {
+      setCreateLoading(false);
     }
   };
 
@@ -263,11 +308,23 @@ export const SuperAdminDashboard: React.FC = () => {
               {tr ? "Hangi istasyonlarda sistem aktif, abonelik vadeleri ve manuel müdahale" : "Active locations, license expiry dates, and administrative controls"}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-              {tr ? "Canlı Ağ" : "Live Network"}
-            </span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setCreateError(null);
+                setIsCreateModalOpen(true);
+              }}
+              className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black flex items-center gap-2 shadow-md shadow-blue-600/30 transition active:scale-95"
+            >
+              <Plus size={16} />
+              <span>{tr ? "Yeni İstasyon Ekle" : "Add Station"}</span>
+            </button>
+            <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-slate-100 dark:border-zinc-800">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                {tr ? "Canlı Ağ" : "Live Network"}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -517,6 +574,169 @@ export const SuperAdminDashboard: React.FC = () => {
                 >
                   {modalLoading && <Loader2 size={14} className="animate-spin" />}
                   <span>{tr ? "Güncellemeyi Kaydet" : "Save Changes"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── YENİ İSTASYON EKLEME MODAL (SuperAdmin) ── */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#111218] border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-600/10 text-blue-600 flex items-center justify-center">
+                  <Building2 size={20} />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-slate-900 dark:text-zinc-100">
+                    {tr ? "Yeni İstasyon & Şube Kaydı" : "Register New Station"}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 dark:text-zinc-400">
+                    {tr ? "SaaS sistemine yeni bir akaryakıt istasyonu dahil edin" : "Onboard a new fuel station to the SaaS platform"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCreateModalOpen(false)}
+                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-slate-500 dark:text-zinc-400 flex items-center justify-center transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleCreateStation} className="p-5 space-y-4">
+              {createError && (
+                <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 text-xs font-bold flex items-center gap-2">
+                  <AlertCircle size={16} className="shrink-0" />
+                  <span>{createError}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-1">
+                    {tr ? "İstasyon Adı *" : "Station Name *"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={tr ? "örn: Shell Kadıköy" : "e.g. Shell Kadıköy"}
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-1">
+                    {tr ? "İstasyon Kodu *" : "Station Code *"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="örn: SHL-34"
+                    value={newCode}
+                    onChange={(e) => setNewCode(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold text-slate-900 dark:text-white uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-1">
+                    {tr ? "Şehir *" : "City *"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={tr ? "örn: İstanbul" : "e.g. Istanbul"}
+                    value={newCity}
+                    onChange={(e) => setNewCity(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-1">
+                    {tr ? "İlçe" : "District"}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={tr ? "örn: Kadıköy" : "e.g. Kadıköy"}
+                    value={newDistrict}
+                    onChange={(e) => setNewDistrict(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-1">
+                  {tr ? "Adres" : "Address"}
+                </label>
+                <input
+                  type="text"
+                  placeholder={tr ? "Bağdat Cad. No: 120" : "Main Street No: 120"}
+                  value={newAddress}
+                  onChange={(e) => setNewAddress(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-1">
+                    {tr ? "Başlangıç SaaS Paketi" : "Initial SaaS Plan"}
+                  </label>
+                  <select
+                    value={newPlan}
+                    onChange={(e) => {
+                      const p = e.target.value;
+                      setNewPlan(p);
+                      if (p === "Standart") setNewFee(2990);
+                      else if (p === "Pro SaaS") setNewFee(4990);
+                      else if (p === "Kurumsal") setNewFee(8990);
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  >
+                    <option value="Standart">Standart</option>
+                    <option value="Pro SaaS">Pro SaaS</option>
+                    <option value="Kurumsal">Kurumsal</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-1">
+                    {tr ? "Aylık Lisans Ücreti (₺)" : "Monthly Fee (₺)"}
+                  </label>
+                  <input
+                    type="number"
+                    value={newFee}
+                    onChange={(e) => setNewFee(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-100 dark:border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-white transition"
+                >
+                  {tr ? "Vazgeç" : "Cancel"}
+                </button>
+                <button
+                  type="submit"
+                  disabled={createLoading}
+                  className="px-5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-md shadow-blue-600/30 transition flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+                >
+                  {createLoading && <Loader2 size={14} className="animate-spin" />}
+                  <span>{tr ? "İstasyonu Kaydet" : "Register Station"}</span>
                 </button>
               </div>
             </form>

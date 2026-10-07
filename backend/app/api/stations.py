@@ -87,6 +87,7 @@ async def create_station(
 
     station = Station(
         company_id=current_user.company_id,
+        subscription_expires_at=datetime.now(timezone.utc) + timedelta(days=30),
         **data.model_dump(),
     )
     db.add(station)

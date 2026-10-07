@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { Clock, Receipt, BarChart3, Building2, Settings, Fuel, LayoutDashboard } from "lucide-react";
+import { Clock, Receipt, BarChart3, Building2, Settings, Fuel, LayoutDashboard, Users } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
 
@@ -9,13 +9,11 @@ export const Sidebar: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === "super_admin";
 
-  // SuperAdmin: sistem yönetimi odaklı menü
+  // SuperAdmin: SaaS platform & şube yönetimi odaklı menü
   const adminNavItems = [
     { to: "/", label: t("nav.system_panel"), icon: LayoutDashboard },
-    { to: "/shifts", label: t("nav.shift"), icon: Clock },
     { to: "/stations", label: t("nav.station"), icon: Building2 },
-    { to: "/transactions", label: t("nav.transactions"), icon: Receipt },
-    { to: "/reports", label: t("nav.reports"), icon: BarChart3 },
+    { to: "/users", label: t("nav.users"), icon: Users },
     { to: "/settings", label: t("nav.settings"), icon: Settings },
   ];
 
