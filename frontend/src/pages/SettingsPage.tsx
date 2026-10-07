@@ -2,7 +2,8 @@
  * FuelOS — Sistem ve Kullanıcı Ayarları Sayfası
  * - Kullanıcı Profil Bilgileri
  * - Görünüm ve Sistem Dili (TR/EN, Dark/Light)
- * - Kasa Mutabakat Tolerans Ayarları (Uğur Erdoğan Özelliği - DEC-001 / K-001)
+ * - İstasyon Müdürü: Kasa Mutabakat Tolerans Ayarları (Uğur Erdoğan Özelliği - DEC-001 / K-001)
+ * - Süper Yönetici: SaaS Platform Altyapı & Multi-Tenant Güvenlik Parametreleri
  */
 
 import React, { useState, useEffect } from "react";
@@ -22,22 +23,31 @@ import {
   Loader2,
   Save,
   HelpCircle,
+  ShieldCheck,
+  Server,
+  Layers,
+  Lock,
 } from "lucide-react";
 
 export const SettingsPage: React.FC = () => {
   const { user } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const { theme, toggleTheme } = useTheme();
+  const tr = language === "tr";
 
-  // Tolerans ayarı state'leri
+  const isManager = user?.role === "station_manager";
+  const isSuperAdmin = user?.role === "super_admin";
+
+  // Tolerans ayarı state'leri (Sadece İstasyon Müdürü)
   const [tolerance, setTolerance] = useState<string>("1.00");
-  const [loadingTolerance, setLoadingTolerance] = useState<boolean>(true);
+  const [loadingTolerance, setLoadingTolerance] = useState<boolean>(false);
   const [savingTolerance, setSavingTolerance] = useState<boolean>(false);
   const [toleranceSuccess, setToleranceSuccess] = useState<boolean>(false);
   const [toleranceError, setToleranceError] = useState<string | null>(null);
 
-  // Tolerans bilgisini getir
+  // Tolerans bilgisini getir (Sadece İstasyon Müdürü)
   useEffect(() => {
+    if (!isManager) return;
     const fetchTolerance = async () => {
       try {
         setLoadingTolerance(true);
@@ -51,7 +61,7 @@ export const SettingsPage: React.FC = () => {
     };
 
     fetchTolerance();
-  }, []);
+  }, [isManager]);
 
   // Toleransı kaydet
   const handleSaveTolerance = async (valueToSave?: string) => {
@@ -80,8 +90,6 @@ export const SettingsPage: React.FC = () => {
       setSavingTolerance(false);
     }
   };
-
-  const isManagerOrAdmin = user?.role === "super_admin" || user?.role === "station_manager";
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -177,95 +185,177 @@ export const SettingsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* ── 3. KASA MUTABAKAT TOLERANSI (UĞUR ERDOĞAN ÖZELLİĞİ) ── */}
-        <div className="md:col-span-2 bg-white dark:bg-[#111218] rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
-                <Scale size={18} />
-              </div>
-              <div>
-                <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white">
-                  {t("settings.tolerance_title")}
-                </h3>
-                <p className="text-[11px] text-slate-400">
-                  {t("settings.tolerance_sub")}
-                </p>
-              </div>
-            </div>
-
-            {toleranceSuccess && (
-              <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1 rounded-xl border border-emerald-200 dark:border-emerald-800/40 animate-in fade-in">
-                <CheckCircle2 size={14} />
-                <span>{t("settings.tolerance_saved")}</span>
-              </span>
-            )}
-          </div>
-
-          {toleranceError && (
-            <div className="p-3.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded-2xl text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
-              <AlertCircle size={15} />
-              <span>{toleranceError}</span>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-            {/* Sol: Ayar Kontrolleri */}
-            <div className="lg:col-span-7 space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                  {t("settings.quick_select")}
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {[
-                    { val: "0.00", label: "0 ₺", sub: t("settings.zero_tol") },
-                    { val: "1.00", label: "1.00 ₺", sub: t("settings.default_tol") },
-                    { val: "5.00", label: "5.00 ₺", sub: t("settings.mid_tol") },
-                    { val: "10.00", label: "10.00 ₺", sub: t("settings.high_tol") },
-                  ].map(({ val, label, sub }) => (
-                    <button
-                      key={val}
-                      type="button"
-                      disabled={!isManagerOrAdmin || savingTolerance || loadingTolerance}
-                      onClick={() => {
-                        setTolerance(val);
-                        handleSaveTolerance(val);
-                      }}
-                      className={`p-3 rounded-2xl border text-center transition ${
-                        tolerance === val
-                          ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-black shadow-sm"
-                          : "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-[#181920]/50 text-slate-600 dark:text-slate-400 hover:border-slate-300"
-                      } disabled:opacity-50`}
-                    >
-                      <div className="text-sm font-black">{label}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">{sub}</div>
-                    </button>
-                  ))}
+        {/* ── 3A. SÜPER YÖNETİCİ: SAAS PLATFORM & SİSTEM MİMARİSİ AYARLARI ── */}
+        {isSuperAdmin && (
+          <div className="md:col-span-2 bg-white dark:bg-[#111218] rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center">
+                  <Server size={18} />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white">
+                    {tr ? "SaaS Platform & Güvenlik Parametreleri" : "SaaS Platform & Security Parameters"}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    {tr ? "Sistem geneli multi-tenant izolasyonu, ZK kanıt motoru ve lisanslama kuralları" : "System-wide multi-tenant isolation, ZK engine and licensing rules"}
+                  </p>
                 </div>
               </div>
 
-              {/* Özel Tutar Girişi */}
-              <div className="pt-1">
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-                  {t("settings.custom_tol")}
-                </label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="1000"
-                      disabled={!isManagerOrAdmin || savingTolerance || loadingTolerance}
-                      value={tolerance}
-                      onChange={(e) => setTolerance(e.target.value)}
-                      placeholder="1.00"
-                      className="w-full bg-slate-50 dark:bg-[#181920]/80 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition pr-8 disabled:opacity-50"
-                    />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">₺</span>
-                  </div>
+              <span className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-xl border border-blue-200 dark:border-blue-800/40">
+                <ShieldCheck size={14} />
+                <span>FuelOS Core</span>
+              </span>
+            </div>
 
-                  {isManagerOrAdmin && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Lisans Denetimi */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#161720] border border-slate-200/80 dark:border-zinc-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-slate-900 dark:text-white">
+                    {tr ? "SaaS Lisans Otomasyonu" : "License Automation"}
+                  </span>
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  {tr
+                    ? "Vadesi geçen istasyonlar otomatik past_due statüsüne çekilir. Süper yönetici manuel askıya alabilir."
+                    : "Expired stations are automatically marked past_due. SuperAdmin can manually suspend/reactivate."}
+                </p>
+                <div className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                  {tr ? "✓ Otomatik Kilit Devrede" : "✓ Auto Guard Active"}
+                </div>
+              </div>
+
+              {/* Midnight ZK Kanıtı */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#161720] border border-slate-200/80 dark:border-zinc-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-slate-900 dark:text-white">
+                    {tr ? "Midnight ZK Mahremiyeti" : "Midnight ZK Privacy"}
+                  </span>
+                  <Lock size={14} className="text-blue-500" />
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  {tr
+                    ? "Tüm vardiya mutabakatları Zero-Knowledge kriptografik kanıtları ile mühürlenir. Çapraz şube sızıntısı engellenir."
+                    : "Shift reconciliations are sealed with Zero-Knowledge proofs. Cross-station leakage is strictly prevented."}
+                </p>
+                <div className="text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400">
+                  {tr ? "✓ ZK Proof Motoru Aktif" : "✓ ZK Engine Active"}
+                </div>
+              </div>
+
+              {/* Multi-Tenant İzolasyon */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#161720] border border-slate-200/80 dark:border-zinc-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-slate-900 dark:text-white">
+                    {tr ? "Multi-Tenant Güvenliği" : "Multi-Tenant Security"}
+                  </span>
+                  <Layers size={14} className="text-purple-500" />
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  {tr
+                    ? "İstasyon yöneticileri ve kasiyerler sadece kendi atandıkları şubenin verilerine erişebilir."
+                    : "Managers and cashiers can only query and interact with data inside their own station scope."}
+                </p>
+                <div className="text-[10px] font-mono font-bold text-purple-600 dark:text-purple-400">
+                  {tr ? "✓ Katı RBAC Rol Ayrımı" : "✓ Strict RBAC Enforced"}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── 3B. İSTASYON MÜDÜRÜ: KASA MUTABAKAT TOLERANSI (DEC-001 / K-001) ── */}
+        {isManager && (
+          <div className="md:col-span-2 bg-white dark:bg-[#111218] rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
+                  <Scale size={18} />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white">
+                    {t("settings.tolerance_title")}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    {t("settings.tolerance_sub")}
+                  </p>
+                </div>
+              </div>
+
+              {toleranceSuccess && (
+                <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1 rounded-xl border border-emerald-200 dark:border-emerald-800/40 animate-in fade-in">
+                  <CheckCircle2 size={14} />
+                  <span>{t("settings.tolerance_saved")}</span>
+                </span>
+              )}
+            </div>
+
+            {toleranceError && (
+              <div className="p-3.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded-2xl text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
+                <AlertCircle size={15} />
+                <span>{toleranceError}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+              {/* Sol: Ayar Kontrolleri */}
+              <div className="lg:col-span-7 space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                    {t("settings.quick_select")}
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { val: "0.00", label: "0 ₺", sub: t("settings.zero_tol") },
+                      { val: "1.00", label: "1.00 ₺", sub: t("settings.default_tol") },
+                      { val: "5.00", label: "5.00 ₺", sub: t("settings.mid_tol") },
+                      { val: "10.00", label: "10.00 ₺", sub: t("settings.high_tol") },
+                    ].map(({ val, label, sub }) => (
+                      <button
+                        key={val}
+                        type="button"
+                        disabled={savingTolerance || loadingTolerance}
+                        onClick={() => {
+                          setTolerance(val);
+                          handleSaveTolerance(val);
+                        }}
+                        className={`p-3 rounded-2xl border text-center transition ${
+                          tolerance === val
+                            ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-black shadow-sm"
+                            : "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-[#181920]/50 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                        } disabled:opacity-50`}
+                      >
+                        <div className="text-sm font-black">{label}</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">{sub}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Özel Tutar Girişi */}
+                <div className="pt-1">
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                    {t("settings.custom_tol")}
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="1000"
+                        disabled={savingTolerance || loadingTolerance}
+                        value={tolerance}
+                        onChange={(e) => setTolerance(e.target.value)}
+                        placeholder="1.00"
+                        className="w-full bg-slate-50 dark:bg-[#181920]/80 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition pr-8 disabled:opacity-50"
+                      />
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">₺</span>
+                    </div>
+
                     <button
                       type="button"
                       disabled={savingTolerance || loadingTolerance}
@@ -275,34 +365,29 @@ export const SettingsPage: React.FC = () => {
                       {savingTolerance ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                       <span>{t("settings.save")}</span>
                     </button>
-                  )}
+                  </div>
                 </div>
-                {!isManagerOrAdmin && (
-                  <p className="text-[11px] text-amber-500 mt-1">
-                    {t("settings.manager_only")}
-                  </p>
-                )}
               </div>
-            </div>
 
-            {/* Sağ: Bilgilendirici İzah Kutusu */}
-            <div className="lg:col-span-5 p-4 rounded-2xl bg-slate-50/80 dark:bg-[#181920]/40 border border-slate-200/80 dark:border-zinc-700/60 space-y-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
-                <HelpCircle size={14} className="text-blue-500 shrink-0" />
-                <span>{t("settings.how_it_works")}</span>
+              {/* Sağ: Bilgilendirici İzah Kutusu */}
+              <div className="lg:col-span-5 p-4 rounded-2xl bg-slate-50/80 dark:bg-[#181920]/40 border border-slate-200/80 dark:border-zinc-700/60 space-y-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+                  <HelpCircle size={14} className="text-blue-500 shrink-0" />
+                  <span>{t("settings.how_it_works")}</span>
+                </div>
+                <p>
+                  {t("settings.how_it_works_desc")}
+                </p>
+                <div className="p-2.5 rounded-xl bg-white dark:bg-[#0b1329] border border-slate-200/60 dark:border-zinc-700/40 font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                  | {language === "tr" ? "Kasa Farkı" : "Cash Variance"} | ≤ {parseFloat(tolerance || "0").toFixed(2)} ₺ &nbsp;➔&nbsp; <span className="text-emerald-600 font-bold">{language === "tr" ? "Eşleşti (Matched)" : "Matched"}</span>
+                </div>
+                <p className="text-[11px]">
+                  {t("settings.matched_desc")}
+                </p>
               </div>
-              <p>
-                {t("settings.how_it_works_desc")}
-              </p>
-              <div className="p-2.5 rounded-xl bg-white dark:bg-[#0b1329] border border-slate-200/60 dark:border-zinc-700/40 font-mono text-[11px] text-slate-700 dark:text-slate-300">
-                | {language === "tr" ? "Kasa Farkı" : "Cash Variance"} | ≤ {parseFloat(tolerance || "0").toFixed(2)} ₺ &nbsp;➔&nbsp; <span className="text-emerald-600 font-bold">{language === "tr" ? "Eşleşti (Matched)" : "Matched"}</span>
-              </div>
-              <p className="text-[11px]">
-                {t("settings.matched_desc")}
-              </p>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
