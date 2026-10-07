@@ -1,26 +1,36 @@
 # Verification boundary
 
 The current implementation produces real reconciliation proofs with the
-localhost Midnight proof server 8.1.0. The proof server runs the circuit check,
-creates the binary proof, and checks that generated proof before returning it.
+localhost Midnight proof server 8.1.0. FuelOS calls `check()` on the circuit
+preimage and then `prove()` to obtain a non-empty binary proof.
 FuelOS persists the 2940-byte proof as base64 plus its SHA-256 integrity hash.
 
 This is proof generation, not independent ledger verification. The API uses
 "proved" until a future Midnight transaction has been accepted and checked in
-the ledger context. The "zk-verify" endpoint currently checks only that the
-stored proof bytes still match their stored SHA-256 hash; its response exposes
-"ledger_verified: false".
+the ledger context. The "zk-verify" endpoint checks the stored proof's SHA-256
+integrity, the version of the Compact public statement, and the current shift
+metadata against the stored public context digest. These are application-level
+checks; its response still exposes "ledger_verified: false".
 
 The next cryptographic verification step must build a real Midnight transaction
 containing the circuit call and proof, then use the supported ledger/network
 flow, including transaction well-formedness and submission/finalization. There
 is no invented "verifyProof" endpoint or custom proof envelope in this code.
 
-The "fuelos:shift:v1:..." value is currently an audit-context digest over shift
-metadata and tolerance. It is not a public input to "reconcile", so the proof
-does not yet cryptographically bind that digest or a transaction snapshot.
-That binding must be added to the Compact public statement before replay
-protection can be claimed.
+The "fuelos:shift:v1:..." value is a SHA-256 digest over shift ID, station ID,
+user ID, opening/closing timestamps, and the tolerance frozen at shift close.
+The 32 digest bytes are now a public argument and ledger output of "reconcile".
+The proof therefore binds the claimed class and tolerance to these caller-supplied
+metadata bytes. Backend code recomputes the digest before proving and when
+reading the proof status. Proofs made with the old statement have no version
+marker and must be regenerated.
+
+This digest does not include the transaction set or the five monetary values.
+The proof does not establish that its private witness came from the FuelOS
+database, nor does it prevent another valid proof for the same shift. A future
+on-chain verifier needs the expected context digest from a trusted shift
+snapshot and must check it against the transaction's public output. The current
+backend still controls the metadata and witness supplied to the prover.
 
 Private witness values cross two local process boundaries during proving:
 
@@ -29,3 +39,6 @@ Private witness values cross two local process boundaries during proving:
 
 They are not logged, persisted, returned by the API, or written to files by this
 integration. The proof server therefore remains a trusted local component.
+
+Official references: [Midnight.js API](https://docs.midnight.network/api-reference/midnight-js)
+and [deploy/operate guide](https://docs.midnight.network/guides/deploy-and-operate).

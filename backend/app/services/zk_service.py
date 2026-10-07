@@ -11,6 +11,7 @@ import base64
 import hashlib
 import json
 import os
+import re
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -19,6 +20,7 @@ from typing import Any, Literal
 
 KURUS = Decimal("0.01")
 DEFAULT_TOLERANCE = Decimal("1.00")
+SHIFT_CONTEXT_PATTERN = re.compile(r"^fuelos:shift:v1:[0-9a-f]{64}$")
 MAX_INPUT_KURUS = (1 << 64) - 1
 MAX_TOLERANCE_KURUS = 100_000
 ZKClass = Literal["matched", "shortage", "surplus"]
@@ -65,7 +67,7 @@ def compute_shift_context_digest(
     end_time: datetime | str | None,
     authorized_tolerance_kurus: int,
 ) -> str:
-    """Create an audit-context digest. It is not yet a Compact public input."""
+    """Create the metadata digest now published by the Compact circuit."""
     payload = {
         "domain": "FUELOS_RECONCILIATION_V1",
         "shiftId": str(shift_id).lower(),
@@ -101,6 +103,7 @@ async def generate_reconciliation_proof(
     eft: Decimal,
     credit: Decimal,
     tolerance_tl: Decimal,
+    context_digest: str,
 ) -> dict[str, Any]:
     """Run Compact execution, proof-server check, and real proof generation."""
     values = {
@@ -113,6 +116,8 @@ async def generate_reconciliation_proof(
     tolerance_kurus = to_kurus_int(tolerance_tl)
     if tolerance_kurus > MAX_TOLERANCE_KURUS:
         raise ValueError("Tolerance exceeds the Compact circuit maximum")
+    if not SHIFT_CONTEXT_PATTERN.fullmatch(context_digest):
+        raise ValueError("Invalid shift context digest")
     claim = classify(
         values["totalSales"], values["pos"], values["cash"],
         values["eft"], values["credit"], tolerance_kurus,
@@ -121,6 +126,7 @@ async def generate_reconciliation_proof(
         **{name: str(value) for name, value in values.items()},
         "toleranceKurus": str(tolerance_kurus),
         "claim": claim,
+        "contextDigest": context_digest,
     }
 
     npm = os.getenv("FUELOS_NPM_COMMAND") or ("npm.cmd" if os.name == "nt" else "npm")
@@ -151,6 +157,8 @@ async def generate_reconciliation_proof(
         raise ZKProofGenerationError("response")
     if response.get("publicClass") != claim or response.get("toleranceKurus") != str(tolerance_kurus):
         raise ZKProofGenerationError("public_output")
+    if response.get("publicContextDigest") != context_digest or response.get("proofServerChecked") is not True:
+        raise ZKProofGenerationError("public_output")
     if not proof_integrity_matches(proof_base64, proof_hash):
         raise ZKProofGenerationError("proof_integrity")
     try:
@@ -164,6 +172,7 @@ async def generate_reconciliation_proof(
     return {
         "status": "proved",
         "class": claim,
+        "context_digest": context_digest,
         "tolerance_tl": tolerance_tl,
         "proof": proof_base64,
         "proof_hash": proof_hash,

@@ -93,6 +93,7 @@ class ShiftResponse(BaseModel):
     zk_reconciliation_class: str | None = None
     zk_tolerance: Decimal | None = None
     zk_commitment: str | None = None
+    zk_statement_version: str | None = None
     zk_verified: bool = False
     zk_proved_at: datetime | None = None
     zk_verified_at: datetime | None = None

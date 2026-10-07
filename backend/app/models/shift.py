@@ -6,6 +6,7 @@ Vardiya açılır → satışlar kaydedilir → vardiya kapatılır.
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import (
@@ -142,7 +143,12 @@ class Shift(TimestampMixin, Base):
     zk_commitment: Mapped[Optional[str]] = mapped_column(
         String(100),
         nullable=True,
-        comment="Vardiya kriptografik taahhüt özeti (replay koruması)",
+        comment="Compact public ifadesine bağlanan vardiya metadata özeti",
+    )
+    zk_statement_version: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="Proof'un Compact public ifade sürümü",
     )
     zk_verified: Mapped[bool] = mapped_column(
         Boolean,
@@ -154,6 +160,11 @@ class Shift(TimestampMixin, Base):
         DateTime(timezone=True),
         nullable=True,
         comment="Midnight ledger doğrulama zamanı",
+    )
+    reconciliation_tolerance: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 2),
+        nullable=True,
+        comment="Vardiya kapanışında sabitlenen mutabakat toleransı (TL)",
     )
     zk_proved_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),

@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.user import User
 from app.models.station import Station
+from app.models.company import Company
 from app.models.shift import Shift
 from app.models.transaction import Transaction
 from app.models.base import UserRole, ShiftStatus, PaymentMethod
@@ -59,7 +60,7 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
     K-001 Mutabakat Motoru (DEC-002): kanal ilanı modeliyle çalışır —
     Nakit = fiziksel sayım farkı (kapanış - açılış), diğer kanallar ilan
     edilmişse ilan, edilmediyse kayıtlı satış tutarı. Durum sınıflandırması
-    DEC-001 toleransıyla yapılır (|fark| <= 1 TL -> matched).
+    vardiya kapanışında sabitlenen DEC-001 toleransıyla yapılır.
     """
     tx_res = await db.execute(
         select(
@@ -135,19 +136,10 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
                 "credit": credit_sales,
             }
 
-            # Dinamik tolerans: Şirket ayarından al (yoksa DEFAULT_TOLERANCE)
-            tolerance_val = DEFAULT_TOLERANCE
-            try:
-                from app.models.company import Company
-                comp_tol = await db.scalar(
-                    select(Company.reconciliation_tolerance)
-                    .join(Station, Station.company_id == Company.id)
-                    .where(Station.id == shift.station_id)
-                )
-                if comp_tol is not None:
-                    tolerance_val = Decimal(str(comp_tol))
-            except Exception:
-                pass
+            # Kapanışta sabitlenen politika kullanılır. Eski kayıtlar için
+            # tarihi değer bilinmediğinden varsayılan 1 TL uygulanır.
+            saved_tolerance = getattr(shift, "reconciliation_tolerance", None)
+            tolerance_val = Decimal(str(saved_tolerance)) if saved_tolerance is not None else DEFAULT_TOLERANCE
 
             result = reconcile(
                 {
@@ -209,6 +201,7 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
         zk_reconciliation_class=getattr(shift, "zk_reconciliation_class", None),
         zk_tolerance=Decimal(str(shift.zk_tolerance)) if getattr(shift, "zk_tolerance", None) is not None else None,
         zk_commitment=getattr(shift, "zk_commitment", None),
+        zk_statement_version=getattr(shift, "zk_statement_version", None),
         zk_verified=getattr(shift, "zk_verified", False) or False,
         zk_proved_at=getattr(shift, "zk_proved_at", None),
         zk_verified_at=getattr(shift, "zk_verified_at", None),
@@ -453,6 +446,14 @@ async def close_shift(
         )
 
     # Vardiyayı kapat
+    configured_tolerance = await db.scalar(
+        select(Company.reconciliation_tolerance)
+        .join(Station, Station.company_id == Company.id)
+        .where(Station.id == shift.station_id)
+    )
+    shift.reconciliation_tolerance = (
+        Decimal(str(configured_tolerance)) if configured_tolerance is not None else DEFAULT_TOLERANCE
+    )
     shift.status = ShiftStatus.CLOSED
     shift.end_time = datetime.now(timezone.utc)
     shift.closing_cash = data.closing_cash
@@ -493,16 +494,8 @@ async def generate_zk_proof(
         generate_reconciliation_proof,
         to_kurus_int,
     )
-    from app.models.company import Company
-
-    tolerance_val = DEFAULT_TOLERANCE
-    comp_tol = await db.scalar(
-        select(Company.reconciliation_tolerance)
-        .join(Station, Station.company_id == Company.id)
-        .where(Station.id == shift.station_id)
-    )
-    if comp_tol is not None:
-        tolerance_val = Decimal(str(comp_tol))
+    saved_tolerance = shift.reconciliation_tolerance
+    tolerance_val = Decimal(str(saved_tolerance)) if saved_tolerance is not None else DEFAULT_TOLERANCE
 
     tx_res = await db.execute(
         select(
@@ -520,6 +513,15 @@ async def generate_zk_proof(
     eft_s = Decimal(str(shift.declared_eft)) if shift.declared_eft is not None else Decimal(str(row.eft_sales))
     credit_s = Decimal(str(shift.declared_credit)) if shift.declared_credit is not None else Decimal(str(row.credit_sales))
 
+    context_digest = compute_shift_context_digest(
+        shift.id,
+        shift.station_id,
+        shift.user_id,
+        shift.start_time,
+        shift.end_time,
+        to_kurus_int(tolerance_val),
+    )
+
     try:
         zk_res = await generate_reconciliation_proof(
             total_sales=tot_sales,
@@ -528,6 +530,7 @@ async def generate_zk_proof(
             eft=eft_s,
             credit=credit_s,
             tolerance_tl=tolerance_val,
+            context_digest=context_digest,
         )
     except ZKProofGenerationError as exc:
         raise HTTPException(
@@ -538,14 +541,8 @@ async def generate_zk_proof(
     shift.zk_proof_status = zk_res["status"]
     shift.zk_reconciliation_class = zk_res["class"]
     shift.zk_tolerance = zk_res["tolerance_tl"]
-    shift.zk_commitment = compute_shift_context_digest(
-        shift.id,
-        shift.station_id,
-        shift.user_id,
-        shift.start_time,
-        shift.end_time,
-        to_kurus_int(tolerance_val),
-    )
+    shift.zk_commitment = zk_res["context_digest"]
+    shift.zk_statement_version = "reconcile-v2-shift-context"
     shift.zk_proof = zk_res["proof"]
     shift.zk_proof_hash = zk_res["proof_hash"]
     shift.zk_proved_at = datetime.now(timezone.utc)
@@ -576,6 +573,7 @@ async def verify_zk_proof(
         or not shift.zk_proof
         or not shift.zk_proof_hash
         or not shift.zk_commitment
+        or shift.zk_tolerance is None
         or shift.zk_proved_at is None
     ):
         raise HTTPException(
@@ -583,11 +581,30 @@ async def verify_zk_proof(
             detail="Bu vardiya için henüz ZK kanıtı oluşturulmamış",
         )
 
+    if shift.zk_statement_version != "reconcile-v2-shift-context":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Bu kanıt vardiya bağlamına bağlı eski Compact sürümüyle üretildi; yeniden oluşturulmalı",
+        )
+
     from app.services.zk_service import proof_integrity_matches
 
     integrity_valid = proof_integrity_matches(shift.zk_proof, shift.zk_proof_hash)
     if not integrity_valid:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Saklanan proof bütünlük kontrolü başarısız")
+
+    from app.services.zk_service import compute_shift_context_digest, to_kurus_int
+
+    expected_context = compute_shift_context_digest(
+        shift.id,
+        shift.station_id,
+        shift.user_id,
+        shift.start_time,
+        shift.end_time,
+        to_kurus_int(shift.zk_tolerance),
+    )
+    if shift.zk_commitment != expected_context:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Vardiya bağlam özeti eşleşmiyor")
 
     return ZKVerificationResponse(
         shift_id=shift.id,

@@ -15,12 +15,29 @@ export interface ShiftCommitmentResult {
   authorizedToleranceKurus: bigint;
 }
 
+const CONTEXT_PREFIX = 'fuelos:shift:v1:';
+
+/** Public 32-byte shift metadata digest passed to the Compact circuit. */
+export function parseShiftContextDigest(value: string): Uint8Array {
+  if (!/^fuelos:shift:v1:[0-9a-f]{64}$/.test(value)) {
+    throw new Error('Invalid shift context digest');
+  }
+  return Uint8Array.from(Buffer.from(value.slice(CONTEXT_PREFIX.length), 'hex'));
+}
+
+export function formatShiftContextDigest(value: Uint8Array): string {
+  if (!(value instanceof Uint8Array) || value.length !== 32) {
+    throw new Error('Shift context digest must be 32 bytes');
+  }
+  return `${CONTEXT_PREFIX}${Buffer.from(value).toString('hex')}`;
+}
+
 /**
  * Computes a deterministic cryptographic commitment for a FuelOS shift.
  * Binds the shift identity, station, cashier, timestamps, and authorized tolerance.
- * This is an audit-context digest. The current Compact circuit does not take
- * this value as a public input, so it must not be described as proof-bound
- * replay protection until ledger integration adds that binding.
+ * The circuit publishes this digest as part of its public statement. It binds
+ * the proof to metadata supplied by FuelOS, but does not prove that private
+ * monetary witnesses came from the FuelOS database.
  */
 export function computeShiftCommitment(data: ShiftBindingData): ShiftCommitmentResult {
   if (!data.shiftId || !data.stationId) {

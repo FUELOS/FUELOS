@@ -17,6 +17,7 @@ witness financialInputs(): FinancialInputs;
 // Public result and policy. Initial values are not evidence of execution.
 export ledger reconciliationClass: ReconciliationClass;
 export ledger reconciliationTolerance: Uint<17>;
+export ledger reconciliationContextDigest: Bytes<32>;
 
 // No ledger operations in private branches; financial inputs remain private.
 circuit classify(input: FinancialInputs, tolerance: Uint<17>): ReconciliationClass {
@@ -35,10 +36,11 @@ circuit classify(input: FinancialInputs, tolerance: Uint<17>): ReconciliationCla
   }
 }
 
-export circuit reconcile(claim: ReconciliationClass, tolerance: Uint<17>): [] {
+export circuit reconcile(claim: ReconciliationClass, tolerance: Uint<17>, contextDigest: Bytes<32>): [] {
   assert(tolerance <= 100000, "Tolerance exceeds 1000 TL");
   const actual = classify(financialInputs(), tolerance);
   assert(actual == claim, "Reconciliation class mismatch");
   reconciliationClass = disclose(claim);
   reconciliationTolerance = disclose(tolerance);
+  reconciliationContextDigest = disclose(contextDigest);
 }

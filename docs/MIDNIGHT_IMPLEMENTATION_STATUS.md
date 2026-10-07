@@ -1,11 +1,11 @@
 # FuelOS Midnight implementation status
 
-Date: 2026-10-04
+Date: 2026-10-08
 
 ## Completed
 
 - Compact reconciliation uses private integer-kuruş inputs and public
-  MATCHED, SHORTAGE, or SURPLUS class plus public tolerance.
+  MATCHED, SHORTAGE, or SURPLUS class, tolerance, and 32-byte shift context digest.
 - Compact compiler 0.31.1 full compilation produces the prover key, verifier
   key, and binary ZKIR for circuit "reconcile".
 - Local proof server 8.1.0 produces non-empty 2940-byte proofs for A/MATCHED,
@@ -23,6 +23,12 @@ Date: 2026-10-04
   fabricated proof hash, and calls the authenticated status endpoint.
 - Zero tolerance remains zero; nullable tolerance fallbacks no longer use
   truthiness.
+- The reconciliation tolerance is frozen at shift close. Historical rows without
+  a saved value use the documented 1 TL fallback; a later company policy change
+  cannot silently alter their old result.
+- Proofs now bind a public digest of shift metadata and the frozen tolerance.
+  Old proofs are explicitly marked as an earlier statement version and require
+  regeneration before the status endpoint accepts them.
 
 ## Removed because it was not cryptographic verification
 
@@ -36,9 +42,10 @@ Date: 2026-10-04
 
 ## Still missing
 
-1. **Shift/snapshot binding in Compact.** The shift context digest is metadata
-   only. The circuit proof does not yet bind a shift ID, transaction-set digest,
-   closing timestamp, or source-data commitment.
+1. **Financial source binding.** The circuit binds the metadata digest supplied
+   by the backend, but the digest does not commit to the transaction set or the
+   monetary witness. It does not prove that private inputs came from FuelOS's
+   stored transactions. There is no uniqueness or replay protection yet.
 2. **Independent ledger verification.** No wallet, indexer, submitted Midnight
    transaction, "Transaction.wellFormed" validation, finalization check, or
    on-chain verifier result exists.
@@ -62,18 +69,21 @@ Date: 2026-10-04
 
 | Check | Result |
 | --- | --- |
-| "npm test" in "midnight/" | 80/80 passed |
+| "npm test" in "midnight/" | 82/82 passed |
 | "npm run compile:full" | passed |
-| Prover key | 281517 bytes |
+| Prover key | 287580 bytes |
 | Verifier key | 1351 bytes |
-| Binary ZKIR | 234 bytes |
+| Binary ZKIR | 279 bytes |
 | "npm run test:proof" | 5/5 passed |
-| Backend real-proof bridge | 5/5 passed, including one real 2940-byte proof |
+| Backend real-proof bridge | 8/8 passed, including one real 2940-byte proof |
+| Closing tolerance snapshot | 2/2 passed |
+| Existing Python reconciliation tests | 9/9 passed |
+| Alembic migration chain | single head: `f7a8b9c0d2e3` |
 | Frontend "npm run build" | passed; existing 510 kB chunk warning |
 
 ## Next safe milestone
 
-Add a public, circuit-bound shift snapshot commitment with a versioned canonical
-encoding. Then construct a real Midnight transaction, verify it through the
-supported ledger path, submit it to the selected network, and only after
-finalization change "zk_proof_status" from "proved" to "verified".
+Agree on a trusted transaction-snapshot commitment and its canonical encoding
+with the blockchain implementer. Then construct a real Midnight transaction,
+verify it through the supported ledger path, submit it to the selected network,
+and only after finalization change "zk_proof_status" from "proved" to "verified".

@@ -7,13 +7,14 @@ import { vectors } from './vectors.js';
 
 const classes = [Class.MATCHED, Class.SHORTAGE, Class.SURPLUS];
 const zero: FinancialInputs = { total_sales: 0n, pos: 0n, cash: 0n, eft: 0n, credit: 0n };
+const contextDigest = Uint8Array.from({ length: 32 }, (_, index) => index);
 
-function execute(input: FinancialInputs, claim: Class, tolerance: bigint = 100n) {
+function execute(input: FinancialInputs, claim: Class, tolerance: bigint = 100n, digest = contextDigest) {
   const contract = new Contract<ReconciliationPrivateState>(witnesses);
   const coin = '00'.repeat(32);
   const initial = contract.initialState(createConstructorContext(input, coin));
   const context = createCircuitContext(dummyContractAddress(), coin, initial.currentContractState, initial.currentPrivateState);
-  return contract.impureCircuits.reconcile(context, claim, tolerance);
+  return contract.impureCircuits.reconcile(context, claim, tolerance, digest);
 }
 
 function checkClaims(name: string, input: FinancialInputs, expected: Class) {
@@ -75,7 +76,7 @@ describe('public/private boundary', () => {
       expect(a.proofData.publicTranscript.length).toBeGreaterThan(0);
       expect(a.proofData.publicTranscript).toEqual(b.proofData.publicTranscript);
       expect(a.proofData.privateTranscriptOutputs).not.toEqual(b.proofData.privateTranscriptOutputs);
-      expect(Object.keys(ledger(a.context.currentQueryContext.state))).toEqual(['reconciliationClass', 'reconciliationTolerance']);
+      expect(Object.keys(ledger(a.context.currentQueryContext.state))).toEqual(['reconciliationClass', 'reconciliationTolerance', 'reconciliationContextDigest']);
     });
   }
 });
@@ -100,6 +101,15 @@ describe('public tolerance policy', () => {
     const a = execute(zero, Class.MATCHED, 100n);
     const b = execute(zero, Class.MATCHED, 500n);
     expect(a.proofData.publicTranscript).not.toEqual(b.proofData.publicTranscript);
+  });
+  it('binds the public shift context even when class and amounts are unchanged', () => {
+    const first = execute(zero, Class.MATCHED);
+    const changed = Uint8Array.from(contextDigest);
+    changed[0] ^= 1;
+    const second = execute(zero, Class.MATCHED, 100n, changed);
+    expect(first.proofData.publicTranscript).not.toEqual(second.proofData.publicTranscript);
+    expect(ledger(first.context.currentQueryContext.state).reconciliationContextDigest).toEqual(contextDigest);
+    expect(ledger(second.context.currentQueryContext.state).reconciliationContextDigest).toEqual(changed);
   });
   it('3 TL shortage becomes matched at 5 TL', () => {
     const input = { ...zero, total_sales: 300n };

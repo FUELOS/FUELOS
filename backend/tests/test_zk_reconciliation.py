@@ -1,5 +1,6 @@
 """Unit tests for the backend-to-Midnight proof bridge."""
 
+import asyncio
 import base64
 import hashlib
 import os
@@ -7,6 +8,13 @@ import unittest
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+from fastapi import HTTPException
+
+from app.api.shifts import verify_zk_proof
+from app.models.base import UserRole
 
 from app.services.zk_service import (
     classify,
@@ -37,7 +45,7 @@ class TestZKReconciliation(unittest.TestCase):
             with self.subTest(expected=expected):
                 self.assertEqual(classify(*arguments), expected)
 
-    def test_shift_context_digest_is_metadata_only_and_deterministic(self):
+    def test_shift_context_digest_is_deterministic(self):
         shift_id = uuid.uuid4()
         station_id = uuid.uuid4()
         user_id = uuid.uuid4()
@@ -48,6 +56,15 @@ class TestZKReconciliation(unittest.TestCase):
         changed = compute_shift_context_digest(uuid.uuid4(), station_id, user_id, start, end, 100)
         self.assertEqual(first, second)
         self.assertNotEqual(first, changed)
+        self.assertRegex(first, r"^fuelos:shift:v1:[0-9a-f]{64}$")
+
+    def test_rejects_invalid_public_context_before_starting_prover(self):
+        with self.assertRaises(ValueError):
+            asyncio.run(generate_reconciliation_proof(
+                total_sales=Decimal("0"), pos=Decimal("0"), cash=Decimal("0"),
+                eft=Decimal("0"), credit=Decimal("0"),
+                tolerance_tl=Decimal("1.00"), context_digest="not-a-context",
+            ))
 
     def test_proof_hash_checks_bytes_but_does_not_claim_zk_verification(self):
         proof = b"real-proof-placeholder-for-integrity-unit-test"
@@ -56,6 +73,42 @@ class TestZKReconciliation(unittest.TestCase):
         self.assertTrue(proof_integrity_matches(encoded, digest))
         self.assertFalse(proof_integrity_matches(encoded, "0" * 64))
         self.assertFalse(proof_integrity_matches("not base64", digest))
+
+    def test_old_statement_cannot_be_reported_as_context_bound(self):
+        proof = b"old-proof-for-version-gate-test"
+        shift = SimpleNamespace(
+            id=uuid.uuid4(), zk_proof_status="proved",
+            zk_proof=base64.b64encode(proof).decode(),
+            zk_proof_hash=hashlib.sha256(proof).hexdigest(),
+            zk_commitment="fuelos:shift:v1:" + "ab" * 32,
+            zk_tolerance=Decimal("1.00"),
+            zk_proved_at=datetime.now(timezone.utc),
+            zk_statement_version=None,
+        )
+        user = SimpleNamespace(role=UserRole.CASHIER, id=uuid.uuid4())
+        db = SimpleNamespace(scalar=AsyncMock(return_value=shift))
+        with self.assertRaises(HTTPException) as raised:
+            asyncio.run(verify_zk_proof(shift.id, user, db))
+        self.assertEqual(raised.exception.status_code, 409)
+
+    def test_changed_shift_metadata_rejects_stored_context(self):
+        proof = b"proof-for-context-check-test"
+        shift = SimpleNamespace(
+            id=uuid.uuid4(), station_id=uuid.uuid4(), user_id=uuid.uuid4(),
+            start_time=datetime(2026, 10, 3, 8, tzinfo=timezone.utc),
+            end_time=datetime(2026, 10, 3, 16, tzinfo=timezone.utc),
+            zk_proof_status="proved", zk_proof=base64.b64encode(proof).decode(),
+            zk_proof_hash=hashlib.sha256(proof).hexdigest(),
+            zk_commitment="fuelos:shift:v1:" + "ab" * 32,
+            zk_tolerance=Decimal("1.00"),
+            zk_proved_at=datetime.now(timezone.utc),
+            zk_statement_version="reconcile-v2-shift-context",
+        )
+        user = SimpleNamespace(role=UserRole.CASHIER, id=uuid.uuid4())
+        db = SimpleNamespace(scalar=AsyncMock(return_value=shift))
+        with self.assertRaises(HTTPException) as raised:
+            asyncio.run(verify_zk_proof(shift.id, user, db))
+        self.assertEqual(raised.exception.status_code, 409)
 
 
 @unittest.skipUnless(os.getenv("FUELOS_RUN_PROOF_TESTS") == "1", "requires local proof server")
@@ -68,9 +121,11 @@ class TestRealProofBridge(unittest.IsolatedAsyncioTestCase):
             eft=Decimal("200.00"),
             credit=Decimal("100.00"),
             tolerance_tl=Decimal("1.00"),
+            context_digest="fuelos:shift:v1:" + "ab" * 32,
         )
         self.assertEqual(result["status"], "proved")
         self.assertEqual(result["class"], "matched")
+        self.assertEqual(result["context_digest"], "fuelos:shift:v1:" + "ab" * 32)
         self.assertEqual(result["proof_bytes"], 2940)
         self.assertTrue(result["proof_server_checked"])
         self.assertFalse(result["ledger_verified"])

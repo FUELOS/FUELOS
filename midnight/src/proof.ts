@@ -26,9 +26,9 @@ async function verifyServer() {
 }
 
 /** Real HTTP proving only. No mock, fallback, disk output, or private logging. */
-export async function proveReconciliation(input: ReconciliationPrivateState, claim: ReconciliationClass, tolerance: bigint = 100n) {
+export async function proveReconciliation(input: ReconciliationPrivateState, claim: ReconciliationClass, tolerance: bigint, contextDigest: Uint8Array) {
   // Reject incorrect claims locally before any HTTP call.
-  const execution = executeReconciliation(input, claim, tolerance);
+  const execution = executeReconciliation(input, claim, tolerance, contextDigest);
   const zkConfigProvider = new NodeZkConfigProvider<typeof CIRCUIT_ID>(ARTIFACT_ROOT);
   try {
     try {
@@ -56,7 +56,7 @@ export async function proveReconciliation(input: ReconciliationPrivateState, cla
     } catch {
       throw new ProvingStageError('prove');
     }
-    return { proof, claim, tolerance, checkSucceeded: true as const, independentlyVerified: false as const };
+    return { proof, claim, tolerance, publicContextDigest: execution.publicContextDigest, checkSucceeded: true as const, independentlyVerified: false as const };
   } finally {
     execution.serializedPreimage.fill(0);
     // Best effort lifetime reduction; JS does not guarantee secure erasure.

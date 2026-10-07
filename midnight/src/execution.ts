@@ -5,6 +5,7 @@ import {
   proofDataIntoSerializedPreimage,
 } from '@midnight-ntwrk/compact-runtime';
 import { Contract } from '../managed/reconciliation/contract/index.js';
+import { ledger } from '../managed/reconciliation/contract/index.js';
 import { ReconciliationClass, type ReconciliationPrivateState } from './types.js';
 import { witnesses } from './witnesses.js';
 
@@ -19,13 +20,15 @@ export class ProvingStageError extends Error {
 }
 
 /** Returned data is PRIVATE, ephemeral, and must never be logged or persisted. */
-export function executeReconciliation(input: ReconciliationPrivateState, claim: ReconciliationClass, tolerance: bigint = 100n) {
+export function executeReconciliation(input: ReconciliationPrivateState, claim: ReconciliationClass, tolerance: bigint = 100n, contextDigest: Uint8Array) {
   try {
+    if (!(contextDigest instanceof Uint8Array) || contextDigest.length !== 32) throw new Error('invalid context digest');
     const contract = new Contract<ReconciliationPrivateState>(witnesses);
     const coin = '00'.repeat(32);
     const initial = contract.initialState(createConstructorContext(input, coin));
     const context = createCircuitContext(dummyContractAddress(), coin, initial.currentContractState, input);
-    const { proofData } = contract.impureCircuits.reconcile(context, claim, tolerance);
+    const { proofData, context: finalContext } = contract.impureCircuits.reconcile(context, claim, tolerance, contextDigest);
+    const publicContextDigest = ledger(finalContext.currentQueryContext.state).reconciliationContextDigest;
     const serializedPreimage = proofDataIntoSerializedPreimage(
       proofData.input,
       proofData.output,
@@ -33,7 +36,7 @@ export function executeReconciliation(input: ReconciliationPrivateState, claim: 
       proofData.privateTranscriptOutputs,
       'reconcile',
     );
-    return { proofData, serializedPreimage };
+    return { proofData, serializedPreimage, publicContextDigest };
   } catch {
     throw new ProvingStageError('execution');
   }

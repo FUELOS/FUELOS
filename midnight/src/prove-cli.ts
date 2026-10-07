@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { stdin, stdout } from 'node:process';
 import { proveReconciliation } from './proof.js';
 import { MAX_INPUT_KURUS, ReconciliationClass } from './types.js';
+import { formatShiftContextDigest, parseShiftContextDigest } from './shift-commitment.js';
 
 type ClaimName = 'matched' | 'shortage' | 'surplus';
 
@@ -13,6 +14,7 @@ interface ProveRequest {
   credit: string;
   toleranceKurus: string;
   claim: ClaimName;
+  contextDigest: string;
 }
 
 const claims: Record<ClaimName, ReconciliationClass> = {
@@ -42,6 +44,7 @@ async function main(): Promise<void> {
     if (!(request.claim in claims)) throw new Error('invalid_claim');
 
     const tolerance = parseAmount(request.toleranceKurus, 'tolerance', 100000n);
+    const contextDigest = parseShiftContextDigest(request.contextDigest);
     const result = await proveReconciliation(
       {
         total_sales: parseAmount(request.totalSales, 'total_sales'),
@@ -52,6 +55,7 @@ async function main(): Promise<void> {
       },
       claims[request.claim],
       tolerance,
+      contextDigest,
     );
 
     const proofHash = createHash('sha256').update(result.proof).digest('hex');
@@ -59,6 +63,7 @@ async function main(): Promise<void> {
       status: 'proved',
       publicClass: request.claim,
       toleranceKurus: tolerance.toString(),
+      publicContextDigest: formatShiftContextDigest(result.publicContextDigest),
       proofBytes: result.proof.byteLength,
       proofHash,
       proofBase64: Buffer.from(result.proof).toString('base64'),

@@ -62,7 +62,7 @@ The contract, not the TypeScript witness, computes:
 - sales exceed the collection total by more than the public tolerance: `SHORTAGE`
 - collection total exceeds sales by more than the public tolerance: `SURPLUS`
 
-Tolerance is a public circuit argument in integer kurus (0 through 100000), with a TypeScript default of 100. It must come from the saved closing policy in a future FuelOS integration. Each pair of channels
+Tolerance is a public circuit argument in integer kurus (0 through 100000), with a TypeScript default of 100. The FuelOS integration uses the tolerance frozen at shift close. Each pair of channels
 fits `Uint<65>`; their sum is at most `4 * (2^64 - 1) = 2^66 - 4`, so it fits
 `Uint<66>`. Sales are widened to the same type. Subtraction is performed only
 after comparison, with the larger operand first, preventing unsigned underflow.
@@ -79,11 +79,11 @@ the caller's local private state. It supplies data only; generated runtime
 validation checks witness types/ranges, and the Compact circuit determines
 the class. No separate TypeScript implementation of reconciliation is used.
 
-The exported `reconcile(claim, tolerance)` circuit checks that its private computation
+The exported `reconcile(claim, tolerance, contextDigest)` circuit checks that its private computation
 equals the supplied enum claim, then writes that claim into the public
 `reconciliationClass` ledger field through explicit `disclose(claim)`.
 `disclose()` alone is not publication: the ledger operation makes the class
-public. The public `reconciliationTolerance` field also records the disclosed tolerance. There are no ledger operations inside the private arithmetic branches.
+public. The public `reconciliationTolerance` and `reconciliationContextDigest` fields record the disclosed tolerance and the caller-supplied 32-byte metadata digest. There are no ledger operations inside the private arithmetic branches.
 
 | Enum | Encoding | FuelOS API equivalent |
 | --- | --- | --- |
@@ -93,7 +93,7 @@ public. The public `reconciliationTolerance` field also records the disclosed to
 
 Neither monetary inputs, calculated total nor exact difference are public
 contract fields or return values. The circuit returns an empty tuple.
-The public state reveals the category and tolerance, but no private amount or exact difference.
+The public state reveals the category, tolerance, and shift metadata digest, but no private amount or exact difference.
 
 The default initial ledger class is MATCHED because the enum starts at zero;
 it is **not** evidence that reconciliation has run. This prototype
@@ -106,15 +106,14 @@ an invalid computation. A falsely claimed class causes the circuit assertion
 to fail. Invalid witness amounts are rejected as well.
 
 The proof statement is: "these private amounts imply this public class under
-the disclosed tolerance policy." Logic tests execute this relation; the separate
+the disclosed tolerance policy and supplied shift context digest." Logic tests execute this relation; the separate
 proof tests generate real proofs. Independent verification and network
 acceptance are not claimed by either test suite.
 
-The backend authorizes access to a FuelOS shift, but there is no Compact public
-commitment to its transaction snapshot, uniqueness, or replay protection.
-Callers with backend access can therefore prove in-range reconciliation inputs,
-but the proof alone is not evidence that they are a specific shift's complete
-records. See [VERIFICATION.md](VERIFICATION.md).
+The backend authorizes access to a FuelOS shift and supplies a digest of shift
+metadata to Compact. There is no commitment to its transaction snapshot,
+uniqueness, or replay protection. The proof alone is not evidence that its
+private amounts are a specific shift's complete records. See [VERIFICATION.md](VERIFICATION.md).
 
 ## Tests
 
@@ -144,7 +143,7 @@ The original 65 tests cover:
   inputs/outputs/transcripts, different private transcripts, and the
   public ledger fields. These are regression checks, not a cryptographic audit.
 
-After the tolerance update, `npm test` completed with **78 passed**, including compiler
+After the context-binding update, `npm test` completed with **82 passed**, including compiler
 0.31.1 and TypeScript checks.
 
 ## Generated files
@@ -162,7 +161,7 @@ managed/reconciliation/
 ```
 
 Metadata confirms language 0.23.0, runtime 0.16.0, a provable `reconcile`
-circuit, an enum claim and integer tolerance argument, one financial witness, and public class/tolerance ledger fields.
+circuit, an enum claim, integer tolerance and 32-byte context digest arguments, one financial witness, and public class/tolerance/digest ledger fields.
 
 ## Real local proving
 
@@ -187,9 +186,9 @@ above (observed sizes for this contract/compiler):
 
 | Artifact under managed/reconciliation | Bytes |
 | --- | ---: |
-| keys/reconcile.prover | 281517 |
+| keys/reconcile.prover | 287580 |
 | keys/reconcile.verifier | 1351 |
-| zkir/reconcile.bzkir | 234 |
+| zkir/reconcile.bzkir | 279 |
 
 Docker Engine is installed inside Ubuntu/WSL from Docker's official APT
 repository. Docker Desktop is not required for this setup. The user has not
@@ -229,7 +228,7 @@ The returned binary proof stays in memory. Tests log only case, public class,
 stage outcomes and proof length. Keys and ZKIR are loaded from the filesystem,
 not exposed through an HTTP artifact service.
 
-Updated public-tolerance WSL results: A/MATCHED, B/SHORTAGE and E/SURPLUS each passed execution,
+Updated context-bound WSL results: A/MATCHED, B/SHORTAGE and E/SURPLUS each passed execution,
 check and prove, returning **2940 bytes** each. A/SHORTAGE failed during circuit
 execution before HTTP calls. A separate 3 TL difference / 5 TL public tolerance case also produced 2940 bytes. The real proof suite passed **5/5** tests.
 `check()` checks constraints; it is not independent verification of a proof.

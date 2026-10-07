@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeShiftCommitment, verifyShiftCommitment } from '../src/shift-commitment.js';
+import { computeShiftCommitment, formatShiftContextDigest, parseShiftContextDigest, verifyShiftCommitment } from '../src/shift-commitment.js';
 
 describe('shift context digest', () => {
   const shift = {
@@ -22,5 +22,13 @@ describe('shift context digest', () => {
     const first = computeShiftCommitment(shift).commitment;
     const second = computeShiftCommitment({ ...shift, authorizedToleranceKurus: 500n }).commitment;
     expect(second).not.toBe(first);
+  });
+
+  it('round-trips the public 32-byte digest and rejects malformed values', () => {
+    const encoded = computeShiftCommitment(shift).commitment;
+    expect(formatShiftContextDigest(parseShiftContextDigest(encoded))).toBe(encoded);
+    expect(() => parseShiftContextDigest(encoded.toUpperCase())).toThrow();
+    expect(() => parseShiftContextDigest('fuelos:shift:v1:' + 'ab'.repeat(31))).toThrow();
+    expect(() => formatShiftContextDigest(new Uint8Array(31))).toThrow();
   });
 });
