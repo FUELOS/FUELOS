@@ -201,9 +201,9 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white dark:bg-[#111218] border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         {/* Modal Başlığı */}
-        <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-emerald-500/10 to-teal-500/10">
+        <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-zinc-800 bg-gradient-to-r from-emerald-500/10 to-teal-500/10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-600/30">
               <Play size={18} className="fill-white ml-0.5" />
@@ -245,10 +245,10 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                     value={selectedStationId}
                     onChange={(e) => setSelectedStationId(e.target.value)}
                     disabled={Boolean(user?.station_id && user?.role !== "super_admin")}
-                    className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition appearance-none pr-10 disabled:opacity-60 font-semibold"
+                    className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition appearance-none pr-10 disabled:opacity-60 font-semibold"
                   >
                     {stations.map((st) => (
-                      <option key={st.id} value={st.id} className="bg-white dark:bg-slate-900">
+                      <option key={st.id} value={st.id} className="bg-white dark:bg-[#111218]">
                         {st.name} — {st.city} [{st.code}]
                       </option>
                     ))}
@@ -277,7 +277,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                       className={`p-3 rounded-2xl border text-left transition flex items-start gap-2.5 ${
                         durationMode === mode
                           ? "border-purple-500 bg-purple-50/80 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 shadow-sm"
-                          : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:border-slate-300"
+                          : "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-slate-800/60 hover:border-slate-300"
                       }`}
                     >
                       <Icon size={16} className={durationMode === mode ? "text-purple-600 mt-0.5" : "text-slate-400 mt-0.5"} />
@@ -298,7 +298,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                       required={durationMode === "custom"}
                       value={customEndTime}
                       onChange={(e) => setCustomEndTime(e.target.value)}
-                      className="bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-700 rounded-xl px-3 py-1.5 text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-800 dark:text-slate-200"
+                      className="bg-white dark:bg-[#111218] border border-purple-300 dark:border-purple-700 rounded-xl px-3 py-1.5 text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-800 dark:text-slate-200"
                     />
                   </div>
                 )}
@@ -321,7 +321,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                     className={`p-2.5 rounded-2xl border text-center transition ${
                       selectedPumpId === ""
                         ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-black shadow-sm"
-                        : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-500 hover:border-slate-300 font-semibold"
+                        : "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-slate-800/60 text-slate-500 hover:border-slate-300 font-semibold"
                     }`}
                   >
                     <div className="text-xs">{language === "tr" ? "Tüm Pompalar" : "All Pumps"}</div>
@@ -336,7 +336,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                       className={`p-2.5 rounded-2xl border text-center transition ${
                         selectedPumpId === pump.id
                           ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-black shadow-sm"
-                          : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:border-slate-300 font-semibold"
+                          : "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:border-slate-300 font-semibold"
                       }`}
                     >
                       <div className="text-xs">{pump.label}</div>
@@ -363,7 +363,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                     value={openingCash}
                     onChange={(e) => setOpeningCash(e.target.value)}
                     placeholder="0.00"
-                    className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition pr-10"
+                    className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition pr-10"
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">₺</span>
                 </div>
@@ -398,7 +398,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                   value={workerName}
                   onChange={(e) => setWorkerName(e.target.value)}
                   placeholder={t("modal.worker_name_ph")}
-                  className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                   autoFocus
                 />
               </div>
@@ -433,7 +433,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                         className={`p-2.5 rounded-2xl border text-center transition ${
                           avatarMode === mode
                             ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-sm"
-                            : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60"
+                            : "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-slate-800/60"
                         }`}
                       >
                         <div className="text-xl">{icons[mode]}</div>
@@ -457,7 +457,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                       className={`p-3 rounded-2xl border text-center transition ${
                         selectedAvatarId === av.id
                           ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30 scale-105 shadow-sm"
-                          : `border-slate-200 dark:border-slate-700 ${av.color}`
+                          : `border-slate-200 dark:border-zinc-700 ${av.color}`
                       }`}
                     >
                       <div className="text-2xl">{av.emoji}</div>
@@ -477,7 +477,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                       className={`p-3 rounded-2xl border text-center transition ${
                         selectedAvatarId === av.id
                           ? "border-pink-500 bg-pink-50 dark:bg-pink-900/30 scale-105 shadow-sm"
-                          : `border-slate-200 dark:border-slate-700 ${av.color}`
+                          : `border-slate-200 dark:border-zinc-700 ${av.color}`
                       }`}
                     >
                       <div className="text-2xl">{av.emoji}</div>
@@ -566,7 +566,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder={language === "tr" ? "Örn: Sabah 08:00 vardiyası başlangıcı..." : "e.g. Morning 08:00 shift handover..."}
-                  className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition resize-none"
+                  className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition resize-none"
                 />
               </div>
 
@@ -575,7 +575,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="px-5 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-sm font-bold hover:bg-slate-50 transition"
+                  className="px-5 py-3 rounded-2xl border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-slate-400 text-sm font-bold hover:bg-slate-50 transition"
                 >
                   ← {t("modal.back_step")}
                 </button>

@@ -180,13 +180,13 @@ export const UsersPage: React.FC = () => {
           <Loader2 size={32} className="animate-spin text-amber-500" />
         </div>
       ) : users.length === 0 ? (
-        <div className="p-8 text-center bg-white dark:bg-slate-900/90 border border-slate-100 dark:border-slate-800 rounded-3xl text-slate-500 dark:text-slate-400 text-sm shadow-sm">
+        <div className="p-8 text-center bg-white dark:bg-[#111218] border border-slate-100 dark:border-zinc-800 rounded-3xl text-slate-500 dark:text-slate-400 text-sm shadow-sm">
           {language === "tr" ? "Kayıtlı personel bulunamadı." : "No staff records found."}
         </div>
       ) : (
-        <div className="overflow-x-auto bg-white dark:bg-slate-900/90 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-md dark:shadow-xl shadow-slate-200/60 dark:shadow-slate-950/50">
+        <div className="overflow-x-auto bg-white dark:bg-[#111218] border border-slate-100 dark:border-zinc-800 rounded-3xl shadow-md dark:shadow-xl shadow-slate-200/60 dark:shadow-slate-950/50">
           <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
-            <thead className="bg-[#f8fafc] dark:bg-slate-950/60 text-slate-400 uppercase text-[11px] font-bold border-b border-slate-100 dark:border-slate-800">
+            <thead className="bg-[#f8fafc] dark:bg-slate-950/60 text-slate-400 uppercase text-[11px] font-bold border-b border-slate-100 dark:border-zinc-800">
               <tr>
                 <th className="px-5 py-3.5">{language === "tr" ? "Ad Soyad" : "Full Name"}</th>
                 <th className="px-5 py-3.5">{language === "tr" ? "E-posta" : "Email"}</th>
@@ -200,7 +200,7 @@ export const UsersPage: React.FC = () => {
               {users.map((u) => (
                 <tr key={u.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
                   <td className="px-5 py-3.5 font-bold text-slate-800 dark:text-white flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 font-bold text-xs">
+                    <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-[#181920] border border-slate-200 dark:border-zinc-700 flex items-center justify-center text-slate-700 dark:text-slate-200 font-bold text-xs">
                       {u.full_name.charAt(0).toUpperCase()}
                     </div>
                     <span>{u.full_name}</span>
@@ -228,7 +228,7 @@ export const UsersPage: React.FC = () => {
                         {language === "tr" ? "Aktif" : "Active"}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-[#181920] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-zinc-700">
                         {language === "tr" ? "Pasif" : "Inactive"}
                       </span>
                     )}

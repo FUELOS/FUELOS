@@ -172,7 +172,7 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
       />
 
       {/* Modal */}
-      <div className="relative bg-white dark:bg-[#0f172a] rounded-3xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <div className="relative bg-white dark:bg-[#111218] rounded-3xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-zinc-700 overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-purple-600 to-purple-700 p-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -214,7 +214,7 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="0,00"
-                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
                   />
                 </div>
 
@@ -228,7 +228,7 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
                       <select
                         value={fuelType}
                         onChange={(e) => setFuelType(e.target.value)}
-                        className="w-full px-3 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none pr-8 transition"
+                        className="w-full px-3 py-3 rounded-2xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none pr-8 transition"
                       >
                         <option>Motorin</option>
                         <option>Benzin</option>
@@ -246,7 +246,7 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
                       value={liters}
                       onChange={(e) => setLiters(e.target.value)}
                       placeholder="0.000"
-                      className="w-full px-3 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
+                      className="w-full px-3 py-3 rounded-2xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
                     />
                   </div>
                 </div>
@@ -386,7 +386,7 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
               </div>
 
               {/* Transfer Detayları */}
-              <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 space-y-3 border border-slate-200 dark:border-slate-700">
+              <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 space-y-3 border border-slate-200 dark:border-zinc-700">
                 <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
                   {language === "tr" ? "— FAST TRANSFER DEKONTU —" : "— FAST TRANSFER RECEIPT —"}
                 </div>
@@ -406,7 +406,7 @@ export const QRSimulatorModal: React.FC<QRModalProps> = ({
                   </div>
                 ))}
 
-                <div className="border-t border-slate-200 dark:border-slate-700 pt-3 flex items-center justify-between">
+                <div className="border-t border-slate-200 dark:border-zinc-700 pt-3 flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-500">{language === "tr" ? "TUTAR" : "AMOUNT"}</span>
                   <span className="text-xl font-black text-purple-600">
                     {formatCurrency(result.amount)}

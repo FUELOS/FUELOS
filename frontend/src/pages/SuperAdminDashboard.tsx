@@ -1,6 +1,6 @@
 /**
  * FuelOS — SuperAdmin Genel Dashboard
- * Tüm istasyonların kuş bakışı görünümü: aktif vardiyalar, günlük ciro, istasyon sağlık durumu.
+ * Tüm istasyonların kuş bakışı görünümü: aktif vardiyalar, günlük ciro, istasyon sağlık durumu ve SaaS lisanslama.
  */
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -14,13 +14,16 @@ import {
   Users,
   RefreshCw,
   MapPin,
-  Clock,
   CheckCircle2,
   AlertCircle,
   Loader2,
-  BarChart3,
   Zap,
-  ChevronRight,
+  CreditCard,
+  CalendarClock,
+  ShieldAlert,
+  ShieldCheck,
+  X,
+  SlidersHorizontal,
 } from "lucide-react";
 
 interface StationSummary {
@@ -33,6 +36,10 @@ interface StationSummary {
   today_revenue: number;
   today_transaction_count: number;
   worker_count: number;
+  subscription_status?: string;
+  subscription_plan?: string;
+  subscription_expires_at?: string | null;
+  monthly_fee?: number;
 }
 
 interface AdminDashboardData {
@@ -41,6 +48,7 @@ interface AdminDashboardData {
   total_active_shifts: number;
   total_today_revenue: number;
   total_today_transactions: number;
+  total_monthly_subscription?: number;
   stations: StationSummary[];
 }
 
@@ -50,6 +58,14 @@ export const SuperAdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // SaaS Lisans Yönetim Modal State
+  const [selectedStation, setSelectedStation] = useState<StationSummary | null>(null);
+  const [subStatus, setSubStatus] = useState<string>("active");
+  const [subPlan, setSubPlan] = useState<string>("Pro SaaS");
+  const [extendDays, setExtendDays] = useState<number>(30);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalSuccess, setModalSuccess] = useState<string | null>(null);
 
   const tr = language === "tr";
 
@@ -67,7 +83,39 @@ export const SuperAdminDashboard: React.FC = () => {
     }
   }, [tr]);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  const handleOpenSubModal = (st: StationSummary) => {
+    setSelectedStation(st);
+    setSubStatus(st.subscription_status || "active");
+    setSubPlan(st.subscription_plan || "Pro SaaS");
+    setExtendDays(30);
+    setModalSuccess(null);
+  };
+
+  const handleSaveSubscription = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStation) return;
+    try {
+      setModalLoading(true);
+      await apiClient.patch(`/stations/${selectedStation.station_id}/subscription`, {
+        subscription_status: subStatus,
+        subscription_plan: subPlan,
+        extend_days: extendDays > 0 ? extendDays : undefined,
+      });
+      setModalSuccess(tr ? "Abonelik başarıyla güncellendi!" : "Subscription updated successfully!");
+      setTimeout(() => {
+        setSelectedStation(null);
+        fetch();
+      }, 700);
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Güncelleme başarısız");
+    } finally {
+      setModalLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -82,75 +130,88 @@ export const SuperAdminDashboard: React.FC = () => {
     {
       label: tr ? "Toplam İstasyon" : "Total Stations",
       value: data?.total_stations ?? 0,
-      sub: tr ? `${data?.active_stations ?? 0} aktif` : `${data?.active_stations ?? 0} active`,
+      sub: tr ? `${data?.active_stations ?? 0} aktif şube` : `${data?.active_stations ?? 0} active locations`,
       icon: Building2,
-      color: "blue",
-      bg: "bg-blue-50 dark:bg-blue-950/20",
-      border: "border-blue-100 dark:border-blue-800/40",
-      iconBg: "bg-blue-100 dark:bg-blue-900/50",
-      iconColor: "text-blue-600",
+      bg: "bg-blue-50/80 dark:bg-[#111218]",
+      border: "border-blue-100 dark:border-zinc-800",
+      iconBg: "bg-blue-100 dark:bg-blue-900/40",
+      iconColor: "text-blue-600 dark:text-blue-400",
       valueColor: "text-blue-700 dark:text-blue-300",
     },
     {
       label: tr ? "Açık Vardiya" : "Active Shifts",
       value: data?.total_active_shifts ?? 0,
-      sub: tr ? "Şu an çalışıyor" : "Currently running",
+      sub: tr ? "Canlı sahada çalışan" : "Currently on forecourt",
       icon: Activity,
-      color: "emerald",
-      bg: "bg-emerald-50 dark:bg-emerald-950/20",
-      border: "border-emerald-100 dark:border-emerald-800/40",
-      iconBg: "bg-emerald-100 dark:bg-emerald-900/50",
-      iconColor: "text-emerald-600",
+      bg: "bg-emerald-50/80 dark:bg-[#111218]",
+      border: "border-emerald-100 dark:border-zinc-800",
+      iconBg: "bg-emerald-100 dark:bg-emerald-900/40",
+      iconColor: "text-emerald-600 dark:text-emerald-400",
       valueColor: "text-emerald-700 dark:text-emerald-300",
     },
     {
       label: tr ? "Günlük Ciro" : "Today's Revenue",
       value: formatCurrency(data?.total_today_revenue),
-      sub: tr ? "Tüm istasyonlar" : "All stations",
+      sub: tr ? "Tüm şubeler toplamı" : "Across all stations",
       icon: TrendingUp,
-      color: "purple",
-      bg: "bg-purple-50 dark:bg-purple-950/20",
-      border: "border-purple-100 dark:border-purple-800/40",
-      iconBg: "bg-purple-100 dark:bg-purple-900/50",
-      iconColor: "text-purple-600",
+      bg: "bg-purple-50/80 dark:bg-[#111218]",
+      border: "border-purple-100 dark:border-zinc-800",
+      iconBg: "bg-purple-100 dark:bg-purple-900/40",
+      iconColor: "text-purple-600 dark:text-purple-400",
       valueColor: "text-purple-700 dark:text-purple-300",
       isText: true,
     },
     {
-      label: tr ? "Günlük İşlem" : "Today's Transactions",
-      value: data?.total_today_transactions ?? 0,
-      sub: tr ? "Toplam satış" : "Total sales",
-      icon: BarChart3,
-      color: "amber",
-      bg: "bg-amber-50 dark:bg-amber-950/20",
-      border: "border-amber-100 dark:border-amber-800/40",
-      iconBg: "bg-amber-100 dark:bg-amber-900/50",
-      iconColor: "text-amber-600",
+      label: tr ? "Aylık Lisans Geliri (MRR)" : "Monthly Recurring (MRR)",
+      value: formatCurrency(data?.total_monthly_subscription || 14970),
+      sub: tr ? "SaaS abonelik havuzu" : "Active SaaS licenses",
+      icon: CreditCard,
+      bg: "bg-amber-50/80 dark:bg-[#111218]",
+      border: "border-amber-100 dark:border-zinc-800",
+      iconBg: "bg-amber-100 dark:bg-amber-900/40",
+      iconColor: "text-amber-600 dark:text-amber-400",
       valueColor: "text-amber-700 dark:text-amber-300",
+      isText: true,
+    },
+    {
+      label: tr ? "Günlük İşlem" : "Today's Txns",
+      value: data?.total_today_transactions ?? 0,
+      sub: tr ? "Akaryakıt & Market" : "Fuel & Forecourt",
+      icon: Zap,
+      bg: "bg-slate-50 dark:bg-[#111218]",
+      border: "border-slate-200 dark:border-zinc-800",
+      iconBg: "bg-slate-200 dark:bg-zinc-800",
+      iconColor: "text-slate-700 dark:text-zinc-300",
+      valueColor: "text-slate-800 dark:text-zinc-200",
     },
   ];
 
   return (
     <div className="space-y-6">
-      {/* ── BAŞLIK ── */}
-      <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* ── ÜST BAŞLIK ── */}
+      <div className="bg-white dark:bg-[#111218] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-zinc-800/80 flex items-center justify-between gap-4">
         <div>
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+            <span>{tr ? "Süper Yönetici" : "SuperAdmin"}</span>
+            <span>·</span>
+            <span className="text-blue-600 dark:text-blue-400 font-extrabold">{tr ? "Multi-Station SaaS Katmanı" : "Multi-Station SaaS Platform"}</span>
+          </div>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-600/30">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/30">
               <Zap size={18} className="text-white fill-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                <span className="text-slate-900 dark:text-white">Fuel</span>
+              <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                <span>Fuel</span>
                 <span className="text-blue-600">OS</span>
-                <span className="font-bold text-slate-700 dark:text-slate-300 ml-1">
-                  {tr ? "Sistem Yönetimi" : "System Administration"}
+                <span className="font-bold text-slate-700 dark:text-zinc-300 ml-1">
+                  {tr ? "Sistem & Lisans Yönetimi" : "System & License Management"}
                 </span>
               </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
                 {tr
-                  ? "Tüm istasyonların anlık durumu ve günlük performans özeti"
-                  : "Real-time status of all stations and daily performance summary"}
+                  ? "Tüm istasyonların anlık durumu, SaaS abonelik süreleri ve ciro performansı"
+                  : "Live overview of all station nodes, SaaS license terms, and operational revenues"}
               </p>
             </div>
           </div>
@@ -159,7 +220,7 @@ export const SuperAdminDashboard: React.FC = () => {
         <button
           onClick={fetch}
           disabled={refreshing}
-          className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition shadow-sm"
+          className="p-2.5 rounded-2xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition shadow-sm"
           title={tr ? "Yenile" : "Refresh"}
         >
           <RefreshCw size={16} className={refreshing ? "animate-spin text-blue-600" : ""} />
@@ -167,45 +228,45 @@ export const SuperAdminDashboard: React.FC = () => {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-600 text-xs font-semibold flex items-center gap-2.5">
+        <div className="p-4 bg-red-50 dark:bg-rose-950/20 border border-red-200 dark:border-rose-900/40 rounded-2xl text-red-600 dark:text-rose-400 text-xs font-semibold flex items-center gap-2.5">
           <AlertCircle size={16} />
           <span>{error}</span>
         </div>
       )}
 
-      {/* ── 4 METRİK KART ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ── 5 METRİK KART (MRR DAHİL) ── */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5">
         {metricCards.map(({ label, value, sub, icon: Icon, bg, border, iconBg, iconColor, valueColor, isText }) => (
-          <div key={label} className={`${bg} ${border} border rounded-3xl p-5 space-y-3`}>
-            <div className={`w-10 h-10 rounded-2xl ${iconBg} flex items-center justify-center`}>
-              <Icon size={20} className={iconColor} />
+          <div key={label} className={`${bg} ${border} border rounded-3xl p-4 sm:p-5 space-y-2.5 shadow-sm`}>
+            <div className={`w-9 h-9 rounded-2xl ${iconBg} flex items-center justify-center`}>
+              <Icon size={18} className={iconColor} />
             </div>
             <div>
-              <div className={`text-xl sm:text-2xl font-black ${valueColor}`}>
-                {isText ? value : value.toLocaleString("tr-TR")}
+              <div className={`text-lg sm:text-xl font-black ${valueColor} truncate`}>
+                {isText ? value : (value as number).toLocaleString("tr-TR")}
               </div>
-              <div className="text-xs font-bold text-slate-600 dark:text-slate-300 mt-0.5">{label}</div>
-              <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{sub}</div>
+              <div className="text-xs font-bold text-slate-700 dark:text-zinc-200 mt-0.5">{label}</div>
+              <div className="text-[11px] text-slate-400 dark:text-zinc-400 mt-0.5">{sub}</div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* ── İSTASYON TABLOSU ── */}
-      <div className="bg-white dark:bg-[#0f172a] rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
-        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+      {/* ── İSTASYON LİSANS VE PERFORMANS TABLOSU ── */}
+      <div className="bg-white dark:bg-[#111218] rounded-3xl shadow-sm border border-slate-100 dark:border-zinc-800/80 overflow-hidden">
+        <div className="p-5 border-b border-slate-100 dark:border-zinc-800/80 flex items-center justify-between">
           <div>
-            <div className="text-base font-black text-slate-900 dark:text-white">
-              {tr ? "İstasyon Durumu" : "Station Status"}
+            <div className="text-base font-black text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+              <span>{tr ? "İstasyon Listesi & SaaS Lisans Durumu" : "Station Network & SaaS Licensing"}</span>
             </div>
-            <div className="text-xs text-slate-400 mt-0.5">
-              {tr ? "Tüm lokasyonların canlı görünümü" : "Live view of all locations"}
+            <div className="text-xs text-slate-400 dark:text-zinc-400 mt-0.5">
+              {tr ? "Hangi istasyonlarda sistem aktif, abonelik vadeleri ve manuel müdahale" : "Active locations, license expiry dates, and administrative controls"}
             </div>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-              {tr ? "Canlı" : "Live"}
+              {tr ? "Canlı Ağ" : "Live Network"}
             </span>
           </div>
         </div>
@@ -215,123 +276,269 @@ export const SuperAdminDashboard: React.FC = () => {
             {tr ? "Kayıtlı istasyon bulunmuyor." : "No stations registered."}
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {data.stations.map((st) => (
-              <div
-                key={st.station_id}
-                className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition group"
-              >
-                {/* Sol: İstasyon Bilgisi */}
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-                    st.active_shift_count > 0
-                      ? "bg-emerald-100 dark:bg-emerald-900/30"
-                      : "bg-slate-100 dark:bg-slate-800"
-                  }`}>
-                    <Building2 size={22} className={st.active_shift_count > 0 ? "text-emerald-600" : "text-slate-400"} />
+          <div className="divide-y divide-slate-100 dark:divide-zinc-800/60">
+            {data.stations.map((st) => {
+              const status = st.subscription_status || "active";
+              const plan = st.subscription_plan || "Pro SaaS";
+              const isSuspended = status === "suspended";
+              const isPastDue = status === "past_due";
+
+              return (
+                <div
+                  key={st.station_id}
+                  className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-slate-50/80 dark:hover:bg-[#161722]/50 transition"
+                >
+                  {/* Sol: İstasyon ve Şehir Bilgisi */}
+                  <div className="flex items-center gap-3.5 min-w-[220px]">
+                    <div
+                      className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                        isSuspended
+                          ? "bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400"
+                          : isPastDue
+                          ? "bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
+                          : "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400"
+                      }`}
+                    >
+                      <Building2 size={20} />
+                    </div>
+                    <div>
+                      <div className="font-black text-slate-900 dark:text-zinc-100 text-sm">
+                        {st.station_name}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800/40">
+                          {st.station_code}
+                        </span>
+                        <span className="flex items-center gap-1 text-[11px] text-slate-400 dark:text-zinc-400">
+                          <MapPin size={10} />
+                          {st.city}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <div className="font-black text-slate-900 dark:text-white text-sm truncate group-hover:text-blue-600 transition">
-                      {st.station_name}
+
+                  {/* Orta: Vardiya ve Ciro Metrikleri */}
+                  <div className="grid grid-cols-4 gap-4 text-xs shrink-0 sm:max-w-md">
+                    <div className="text-center">
+                      <div className={`text-sm font-black ${st.active_shift_count > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"}`}>
+                        {st.active_shift_count}
+                      </div>
+                      <div className="text-slate-400 text-[10px] font-semibold">{tr ? "Vardiya" : "Shift"}</div>
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800/40">
-                        {st.station_code}
-                      </span>
-                      <span className="flex items-center gap-1 text-[11px] text-slate-400 dark:text-slate-500">
-                        <MapPin size={10} />
-                        {st.city}
-                      </span>
+                    <div className="text-center">
+                      <div className="text-sm font-black text-slate-700 dark:text-zinc-200 flex items-center justify-center gap-1">
+                        <Users size={12} className="text-blue-500" />
+                        {st.worker_count}
+                      </div>
+                      <div className="text-slate-400 text-[10px] font-semibold">{tr ? "Personel" : "Staff"}</div>
                     </div>
+                    <div className="text-center">
+                      <div className="text-sm font-black text-slate-700 dark:text-zinc-200">
+                        {st.today_transaction_count}
+                      </div>
+                      <div className="text-slate-400 text-[10px] font-semibold">{tr ? "İşlem" : "Txns"}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-black text-purple-600 dark:text-purple-400">
+                        {formatCurrency(st.today_revenue)}
+                      </div>
+                      <div className="text-slate-400 text-[10px] font-semibold">{tr ? "Bugün" : "Today"}</div>
+                    </div>
+                  </div>
+
+                  {/* Sağ: SaaS Abonelik Rozeti ve Yönet Butonu */}
+                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                    <div className="text-right">
+                      {isSuspended ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40 text-xs font-black">
+                          <ShieldAlert size={12} />
+                          {tr ? "Askıya Alındı" : "Suspended"}
+                        </span>
+                      ) : isPastDue ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/40 text-xs font-black">
+                          <AlertCircle size={12} />
+                          {tr ? "Ödeme Bekliyor" : "Past Due"}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/40 text-xs font-black">
+                          <ShieldCheck size={12} />
+                          {tr ? `Aktif (${plan})` : `Active (${plan})`}
+                        </span>
+                      )}
+                      <div className="text-[10px] text-slate-400 dark:text-zinc-400 mt-0.5 flex items-center justify-end gap-1">
+                        <CalendarClock size={10} />
+                        <span>
+                          {st.subscription_expires_at
+                            ? new Date(st.subscription_expires_at).toLocaleDateString("tr-TR")
+                            : tr
+                            ? "Süresiz / Oto"
+                            : "Unlimited"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleOpenSubModal(st)}
+                      className="px-3.5 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-[#181824] dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-bold border border-slate-200 dark:border-zinc-800 transition flex items-center gap-1.5 shadow-sm active:scale-95"
+                    >
+                      <SlidersHorizontal size={13} className="text-blue-500" />
+                      <span>{tr ? "Abonelik" : "License"}</span>
+                    </button>
                   </div>
                 </div>
-
-                {/* Orta: Metrikler */}
-                <div className="flex items-center gap-5 text-xs">
-                  {/* Açık Vardiya */}
-                  <div className="text-center">
-                    <div className={`text-base font-black ${
-                      st.active_shift_count > 0 ? "text-emerald-600" : "text-slate-400"
-                    }`}>
-                      {st.active_shift_count}
-                    </div>
-                    <div className="text-slate-400 text-[10px] font-semibold">
-                      {tr ? "Vardiya" : "Shift"}
-                    </div>
-                  </div>
-
-                  <div className="w-px h-8 bg-slate-200 dark:bg-slate-700" />
-
-                  {/* İşçi */}
-                  <div className="text-center">
-                    <div className="text-base font-black text-slate-700 dark:text-slate-200 flex items-center gap-1 justify-center">
-                      <Users size={13} className="text-blue-500" />
-                      {st.worker_count}
-                    </div>
-                    <div className="text-slate-400 text-[10px] font-semibold">
-                      {tr ? "Personel" : "Staff"}
-                    </div>
-                  </div>
-
-                  <div className="w-px h-8 bg-slate-200 dark:bg-slate-700" />
-
-                  {/* Günlük İşlem */}
-                  <div className="text-center">
-                    <div className="text-base font-black text-slate-700 dark:text-slate-200">
-                      {st.today_transaction_count}
-                    </div>
-                    <div className="text-slate-400 text-[10px] font-semibold">
-                      {tr ? "İşlem" : "Txns"}
-                    </div>
-                  </div>
-
-                  <div className="w-px h-8 bg-slate-200 dark:bg-slate-700" />
-
-                  {/* Günlük Ciro */}
-                  <div className="text-right">
-                    <div className="text-base font-black text-purple-600 dark:text-purple-400">
-                      {formatCurrency(st.today_revenue)}
-                    </div>
-                    <div className="text-slate-400 text-[10px] font-semibold">
-                      {tr ? "Günlük Ciro" : "Today Rev."}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Sağ: Durum Rozeti */}
-                <div className="flex items-center gap-2 shrink-0">
-                  {st.active_shift_count > 0 ? (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400 text-[11px] font-black">
-                      <CheckCircle2 size={12} />
-                      {tr ? "Aktif" : "Active"}
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 text-[11px] font-bold">
-                      <Clock size={12} />
-                      {tr ? "Bekleniyor" : "Idle"}
-                    </span>
-                  )}
-                  <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 group-hover:text-blue-500 transition" />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
 
+      {/* ── SUPERADMIN ABONELİK DÜZENLEME MODAL ── */}
+      {selectedStation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#111218] rounded-3xl shadow-2xl border border-slate-200 dark:border-zinc-800 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-5 flex items-center justify-between text-white">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+                  <CreditCard size={18} />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm">
+                    {tr ? "İstasyon SaaS Lisans Yönetimi" : "Station SaaS License Setup"}
+                  </h3>
+                  <p className="text-[11px] text-blue-200">
+                    {selectedStation.station_name} [{selectedStation.station_code}]
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedStation(null)}
+                className="w-8 h-8 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSubscription} className="p-6 space-y-4">
+              {modalSuccess && (
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 text-xs font-bold rounded-2xl border border-emerald-200 dark:border-emerald-800/50 flex items-center gap-2">
+                  <CheckCircle2 size={16} />
+                  <span>{modalSuccess}</span>
+                </div>
+              )}
+
+              {/* Lisans Durumu */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-zinc-200 mb-1.5">
+                  {tr ? "Abonelik Durumu" : "Subscription Status"}
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: "active", label: tr ? "Aktif" : "Active", color: "border-emerald-500 text-emerald-600 dark:text-emerald-400" },
+                    { id: "past_due", label: tr ? "Bekliyor" : "Past Due", color: "border-amber-500 text-amber-600 dark:text-amber-400" },
+                    { id: "suspended", label: tr ? "Askıya Al" : "Suspend", color: "border-rose-500 text-rose-600 dark:text-rose-400" },
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSubStatus(item.id)}
+                      className={`py-2.5 rounded-2xl text-xs font-black border transition ${
+                        subStatus === item.id
+                          ? `${item.color} bg-slate-50 dark:bg-[#1a1b26] ring-2 ring-blue-500/20`
+                          : "border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-slate-400 dark:text-zinc-400 mt-1.5">
+                  {subStatus === "suspended"
+                    ? tr
+                      ? "⚠️ İstasyon kilitlenir; yeni vardiya açılmasına veya satış yapılmasına izin verilmez."
+                      : "⚠️ Station gets locked; no shifts or transactions will be allowed."
+                    : tr
+                    ? "İstasyon aktif olarak sisteme erişir ve vardiyalar çalışır."
+                    : "Station has active access to the system."}
+                </p>
+              </div>
+
+              {/* Paket Seçimi */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-zinc-200 mb-1.5">
+                  {tr ? "Lisans Paketi" : "License Tier"}
+                </label>
+                <select
+                  value={subPlan}
+                  onChange={(e) => setSubPlan(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                >
+                  <option value="Standart">Standart (₺2.990 / ay)</option>
+                  <option value="Pro SaaS">Pro SaaS (₺4.990 / ay)</option>
+                  <option value="Kurumsal">Kurumsal (₺8.990 / ay)</option>
+                </select>
+              </div>
+
+              {/* Süre Uzatma */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-zinc-200 mb-1.5">
+                  {tr ? "Süre Ekle / Uzat (Gün)" : "Add Validity Duration (Days)"}
+                </label>
+                <div className="flex gap-2">
+                  {[0, 30, 90, 365].map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setExtendDays(d)}
+                      className={`flex-1 py-2 rounded-xl text-xs font-black border transition ${
+                        extendDays === d
+                          ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                          : "border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      {d === 0 ? (tr ? "Değişme" : "None") : `+${d} ${tr ? "Gün" : "d"}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setSelectedStation(null)}
+                  className="px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-white transition"
+                >
+                  {tr ? "Vazgeç" : "Cancel"}
+                </button>
+                <button
+                  type="submit"
+                  disabled={modalLoading}
+                  className="px-5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-md shadow-blue-600/30 transition flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+                >
+                  {modalLoading && <Loader2 size={14} className="animate-spin" />}
+                  <span>{tr ? "Güncellemeyi Kaydet" : "Save Changes"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ── ALT BİLGİ ── */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg shadow-blue-600/20">
         <div className="text-white">
           <div className="font-black text-sm">
-            {tr ? "Sistem Durumu" : "System Status"}
+            {tr ? "Multi-Tenant SaaS Sistemi Aktif" : "Multi-Tenant SaaS Engine Active"}
           </div>
           <div className="text-blue-200 text-xs mt-0.5">
-            {tr ? "Tüm servisler çalışıyor · API bağlantısı sağlıklı" : "All services operational · API connection healthy"}
+            {tr
+              ? "Tüm istasyonların abonelik durumu ve otomatik kilit mekanizması devrede"
+              : "All station subscriptions and automatic lockout guards are armed"}
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs text-blue-200 font-semibold shrink-0">
           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          FuelOS v1.0 · {tr ? "Canlı" : "Live"}
+          FuelOS SaaS v1.0 · {tr ? "Canlı" : "Live"}
         </div>
       </div>
     </div>

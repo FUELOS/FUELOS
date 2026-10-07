@@ -20,8 +20,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const root = document.documentElement;
     if (theme === "dark") {
       root.classList.add("dark");
-      document.body.style.backgroundColor = "#0f172a";
-      document.body.style.color = "#f8fafc";
+      document.body.style.backgroundColor = "#090a0f";
+      document.body.style.color = "#f4f4f5";
     } else {
       root.classList.remove("dark");
       document.body.style.backgroundColor = "#f0f2f5";

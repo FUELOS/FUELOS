@@ -4,9 +4,10 @@ Bir şirkete ait fiziksel akaryakıt istasyonu.
 """
 
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING, List
 
-from sqlalchemy import Boolean, ForeignKey, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -66,6 +67,29 @@ class Station(TimestampMixin, Base):
         default=True,
         nullable=False,
         comment="Aktif/pasif durumu",
+    )
+    subscription_status: Mapped[str] = mapped_column(
+        String(50),
+        default="active",
+        nullable=False,
+        comment="SaaS lisans abonelik durumu: active, past_due, suspended",
+    )
+    subscription_plan: Mapped[str] = mapped_column(
+        String(50),
+        default="Pro SaaS",
+        nullable=False,
+        comment="Abonelik paketi: Standart, Pro SaaS, Kurumsal",
+    )
+    subscription_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Lisans bitiş tarihi / vade",
+    )
+    monthly_fee: Mapped[float] = mapped_column(
+        Numeric(10, 2),
+        default=4990.00,
+        nullable=False,
+        comment="Aylık lisans bedeli (TL)",
     )
 
     # ── İlişkiler ──

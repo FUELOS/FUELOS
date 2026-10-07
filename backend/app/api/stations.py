@@ -8,6 +8,7 @@ FuelOS — Station API Router.
 
 import uuid
 
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,7 +18,7 @@ from app.models.user import User
 from app.models.station import Station
 from app.models.base import UserRole
 from app.auth.dependencies import get_current_user, require_role
-from app.schemas.station import StationCreate, StationUpdate, StationResponse
+from app.schemas.station import StationCreate, StationUpdate, StationResponse, StationSubscriptionUpdate
 
 router = APIRouter(prefix="/api/stations", tags=["Stations"])
 
@@ -135,3 +136,50 @@ async def update_station(
     await db.flush()
     await db.refresh(station)
     return station
+
+
+@router.patch("/{station_id}/subscription", response_model=StationResponse)
+async def update_station_subscription(
+    station_id: uuid.UUID,
+    data: StationSubscriptionUpdate,
+    current_user: User = Depends(require_role(UserRole.SUPER_ADMIN)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    SuperAdmin: İstasyon lisans aboneliğini yönetir.
+    - subscription_status: active, past_due, suspended
+    - extend_days: opsiyonel gün ekleme (örn: 30 gün uzatma)
+    """
+    result = await db.execute(
+        select(Station).where(
+            Station.id == station_id,
+            Station.company_id == current_user.company_id,
+        )
+    )
+    station = result.scalar_one_or_none()
+    if station is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="İstasyon bulunamadı",
+        )
+
+    station.subscription_status = data.subscription_status
+    if data.subscription_status == "suspended":
+        station.is_active = False
+    elif data.subscription_status == "active":
+        station.is_active = True
+
+    if data.subscription_plan:
+        station.subscription_plan = data.subscription_plan
+
+    if data.monthly_fee is not None:
+        station.monthly_fee = data.monthly_fee
+
+    if data.extend_days:
+        base = station.subscription_expires_at if (station.subscription_expires_at and station.subscription_expires_at > datetime.now(timezone.utc)) else datetime.now(timezone.utc)
+        station.subscription_expires_at = base + timedelta(days=data.extend_days)
+
+    await db.flush()
+    await db.refresh(station)
+    return station
+

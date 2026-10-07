@@ -90,7 +90,7 @@ const WorkerAvatar: React.FC<{ avatar: string | null; name: string; size?: "sm" 
     );
   }
   if (avatar.startsWith("data:image")) {
-    return <img src={avatar} alt={name} className={`${dim} rounded-2xl object-cover border border-slate-200 dark:border-slate-700 shrink-0 shadow-sm`} />;
+    return <img src={avatar} alt={name} className={`${dim} rounded-2xl object-cover border border-slate-200 dark:border-zinc-700 shrink-0 shadow-sm`} />;
   }
   const emoji = MALE_AVATARS[avatar] || FEMALE_AVATARS[avatar] || null;
   if (emoji) {
@@ -101,7 +101,7 @@ const WorkerAvatar: React.FC<{ avatar: string | null; name: string; size?: "sm" 
     );
   }
   return (
-    <div className={`${dim} rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0`}>
+    <div className={`${dim} rounded-2xl bg-slate-100 dark:bg-[#181920] flex items-center justify-center shrink-0`}>
       <UserCircle className="text-slate-400" size={24} />
     </div>
   );
@@ -266,7 +266,7 @@ export const StationsPage: React.FC = () => {
   return (
     <div className="space-y-6 w-full">
       {/* ── ÜST BAŞLIK VE AKSİYON BAR ── */}
-      <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#111218] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-500/25 shrink-0">
             <Building2 size={24} />
@@ -303,7 +303,7 @@ export const StationsPage: React.FC = () => {
             <button
               onClick={() => fetchDetail(selectedStation.id)}
               disabled={refreshing || loadingDetail}
-              className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-blue-600 hover:bg-slate-100 transition shadow-sm"
+              className="p-2.5 rounded-2xl bg-slate-50 dark:bg-[#181920] border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-slate-300 hover:text-blue-600 hover:bg-slate-100 transition shadow-sm"
               title={t("header.refresh")}
             >
               <RefreshCw size={16} className={loadingDetail ? "animate-spin text-blue-600" : ""} />
@@ -352,7 +352,7 @@ export const StationsPage: React.FC = () => {
                   className={`w-full text-left p-4 rounded-3xl border transition flex items-center justify-between gap-3 ${
                     selectedStation?.id === st.id
                       ? "bg-blue-50/80 dark:bg-blue-900/20 border-blue-400 dark:border-blue-700 shadow-sm"
-                      : "bg-white dark:bg-[#0f172a] border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+                      : "bg-white dark:bg-[#111218] border-slate-100 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-slate-700"
                   }`}
                 >
                   <div className="min-w-0">
@@ -444,8 +444,8 @@ export const StationsPage: React.FC = () => {
           {/* ── 2. YAN YANA İKİ ANA PANEL: POMPALAR (SOL) & İŞÇİ SATIŞLARI (SAĞ) ── */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* ══ SOL SÜTUN: İSTASYON POMPALARI (5 KOLON) ══ */}
-            <div className="lg:col-span-5 bg-white dark:bg-[#0f172a] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="lg:col-span-5 bg-white dark:bg-[#111218] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center">
                     <Cpu size={16} />
@@ -493,7 +493,7 @@ export const StationsPage: React.FC = () => {
                         className={`p-4 rounded-2xl border transition relative space-y-2.5 ${
                           assignedWorker
                             ? "bg-emerald-50/50 dark:bg-emerald-950/10 border-emerald-300 dark:border-emerald-800/60 shadow-sm"
-                            : "bg-slate-50/80 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-700/60"
+                            : "bg-slate-50/80 dark:bg-[#181920]/40 border-slate-200/80 dark:border-zinc-700/60"
                         }`}
                       >
                         <div className="flex items-start justify-between">
@@ -532,7 +532,7 @@ export const StationsPage: React.FC = () => {
                         </div>
 
                         {/* Atanan Personel */}
-                        <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/40 flex items-center justify-between text-[11px]">
+                        <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-700/40 flex items-center justify-between text-[11px]">
                           <span className="text-slate-400 font-medium">{t("st.duty")}:</span>
                           {assignedWorker ? (
                             <span className="font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-1">
@@ -551,8 +551,8 @@ export const StationsPage: React.FC = () => {
             </div>
 
             {/* ══ SAĞ SÜTUN: İŞÇİ BAZLI SATIŞ VE VARDİYA (7 KOLON) ══ */}
-            <div className="lg:col-span-7 bg-white dark:bg-[#0f172a] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="lg:col-span-7 bg-white dark:bg-[#111218] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-900/30 text-purple-600 flex items-center justify-center">
                     <Users size={16} />
@@ -585,7 +585,7 @@ export const StationsPage: React.FC = () => {
                   {detailData.workers.map((worker) => (
                     <div
                       key={worker.shift_id}
-                      className="p-4 sm:p-5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 space-y-4"
+                      className="p-4 sm:p-5 rounded-2xl bg-slate-50/70 dark:bg-[#181920]/40 border border-slate-200/80 dark:border-zinc-700/60 space-y-4"
                     >
                       {/* İşçi Başlık Barı */}
                       <div className="flex items-center justify-between gap-3">
@@ -621,10 +621,10 @@ export const StationsPage: React.FC = () => {
 
                       {/* Yakıt Detay Tablosu */}
                       {worker.fuel_breakdown.length > 0 ? (
-                        <div className="overflow-x-auto bg-white dark:bg-[#0b1329] rounded-xl border border-slate-200/60 dark:border-slate-700/50 p-2">
+                        <div className="overflow-x-auto bg-white dark:bg-[#0b1329] rounded-xl border border-slate-200/60 dark:border-zinc-700/50 p-2">
                           <table className="w-full text-xs">
                             <thead>
-                              <tr className="text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800/80">
+                              <tr className="text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800/80">
                                 <th className="text-left py-2 px-3">{t("st.col_fuel_type")}</th>
                                 <th className="text-right py-2 px-3">{t("st.col_liters")}</th>
                                 <th className="text-right py-2 px-3">{t("st.col_revenue")}</th>
@@ -661,7 +661,7 @@ export const StationsPage: React.FC = () => {
                           </table>
                         </div>
                       ) : (
-                        <div className="p-3 text-center text-slate-400 text-xs bg-white dark:bg-slate-900/40 rounded-xl">
+                        <div className="p-3 text-center text-slate-400 text-xs bg-white dark:bg-[#111218]/40 rounded-xl">
                           {t("st.no_sales_yet")}
                         </div>
                       )}
@@ -677,8 +677,8 @@ export const StationsPage: React.FC = () => {
       {/* ── YENİ İSTASYON MODAL (Admin) ── */}
       {isStationModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800">
+          <div className="bg-white dark:bg-[#111218] border border-slate-200 dark:border-zinc-700 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-zinc-800">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center">
                   <Building2 size={16} />
@@ -687,7 +687,7 @@ export const StationsPage: React.FC = () => {
               </div>
               <button
                 onClick={() => setIsStationModalOpen(false)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 transition"
+                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-[#181920] flex items-center justify-center text-slate-500 hover:text-slate-800 transition"
               >
                 <X size={15} />
               </button>
@@ -709,7 +709,7 @@ export const StationsPage: React.FC = () => {
                   value={stName}
                   onChange={(e) => setStName(e.target.value)}
                   placeholder="Örn: İzmir Bornova İstasyonu"
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
+                  className="w-full bg-slate-50 dark:bg-[#181920] border border-slate-200 dark:border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
                 />
               </div>
               <div>
@@ -722,7 +722,7 @@ export const StationsPage: React.FC = () => {
                   value={stCode}
                   onChange={(e) => setStCode(e.target.value)}
                   placeholder="IST-002"
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 uppercase font-mono focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
+                  className="w-full bg-slate-50 dark:bg-[#181920] border border-slate-200 dark:border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 uppercase font-mono focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -736,7 +736,7 @@ export const StationsPage: React.FC = () => {
                     value={stCity}
                     onChange={(e) => setStCity(e.target.value)}
                     placeholder="İzmir"
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
+                    className="w-full bg-slate-50 dark:bg-[#181920] border border-slate-200 dark:border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
                   />
                 </div>
                 <div>
@@ -748,7 +748,7 @@ export const StationsPage: React.FC = () => {
                     value={stDistrict}
                     onChange={(e) => setStDistrict(e.target.value)}
                     placeholder="Bornova"
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
+                    className="w-full bg-slate-50 dark:bg-[#181920] border border-slate-200 dark:border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
                   />
                 </div>
               </div>
@@ -756,7 +756,7 @@ export const StationsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsStationModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-500 text-sm font-bold"
+                  className="flex-1 py-2.5 rounded-2xl border border-slate-200 dark:border-zinc-700 text-slate-500 text-sm font-bold"
                 >
                   {t("common.cancel")}
                 </button>
@@ -777,8 +777,8 @@ export const StationsPage: React.FC = () => {
       {/* ── YENİ POMPA MODAL ── */}
       {isPumpModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800">
+          <div className="bg-white dark:bg-[#111218] border border-slate-200 dark:border-zinc-700 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-zinc-800">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center">
                   <Cpu size={16} />
@@ -787,7 +787,7 @@ export const StationsPage: React.FC = () => {
               </div>
               <button
                 onClick={() => setIsPumpModalOpen(false)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 transition"
+                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-[#181920] flex items-center justify-center text-slate-500 hover:text-slate-800 transition"
               >
                 <X size={15} />
               </button>
@@ -809,7 +809,7 @@ export const StationsPage: React.FC = () => {
                   required
                   value={pumpNumber}
                   onChange={(e) => setPumpNumber(parseInt(e.target.value) || 1)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="w-full bg-slate-50 dark:bg-[#181920] border border-slate-200 dark:border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                 />
               </div>
               <div>
@@ -822,7 +822,7 @@ export const StationsPage: React.FC = () => {
                   value={pumpLabel}
                   onChange={(e) => setPumpLabel(e.target.value)}
                   placeholder="Örn: Pompa 1"
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="w-full bg-slate-50 dark:bg-[#181920] border border-slate-200 dark:border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                 />
               </div>
               <div>
@@ -834,14 +834,14 @@ export const StationsPage: React.FC = () => {
                   value={pumpFuelTypes}
                   onChange={(e) => setPumpFuelTypes(e.target.value)}
                   placeholder="Motorin,Benzin,LPG"
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="w-full bg-slate-50 dark:bg-[#181920] border border-slate-200 dark:border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                 />
               </div>
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsPumpModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-500 text-sm font-bold"
+                  className="flex-1 py-2.5 rounded-2xl border border-slate-200 dark:border-zinc-700 text-slate-500 text-sm font-bold"
                 >
                   {t("common.cancel")}
                 </button>

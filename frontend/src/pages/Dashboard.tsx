@@ -3,6 +3,7 @@ import { apiClient } from "@/lib/api";
 import { DashboardResponse, Station, WorkerShiftStats } from "@/types";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { useLanguage } from "@/context/LanguageContext";
+import { useAuth } from "@/context/AuthContext";
 import { OpenShiftModal } from "@/components/modals/OpenShiftModal";
 import { CloseShiftModal } from "@/components/modals/CloseShiftModal";
 import { AddTransactionModal } from "@/components/modals/AddTransactionModal";
@@ -29,6 +30,7 @@ import {
 
 export const Dashboard: React.FC = () => {
   const { t, language } = useLanguage();
+  const { user: currentUser } = useAuth();
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [stations, setStations] = useState<Station[]>([]);
   const [selectedStationId, setSelectedStationId] = useState<string>("");
@@ -55,6 +57,13 @@ export const Dashboard: React.FC = () => {
     try {
       const res = await apiClient.get<Station[]>("/stations");
       setStations(res.data);
+      if (currentUser?.role !== "super_admin") {
+        if (currentUser?.station_id) {
+          setSelectedStationId(currentUser.station_id);
+        } else if (res.data.length > 0) {
+          setSelectedStationId(res.data[0].id);
+        }
+      }
     } catch (err) {
       console.error("İstasyonlar alınamadı", err);
     }
@@ -154,7 +163,7 @@ export const Dashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* ── 1. ÜST BAŞLIK VE OPERASYON BAR (Görsel 1 & 2) ── */}
-      <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#111218] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
@@ -182,24 +191,37 @@ export const Dashboard: React.FC = () => {
             <span>{data?.shift_time_range || "06:00 - 14:00"}</span>
           </div>
 
-          {/* İstasyon Seçici */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700">
-            <MapPin size={14} className="text-blue-600 shrink-0" />
-            <select
-              value={selectedStationId}
-              onChange={(e) => setSelectedStationId(e.target.value)}
-              className="bg-transparent font-bold text-xs text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
-            >
-              <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-                {t("header.all_stations")} ({stations.length})
-              </option>
-              {stations.map((st) => (
-                <option key={st.id} value={st.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-                  {st.name} [{st.code}]
+          {/* İstasyon Seçici (SuperAdmin ise Açılır Menü, Müdür ise Sabit Kurumsal Şube Rozeti) */}
+          {currentUser?.role === "super_admin" ? (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-50 dark:bg-[#121217] border border-slate-200/80 dark:border-zinc-800">
+              <MapPin size={14} className="text-blue-600 shrink-0" />
+              <select
+                value={selectedStationId}
+                onChange={(e) => setSelectedStationId(e.target.value)}
+                className="bg-transparent font-bold text-xs text-slate-700 dark:text-zinc-200 focus:outline-none cursor-pointer"
+              >
+                <option value="" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">
+                  {t("header.all_stations")} ({stations.length})
                 </option>
-              ))}
-            </select>
-          </div>
+                {stations.map((st) => (
+                  <option key={st.id} value={st.id} className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">
+                    {st.name} [{st.code}]
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-blue-50/70 dark:bg-[#121217] border border-blue-200/80 dark:border-zinc-800 shadow-sm text-xs font-black text-slate-800 dark:text-zinc-100">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <MapPin size={13} className="text-blue-600 dark:text-blue-400 shrink-0" />
+              <span>
+                {stations.find((s) => s.id === currentUser?.station_id)?.name || stations[0]?.name || "Ankara Merkez İstasyonu"}
+              </span>
+              <span className="font-mono text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-100/70 dark:bg-blue-900/40 px-1.5 py-0.5 rounded-lg border border-blue-200/60 dark:border-blue-800/40">
+                {stations.find((s) => s.id === currentUser?.station_id)?.code || stations[0]?.code || "ANK-01"}
+              </span>
+            </div>
+          )}
 
           {/* Yenile */}
           <button
@@ -245,7 +267,7 @@ export const Dashboard: React.FC = () => {
             {data.active_workers.map((worker, index) => (
               <div
                 key={worker.shift_id}
-                className="bg-white dark:bg-[#0f172a] rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-slate-800 flex gap-4 relative group hover:shadow-md transition"
+                className="bg-white dark:bg-[#111218] rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-zinc-800 flex gap-4 relative group hover:shadow-md transition"
               >
                 {/* İşçi Fotoğrafı / Avatarı */}
                 <div className="w-24 sm:w-28 h-32 sm:h-36 rounded-2xl overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 relative">
@@ -373,7 +395,7 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* ── TOPLAM SATIŞLAR ŞERİDİ (Görsel 1: İşçilerin Birleşimi) ── */}
-          <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="bg-white dark:bg-[#111218] rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-zinc-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <div className="text-base font-black text-slate-900 dark:text-white">{t("worker.total_label")}</div>
               <div className="text-xs text-slate-400 font-medium">
@@ -438,7 +460,7 @@ export const Dashboard: React.FC = () => {
         </div>
       ) : (
         /* Açık Vardiya Yoksa Bilgi Kartı */
-        <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-8 text-center border border-slate-100 dark:border-slate-800 space-y-3">
+        <div className="bg-white dark:bg-[#111218] rounded-3xl p-8 text-center border border-slate-100 dark:border-zinc-800 space-y-3">
           <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 flex items-center justify-center mx-auto">
             <Clock size={28} />
           </div>
@@ -461,7 +483,7 @@ export const Dashboard: React.FC = () => {
       )}
 
       {/* ── 3. GENEL TOPLAM & MUTABAKAT FORMÜL ŞERİDİ (Görsel 1) ── */}
-      <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
+      <div className="bg-white dark:bg-[#111218] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-4">
         <div>
           <div className="text-base font-black text-slate-900 dark:text-white">{t("summary.general_total")}</div>
           <div className="text-xs text-slate-400 font-medium">{t("summary.general_sub")}</div>
@@ -519,7 +541,7 @@ export const Dashboard: React.FC = () => {
       {/* ── 4. KASA DENGE FORMÜLÜ + MUTABAKAT KARTI ── */}
       <div className="space-y-4">
         {/* Formül Satırı: Açılış + Nakit = Beklenen Kasa */}
-        <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-slate-800">
+        <div className="bg-white dark:bg-[#111218] rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-zinc-800">
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <div className="flex-1 min-w-[120px]">
               <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">{t("summary.opening_cash")}</div>
@@ -576,8 +598,8 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* ── 5. OPSİYONEL ÜRÜN BAZLI DETAY (Görsel 2: Benzin, Motorin, LPG & Donut Chart) ── */}
-      <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-800 space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-4">
+      <div className="bg-white dark:bg-[#111218] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-zinc-800/80 pb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center">
               <Layers size={18} />
@@ -622,7 +644,7 @@ export const Dashboard: React.FC = () => {
                   {t("product.table_title")}
                 </div>
                 <table className="w-full text-left text-xs">
-                  <thead className="text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800">
+                  <thead className="text-slate-400 font-bold border-b border-slate-100 dark:border-zinc-800">
                     <tr>
                       <th className="py-2.5 pr-4">{t("product.col_product")}</th>
                       <th className="py-2.5 px-3 text-right">{t("product.col_liters")}</th>
@@ -697,7 +719,7 @@ export const Dashboard: React.FC = () => {
                   {/* Pasta Grafik Görsel İllüstrasyonu */}
                   <div className="flex items-center gap-5">
                     {/* Donut representation */}
-                    <div className="w-24 h-24 rounded-full border-8 border-emerald-500 border-t-amber-500 border-r-red-500 flex flex-col items-center justify-center shrink-0 bg-white dark:bg-slate-900 shadow-sm">
+                    <div className="w-24 h-24 rounded-full border-8 border-emerald-500 border-t-amber-500 border-r-red-500 flex flex-col items-center justify-center shrink-0 bg-white dark:bg-[#111218] shadow-sm">
                       <div className="text-xs font-black text-slate-900 dark:text-white leading-tight">
                         {formatNumber(data?.total_dispensed_liters, 0)} L
                       </div>

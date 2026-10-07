@@ -23,7 +23,7 @@ export const Navbar: React.FC = () => {
   };
 
   return (
-    <header className="h-16 px-4 sm:px-6 md:px-8 flex items-center justify-between sticky top-0 z-30 bg-[#f4f7fe]/80 dark:bg-slate-950/80 backdrop-blur-md transition-colors duration-200">
+    <header className="h-16 px-4 sm:px-6 md:px-8 flex items-center justify-between sticky top-0 z-30 bg-[#f4f7fe]/80 dark:bg-[#090a0f]/80 backdrop-blur-md border-b border-transparent dark:border-zinc-800/60 transition-colors duration-200">
       <div className="flex items-center gap-3">
         <div className="md:hidden flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black shadow-md">
@@ -35,7 +35,7 @@ export const Navbar: React.FC = () => {
 
       <div className="flex items-center gap-2.5 sm:gap-3.5">
         {/* Language Switcher Button (TR 🇹🇷 / EN 🇬🇧) */}
-        <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-1 shadow-sm">
+        <div className="flex items-center bg-white dark:bg-[#121217] border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-1 shadow-sm">
           <button
             onClick={() => setLanguage("tr")}
             className={`px-2.5 py-1 rounded-xl text-xs font-black transition-all ${
@@ -63,7 +63,7 @@ export const Navbar: React.FC = () => {
         {/* Dark / Light Mode Toggle Button */}
         <button
           onClick={toggleTheme}
-          className="p-2 sm:px-3 sm:py-2 rounded-2xl flex items-center gap-2 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-amber-400 hover:shadow-md transition active:scale-95 shadow-sm"
+          className="p-2 sm:px-3 sm:py-2 rounded-2xl flex items-center gap-2 text-xs font-bold bg-white dark:bg-[#121217] border border-slate-200/80 dark:border-zinc-800 text-slate-700 dark:text-amber-400 hover:shadow-md transition active:scale-95 shadow-sm"
           title={theme === "dark" ? "Açık Moda Geç" : "Koyu Moda Geç"}
         >
           {theme === "dark" ? (
@@ -82,13 +82,13 @@ export const Navbar: React.FC = () => {
         {user && (
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
-              <div className="text-xs font-bold text-slate-700 dark:text-slate-200">{user.full_name}</div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400">{user.email}</div>
+              <div className="text-xs font-bold text-slate-700 dark:text-zinc-200">{user.full_name}</div>
+              <div className="text-[11px] text-slate-500 dark:text-zinc-400">{user.email}</div>
             </div>
             {getRoleBadge(user.role)}
             <button
               onClick={logout}
-              className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-white dark:hover:bg-slate-900 transition shadow-sm border border-slate-200/60 dark:border-slate-800"
+              className="p-2 rounded-xl text-slate-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-white dark:hover:bg-[#181820] transition shadow-sm border border-slate-200/60 dark:border-zinc-800"
               title={t("common.logout")}
             >
               <LogOut size={16} />

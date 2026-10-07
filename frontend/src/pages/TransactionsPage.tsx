@@ -122,7 +122,7 @@ export const TransactionsPage: React.FC = () => {
             <select
               value={selectedStationId}
               onChange={(e) => setSelectedStationId(e.target.value)}
-              className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-amber-500 transition shadow-sm"
+              className="bg-white dark:bg-[#111218] border border-slate-200 dark:border-zinc-800 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-amber-500 transition shadow-sm"
             >
               <option value="">{t("header.all_stations")}</option>
               {stations.map((st) => (
@@ -136,7 +136,7 @@ export const TransactionsPage: React.FC = () => {
           <button
             onClick={fetchData}
             disabled={refreshing}
-            className="p-2.5 rounded-2xl bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 hover:bg-slate-50 transition shadow-sm"
+            className="p-2.5 rounded-2xl bg-white dark:bg-[#111218] border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 hover:bg-slate-50 transition shadow-sm"
             title={t("header.refresh")}
           >
             <RefreshCw size={16} className={refreshing ? "animate-spin text-amber-500" : ""} />
@@ -154,7 +154,7 @@ export const TransactionsPage: React.FC = () => {
 
       {/* Summary Highlight Cards */}
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white dark:bg-[#0f172a] p-5 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-sm">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white dark:bg-[#111218] p-5 border border-slate-100 dark:border-zinc-800 rounded-3xl shadow-sm">
           <div>
             <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("tx.card_total_rev")}</div>
             <div className="text-xl font-black text-slate-800 dark:text-white mt-1">{formatCurrency(summary.total_amount)}</div>
@@ -183,13 +183,13 @@ export const TransactionsPage: React.FC = () => {
           <Loader2 size={36} className="animate-spin text-amber-500" />
         </div>
       ) : transactions.length === 0 ? (
-        <div className="p-10 text-center bg-white dark:bg-[#0f172a] border border-slate-100 dark:border-slate-800 rounded-3xl text-slate-500 dark:text-slate-400 text-sm shadow-sm">
+        <div className="p-10 text-center bg-white dark:bg-[#111218] border border-slate-100 dark:border-zinc-800 rounded-3xl text-slate-500 dark:text-slate-400 text-sm shadow-sm">
           {t("tx.no_records")}
         </div>
       ) : (
-        <div className="overflow-x-auto bg-white dark:bg-[#0f172a] border border-slate-100 dark:border-slate-800 rounded-3xl shadow-sm">
+        <div className="overflow-x-auto bg-white dark:bg-[#111218] border border-slate-100 dark:border-zinc-800 rounded-3xl shadow-sm">
           <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
-            <thead className="bg-[#f8fafc] dark:bg-slate-900/60 text-slate-400 uppercase text-[11px] font-bold border-b border-slate-100 dark:border-slate-800">
+            <thead className="bg-[#f8fafc] dark:bg-[#111218]/60 text-slate-400 uppercase text-[11px] font-bold border-b border-slate-100 dark:border-zinc-800">
               <tr>
                 <th className="px-5 py-3.5">{t("tx.col_time")}</th>
                 <th className="px-5 py-3.5">{t("tx.col_type")}</th>

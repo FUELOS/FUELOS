@@ -29,6 +29,10 @@ class StationSummary(BaseModel):
     today_revenue: float
     today_transaction_count: int
     worker_count: int
+    subscription_status: str = "active"
+    subscription_plan: str = "Pro SaaS"
+    subscription_expires_at: datetime | None = None
+    monthly_fee: float = 4990.00
 
 
 class AdminDashboardResponse(BaseModel):
@@ -37,6 +41,7 @@ class AdminDashboardResponse(BaseModel):
     total_active_shifts: int
     total_today_revenue: float
     total_today_transactions: int
+    total_monthly_subscription: float = 0.0
     stations: List[StationSummary]
 
 
@@ -57,7 +62,22 @@ async def get_admin_dashboard(
     total_active_shifts = 0
     active_stations = 0
 
+    total_monthly_subscription = 0.0
+
     for station in stations:
+        # Lisans durumu kontrolü (vade geçmişse past_due/suspended tespiti)
+        sub_status = getattr(station, "subscription_status", "active") or "active"
+        sub_plan = getattr(station, "subscription_plan", "Pro SaaS") or "Pro SaaS"
+        sub_expires = getattr(station, "subscription_expires_at", None)
+        fee = float(getattr(station, "monthly_fee", 4990.00) or 4990.00)
+
+        # Eğer vade geçmişse ve aktifse -> past_due'ya çevir
+        if sub_expires and sub_expires < datetime.now(timezone.utc) and sub_status == "active":
+            sub_status = "past_due"
+
+        if sub_status == "active":
+            total_monthly_subscription += fee
+
         # Aktif vardiya sayısı
         shifts_result = await db.execute(
             select(func.count(Shift.id)).where(
@@ -97,7 +117,7 @@ async def get_admin_dashboard(
         total_today_revenue += today_revenue
         total_today_transactions += today_tx_count
         total_active_shifts += active_shift_count
-        if station.is_active:
+        if station.is_active and sub_status != "suspended":
             active_stations += 1
 
         station_summaries.append(
@@ -106,11 +126,15 @@ async def get_admin_dashboard(
                 station_name=station.name,
                 station_code=station.code,
                 city=station.city,
-                is_active=station.is_active,
+                is_active=station.is_active and sub_status != "suspended",
                 active_shift_count=active_shift_count,
                 today_revenue=today_revenue,
                 today_transaction_count=today_tx_count,
                 worker_count=worker_count,
+                subscription_status=sub_status,
+                subscription_plan=sub_plan,
+                subscription_expires_at=sub_expires,
+                monthly_fee=fee,
             )
         )
 
@@ -120,5 +144,6 @@ async def get_admin_dashboard(
         total_active_shifts=total_active_shifts,
         total_today_revenue=total_today_revenue,
         total_today_transactions=total_today_transactions,
+        total_monthly_subscription=total_monthly_subscription,
         stations=station_summaries,
     )

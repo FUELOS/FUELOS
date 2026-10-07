@@ -3,6 +3,7 @@ import { apiClient } from "@/lib/api";
 import { Shift, Station, User } from "@/types";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { useLanguage } from "@/context/LanguageContext";
+import { useAuth } from "@/context/AuthContext";
 import {
   Calendar,
   Building2,
@@ -12,10 +13,12 @@ import {
   RefreshCw,
   Loader2,
   FileSpreadsheet,
+  MapPin,
 } from "lucide-react";
 
 export const ReportsPage: React.FC = () => {
   const { t, language } = useLanguage();
+  const { user: currentUser } = useAuth();
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [stations, setStations] = useState<Record<string, Station>>({});
   const [users, setUsers] = useState<Record<string, User>>({});
@@ -38,6 +41,14 @@ export const ReportsPage: React.FC = () => {
       const stMap: Record<string, Station> = {};
       stationsRes.data.forEach((s) => (stMap[s.id] = s));
       setStations(stMap);
+
+      if (currentUser?.role !== "super_admin") {
+        if (currentUser?.station_id) {
+          setSelectedStationId(currentUser.station_id);
+        } else if (stationsRes.data.length > 0) {
+          setSelectedStationId(stationsRes.data[0].id);
+        }
+      }
 
       const uMap: Record<string, User> = {};
       usersRes.data.forEach((u) => (uMap[u.id] = u));
@@ -125,7 +136,7 @@ export const ReportsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* ── ÜST BAŞLIK & FİLTRELER ── */}
-      <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#111218] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-600/30">
@@ -145,45 +156,55 @@ export const ReportsPage: React.FC = () => {
         {/* Filtre Kontrolleri */}
         <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs">
           {/* İstasyon Filtresi */}
-          <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700">
-            <Building2 size={14} className="text-blue-600 shrink-0" />
-            <select
-              value={selectedStationId}
-              onChange={(e) => setSelectedStationId(e.target.value)}
-              className="bg-transparent font-bold text-xs text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
-            >
-              <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-                {t("header.all_stations")}
-              </option>
-              {Object.values(stations).map((st) => (
-                <option key={st.id} value={st.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-                  {st.name}
+          {currentUser?.role === "super_admin" ? (
+            <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-50 dark:bg-[#121217] border border-slate-200/80 dark:border-zinc-800">
+              <Building2 size={14} className="text-blue-600 shrink-0" />
+              <select
+                value={selectedStationId}
+                onChange={(e) => setSelectedStationId(e.target.value)}
+                className="bg-transparent font-bold text-xs text-slate-700 dark:text-zinc-200 focus:outline-none cursor-pointer"
+              >
+                <option value="" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">
+                  {t("header.all_stations")}
                 </option>
-              ))}
-            </select>
-          </div>
+                {Object.values(stations).map((st) => (
+                  <option key={st.id} value={st.id} className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">
+                    {st.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-blue-50/70 dark:bg-[#121217] border border-blue-200/80 dark:border-zinc-800 shadow-sm text-xs font-black text-slate-800 dark:text-zinc-100">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <MapPin size={13} className="text-blue-600 dark:text-blue-400 shrink-0" />
+              <span>
+                {stations[currentUser?.station_id || ""]?.name || Object.values(stations)[0]?.name || "Ankara Merkez İstasyonu"}
+              </span>
+            </div>
+          )}
 
           {/* Dönem Filtresi (Bugün, Dün, Son 7 Gün, Bu Ay) */}
-          <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700">
+          <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-50 dark:bg-[#181920]/80 border border-slate-200/80 dark:border-zinc-700">
             <Calendar size={14} className="text-blue-600 shrink-0" />
             <select
               value={periodFilter}
               onChange={(e) => setPeriodFilter(e.target.value)}
               className="bg-transparent font-bold text-xs text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
             >
-              <option value="all" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+              <option value="all" className="bg-white dark:bg-[#111218] text-slate-900 dark:text-white">
                 {t("reports.all")}
               </option>
-              <option value="today" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+              <option value="today" className="bg-white dark:bg-[#111218] text-slate-900 dark:text-white">
                 {t("reports.today")}
               </option>
-              <option value="yesterday" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+              <option value="yesterday" className="bg-white dark:bg-[#111218] text-slate-900 dark:text-white">
                 {t("reports.yesterday")}
               </option>
-              <option value="last_7" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+              <option value="last_7" className="bg-white dark:bg-[#111218] text-slate-900 dark:text-white">
                 {t("reports.last_7")}
               </option>
-              <option value="this_month" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+              <option value="this_month" className="bg-white dark:bg-[#111218] text-slate-900 dark:text-white">
                 {t("reports.this_month")}
               </option>
             </select>
@@ -192,7 +213,7 @@ export const ReportsPage: React.FC = () => {
           <button
             onClick={fetchData}
             disabled={refreshing}
-            className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition shadow-sm"
+            className="p-2.5 rounded-2xl bg-slate-50 dark:bg-[#181920] border border-slate-200/80 dark:border-zinc-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition shadow-sm"
             title={t("header.refresh")}
           >
             <RefreshCw size={15} className={refreshing ? "animate-spin text-blue-600" : ""} />
@@ -206,14 +227,14 @@ export const ReportsPage: React.FC = () => {
           <Loader2 size={36} className="animate-spin text-blue-600" />
         </div>
       ) : filteredShifts.length === 0 ? (
-        <div className="p-10 text-center bg-white dark:bg-[#0f172a] border border-slate-100 dark:border-slate-800 rounded-3xl text-slate-500 dark:text-slate-400 text-xs shadow-sm space-y-2">
+        <div className="p-10 text-center bg-white dark:bg-[#111218] border border-slate-100 dark:border-zinc-800 rounded-3xl text-slate-500 dark:text-slate-400 text-xs shadow-sm space-y-2">
           <FileSpreadsheet size={32} className="mx-auto text-slate-300 dark:text-slate-600" />
           <div className="font-bold text-sm text-slate-700 dark:text-slate-300">{t("reports.no_data")}</div>
         </div>
       ) : (
-        <div className="overflow-x-auto bg-white dark:bg-[#0f172a] border border-slate-100 dark:border-slate-800 rounded-3xl shadow-sm">
+        <div className="overflow-x-auto bg-white dark:bg-[#111218] border border-slate-100 dark:border-zinc-800 rounded-3xl shadow-sm">
           <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
-            <thead className="bg-[#f8fafc] dark:bg-slate-950/60 text-slate-400 uppercase text-[11px] font-bold border-b border-slate-100 dark:border-slate-800">
+            <thead className="bg-[#f8fafc] dark:bg-slate-950/60 text-slate-400 uppercase text-[11px] font-bold border-b border-slate-100 dark:border-zinc-800">
               <tr>
                 <th className="px-5 py-3.5">{t("reports.col_date")}</th>
                 <th className="px-5 py-3.5">{t("reports.col_station")}</th>

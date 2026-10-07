@@ -178,7 +178,7 @@ export const ShiftsPage: React.FC = () => {
       </div>
 
       {/* Info Banner for Smart Reconciliation */}
-      <div className="p-4 bg-white dark:bg-slate-900/90 border border-indigo-100 dark:border-indigo-900/40 rounded-2xl flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 shadow-sm">
+      <div className="p-4 bg-white dark:bg-[#111218] border border-indigo-100 dark:border-indigo-900/40 rounded-2xl flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
             <ShieldAlert size={16} />
@@ -195,13 +195,13 @@ export const ShiftsPage: React.FC = () => {
           <Loader2 size={36} className="animate-spin text-amber-500" />
         </div>
       ) : filteredShifts.length === 0 ? (
-        <div className="p-10 text-center bg-white dark:bg-slate-900/90 border border-slate-100 dark:border-slate-800 rounded-3xl text-slate-500 dark:text-slate-400 text-sm shadow-sm">
+        <div className="p-10 text-center bg-white dark:bg-[#111218] border border-slate-100 dark:border-zinc-800 rounded-3xl text-slate-500 dark:text-slate-400 text-sm shadow-sm">
           {t("shifts.no_records")}
         </div>
       ) : (
-        <div className="overflow-x-auto bg-white dark:bg-slate-900/90 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-md dark:shadow-xl shadow-slate-200/60 dark:shadow-slate-950/50">
+        <div className="overflow-x-auto bg-white dark:bg-[#111218] border border-slate-100 dark:border-zinc-800 rounded-3xl shadow-md dark:shadow-xl shadow-slate-200/60 dark:shadow-slate-950/50">
           <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
-            <thead className="bg-[#f8fafc] dark:bg-slate-950/60 text-slate-400 uppercase text-[11px] font-bold border-b border-slate-100 dark:border-slate-800">
+            <thead className="bg-[#f8fafc] dark:bg-slate-950/60 text-slate-400 uppercase text-[11px] font-bold border-b border-slate-100 dark:border-zinc-800">
               <tr>
                 <th className="px-5 py-3.5">{t("shifts.col_station_user")}</th>
                 <th className="px-5 py-3.5">{t("shifts.col_time")}</th>

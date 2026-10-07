@@ -86,7 +86,7 @@ export const SettingsPage: React.FC = () => {
   return (
     <div className="space-y-6 max-w-5xl">
       {/* ── BAŞLIK ── */}
-      <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#111218] rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-600/30 shrink-0">
             <Settings size={22} />
@@ -102,21 +102,21 @@ export const SettingsPage: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* ── 1. KULLANICI PROFİLİ ── */}
-        <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
-          <div className="flex items-center gap-2.5 font-black text-sm text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div className="bg-white dark:bg-[#111218] rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-4">
+          <div className="flex items-center gap-2.5 font-black text-sm text-slate-900 dark:text-white border-b border-slate-100 dark:border-zinc-800 pb-3">
             <User size={17} className="text-blue-600" />
             <span>{t("settings.user_info")}</span>
           </div>
           <div className="space-y-2.5 text-xs">
-            <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/60">
+            <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-zinc-800/60">
               <span className="text-slate-400 font-medium">{t("settings.full_name")}</span>
               <span className="font-bold text-slate-800 dark:text-white">{user?.full_name}</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/60">
+            <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-zinc-800/60">
               <span className="text-slate-400 font-medium">{t("settings.email")}</span>
               <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{user?.email}</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/60">
+            <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-zinc-800/60">
               <span className="text-slate-400 font-medium">{t("settings.role")}</span>
               <span className="font-extrabold text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800/40 uppercase">
                 {user?.role === "super_admin" ? t("role.super_admin") : user?.role === "station_manager" ? t("role.station_manager") : t("role.cashier")}
@@ -126,8 +126,8 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         {/* ── 2. DİL VE GÖRÜNÜM SEÇENEKLERİ ── */}
-        <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
-          <div className="flex items-center gap-2.5 font-black text-sm text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div className="bg-white dark:bg-[#111218] rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-4">
+          <div className="flex items-center gap-2.5 font-black text-sm text-slate-900 dark:text-white border-b border-slate-100 dark:border-zinc-800 pb-3">
             <Globe size={17} className="text-blue-600" />
             <span>{t("settings.appearance")}</span>
           </div>
@@ -137,7 +137,7 @@ export const SettingsPage: React.FC = () => {
                 <div className="font-bold text-slate-800 dark:text-white">{t("settings.lang_label")}</div>
                 <div className="text-[11px] text-slate-400">{t("settings.lang_sub")}</div>
               </div>
-              <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl">
+              <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-[#181920] p-1 rounded-2xl">
                 <button
                   onClick={() => setLanguage("tr")}
                   className={`px-3 py-1.5 rounded-xl font-black text-xs transition ${
@@ -161,14 +161,14 @@ export const SettingsPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-zinc-800">
               <div>
                 <div className="font-bold text-slate-800 dark:text-white">{t("settings.theme_label")}</div>
                 <div className="text-[11px] text-slate-400">{t("settings.theme_sub")}</div>
               </div>
               <button
                 onClick={toggleTheme}
-                className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white font-bold transition hover:bg-slate-200 dark:hover:bg-slate-700"
+                className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-slate-100 dark:bg-[#181920] text-slate-800 dark:text-white font-bold transition hover:bg-slate-200 dark:hover:bg-slate-700"
               >
                 {theme === "dark" ? <Sun size={14} className="text-amber-400" /> : <Moon size={14} className="text-blue-600" />}
                 <span>{theme === "dark" ? t("settings.dark_mode") : t("settings.light_mode")}</span>
@@ -178,8 +178,8 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         {/* ── 3. KASA MUTABAKAT TOLERANSI (UĞUR ERDOĞAN ÖZELLİĞİ) ── */}
-        <div className="md:col-span-2 bg-white dark:bg-[#0f172a] rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div className="md:col-span-2 bg-white dark:bg-[#111218] rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
                 <Scale size={18} />
@@ -234,7 +234,7 @@ export const SettingsPage: React.FC = () => {
                       className={`p-3 rounded-2xl border text-center transition ${
                         tolerance === val
                           ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-black shadow-sm"
-                          : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                          : "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-[#181920]/50 text-slate-600 dark:text-slate-400 hover:border-slate-300"
                       } disabled:opacity-50`}
                     >
                       <div className="text-sm font-black">{label}</div>
@@ -260,7 +260,7 @@ export const SettingsPage: React.FC = () => {
                       value={tolerance}
                       onChange={(e) => setTolerance(e.target.value)}
                       placeholder="1.00"
-                      className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition pr-8 disabled:opacity-50"
+                      className="w-full bg-slate-50 dark:bg-[#181920]/80 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition pr-8 disabled:opacity-50"
                     />
                     <span className="absolute right-3.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">₺</span>
                   </div>
@@ -286,7 +286,7 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             {/* Sağ: Bilgilendirici İzah Kutusu */}
-            <div className="lg:col-span-5 p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 space-y-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            <div className="lg:col-span-5 p-4 rounded-2xl bg-slate-50/80 dark:bg-[#181920]/40 border border-slate-200/80 dark:border-zinc-700/60 space-y-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
               <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
                 <HelpCircle size={14} className="text-blue-500 shrink-0" />
                 <span>{t("settings.how_it_works")}</span>
@@ -294,7 +294,7 @@ export const SettingsPage: React.FC = () => {
               <p>
                 {t("settings.how_it_works_desc")}
               </p>
-              <div className="p-2.5 rounded-xl bg-white dark:bg-[#0b1329] border border-slate-200/60 dark:border-slate-700/40 font-mono text-[11px] text-slate-700 dark:text-slate-300">
+              <div className="p-2.5 rounded-xl bg-white dark:bg-[#0b1329] border border-slate-200/60 dark:border-zinc-700/40 font-mono text-[11px] text-slate-700 dark:text-slate-300">
                 | {language === "tr" ? "Kasa Farkı" : "Cash Variance"} | ≤ {parseFloat(tolerance || "0").toFixed(2)} ₺ &nbsp;➔&nbsp; <span className="text-emerald-600 font-bold">{language === "tr" ? "Eşleşti (Matched)" : "Matched"}</span>
               </div>
               <p className="text-[11px]">

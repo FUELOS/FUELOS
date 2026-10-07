@@ -154,9 +154,9 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white dark:bg-[#111218] border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-emerald-500/10 to-teal-500/10">
+        <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-zinc-800 bg-gradient-to-r from-emerald-500/10 to-teal-500/10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-600/30">
               <Fuel size={20} />
@@ -211,7 +211,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                       className={`p-3 rounded-2xl border text-left transition flex items-center gap-2.5 ${
                         isSelected
                           ? "border-blue-500 bg-blue-50/80 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 shadow-sm"
-                          : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:border-slate-300 text-slate-700 dark:text-slate-300"
+                          : "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-slate-800/50 hover:border-slate-300 text-slate-700 dark:text-slate-300"
                       }`}
                     >
                       <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-xs shrink-0">
@@ -245,7 +245,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   className={`py-2 px-2 rounded-xl border text-xs font-bold transition text-center ${
                     selectedPumpLabel === pLabel
                       ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 shadow-sm"
-                      : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                      : "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:border-slate-300"
                   }`}
                 >
                   {pLabel}
@@ -274,7 +274,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   className={`p-2.5 rounded-2xl border text-left transition ${
                     fuelType === f.name
                       ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 shadow-sm"
-                      : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                      : "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:border-slate-300"
                   }`}
                 >
                   <div className="text-[11px] font-black leading-tight">{f.name.split(" ")[0]}</div>
@@ -299,7 +299,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   value={amount}
                   onChange={(e) => handleAmountChange(e.target.value)}
                   placeholder="850.00"
-                  className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition pr-8"
+                  className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition pr-8"
                 />
                 <span className="absolute right-3.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">₺</span>
               </div>
@@ -318,7 +318,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   value={liters}
                   onChange={(e) => handleLitersChange(e.target.value)}
                   placeholder="18.80"
-                  className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition pr-8"
+                  className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition pr-8"
                 />
                 <span className="absolute right-3.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">L</span>
               </div>
@@ -350,7 +350,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                     className={`p-2.5 rounded-2xl border text-center transition flex flex-col items-center justify-center ${
                       isSelected
                         ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 shadow-sm"
-                        : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                        : "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:border-slate-300"
                     }`}
                   >
                     <Icon size={16} className={isSelected ? "text-emerald-600" : "text-slate-400"} />
@@ -372,7 +372,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               value={plateNumber}
               onChange={(e) => setPlateNumber(e.target.value)}
               placeholder="Örn: 06 ABC 123"
-              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 uppercase font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 uppercase font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
             />
           </div>
 

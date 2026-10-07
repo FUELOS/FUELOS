@@ -14,4 +14,10 @@
     color: #344767;
     min-height: 100vh;
   }
+
+  .dark body {
+    background-color: #090a0f !important;
+    color: #f4f4f5 !important;
+  }
 }
+
