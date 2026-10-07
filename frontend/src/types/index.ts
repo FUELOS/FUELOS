@@ -38,6 +38,10 @@ export interface Station {
   district: string | null;
   address: string | null;
   is_active: boolean;
+  subscription_status?: string | null;
+  subscription_plan?: string | null;
+  subscription_expires_at?: string | null;
+  monthly_fee?: number | null;
   created_at: string;
   updated_at: string;
 }

@@ -1,36 +1,32 @@
 /**
- * FuelOS — İstasyon Detay Sayfası
- * Yan yana ayrımı net: Pompalar Paneli (sol) & İşçi Bazlı Satış & Vardiya (sağ)
- * Tam ekran genişliği kullanımı, ferah ve modern UI.
+ * FuelOS — İstasyon & Altyapı Yönetimi Sayfası
+ * ZK Mahremiyet İlkesine Uygun:
+ * - Şube ciro hesapları veya işçi satış fişleri burada yer ALMAZ (mahremiyet garantisi).
+ * - Fiziksel pompalar, yakıt türleri, lisans/altyapı bilgileri ve şube personelleri yönetilir.
  */
 
 import React, { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { apiClient } from "@/lib/api";
-import { Station } from "@/types";
+import { Station, User } from "@/types";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { formatCurrency, formatNumber } from "@/lib/utils";
 import {
   Building2,
   Plus,
   Loader2,
   RefreshCw,
   MapPin,
-  Car,
-  Droplet,
-  TrendingUp,
   Users,
   Cpu,
   ChevronRight,
   AlertCircle,
-  UserCircle,
   X,
-  AlertTriangle,
   Fuel,
-  CheckCircle,
+  ShieldCheck,
+  Trash2,
+  UserCheck,
 } from "lucide-react";
-
-// ── Tip tanımları ────────────────────────────────────────────────────
 
 interface Pump {
   id: string;
@@ -40,73 +36,6 @@ interface Pump {
   is_active: boolean;
 }
 
-interface FuelBreakdown {
-  fuel_type: string;
-  liters: number;
-  revenue: number;
-  vehicle_count: number;
-}
-
-interface WorkerDetailStats {
-  worker_name: string;
-  worker_avatar: string | null;
-  shift_id: string;
-  pump_label: string | null;
-  fuel_breakdown: FuelBreakdown[];
-  total_liters: number;
-  total_revenue: number;
-  total_vehicles: number;
-}
-
-interface StationDetailData {
-  station_id: string;
-  station_name: string;
-  station_code: string;
-  city: string;
-  workers: WorkerDetailStats[];
-  grand_total_liters: number;
-  grand_total_revenue: number;
-  grand_total_vehicles: number;
-}
-
-// ── Avatar render ────────────────────────────────────────────────────
-const MALE_AVATARS: Record<string, string> = { m1: "👨", m2: "👨‍🦱", m3: "👨‍🦳", m4: "🧔" };
-const FEMALE_AVATARS: Record<string, string> = { f1: "👩", f2: "👩‍🦱", f3: "👩‍🦳", f4: "👩‍🦰" };
-
-const WorkerAvatar: React.FC<{ avatar: string | null; name: string; size?: "sm" | "md" | "lg" }> = ({
-  avatar,
-  name,
-  size = "md",
-}) => {
-  const dim = size === "lg" ? "w-14 h-14" : size === "md" ? "w-11 h-11" : "w-8 h-8";
-  const textSize = size === "lg" ? "text-3xl" : size === "md" ? "text-2xl" : "text-base";
-
-  if (!avatar) {
-    const initials = name ? name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() : "?";
-    return (
-      <div className={`${dim} rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-sm`}>
-        {initials}
-      </div>
-    );
-  }
-  if (avatar.startsWith("data:image")) {
-    return <img src={avatar} alt={name} className={`${dim} rounded-2xl object-cover border border-slate-200 dark:border-zinc-700 shrink-0 shadow-sm`} />;
-  }
-  const emoji = MALE_AVATARS[avatar] || FEMALE_AVATARS[avatar] || null;
-  if (emoji) {
-    return (
-      <div className={`${dim} rounded-2xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800/50 flex items-center justify-center shrink-0 shadow-sm`}>
-        <span className={textSize}>{emoji}</span>
-      </div>
-    );
-  }
-  return (
-    <div className={`${dim} rounded-2xl bg-slate-100 dark:bg-[#181920] flex items-center justify-center shrink-0`}>
-      <UserCircle className="text-slate-400" size={24} />
-    </div>
-  );
-};
-
 const fuelBadgeColor = (ft: string) => {
   const low = ft.toLowerCase();
   if (low.includes("benzin") || low.includes("95")) return "bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800/40";
@@ -115,18 +44,16 @@ const fuelBadgeColor = (ft: string) => {
   return "bg-blue-500/10 text-blue-600 border-blue-200 dark:border-blue-800/40";
 };
 
-// ── Ana Bileşen ───────────────────────────────────────────────────────
-
 export const StationsPage: React.FC = () => {
   const { user } = useAuth();
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
   const tr = language === "tr";
   const isAdmin = user?.role === "super_admin";
 
   const [stations, setStations] = useState<Station[]>([]);
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
-  const [detailData, setDetailData] = useState<StationDetailData | null>(null);
   const [pumps, setPumps] = useState<Pump[]>([]);
+  const [stationUsers, setStationUsers] = useState<User[]>([]);
 
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -140,6 +67,8 @@ export const StationsPage: React.FC = () => {
   const [stCity, setStCity] = useState("");
   const [stDistrict, setStDistrict] = useState("");
   const [stAddress, setStAddress] = useState("");
+  const [stPlan, setStPlan] = useState("Pro SaaS");
+  const [stFee, setStFee] = useState(4990);
   const [stModalLoading, setStModalLoading] = useState(false);
   const [stModalError, setStModalError] = useState<string | null>(null);
 
@@ -177,19 +106,20 @@ export const StationsPage: React.FC = () => {
     fetchStations();
   }, [fetchStations]);
 
-  // ── Fetch detay ───────────────────────────────────────────────────
+  // ── Fetch detay (Pompalar ve İstasyona Bağlı Personeller) ─────────
   const fetchDetail = useCallback(async (stationId: string) => {
     try {
       setLoadingDetail(true);
       setError(null);
-      const [detailRes, pumpsRes] = await Promise.all([
-        apiClient.get<StationDetailData>(`/station-detail/${stationId}`),
+      const [pumpsRes, usersRes] = await Promise.all([
         apiClient.get<Pump[]>(`/pumps/station/${stationId}`),
+        apiClient.get<User[]>("/users").catch(() => ({ data: [] })),
       ]);
-      setDetailData(detailRes.data);
       setPumps(pumpsRes.data);
+      const assigned = usersRes.data.filter((u) => u.station_id === stationId);
+      setStationUsers(assigned);
     } catch (err: any) {
-      setError(err.response?.data?.detail || (tr ? "İstasyon detayı alınamadı" : "Failed to load station detail"));
+      setError(err.response?.data?.detail || (tr ? "İstasyon bilgileri alınamadı" : "Failed to load station info"));
     } finally {
       setLoadingDetail(false);
     }
@@ -197,68 +127,81 @@ export const StationsPage: React.FC = () => {
 
   useEffect(() => {
     if (selectedStation) fetchDetail(selectedStation.id);
-    else {
-      setDetailData(null);
-      setPumps([]);
-    }
   }, [selectedStation, fetchDetail]);
 
-  // ── İstasyon oluştur ──────────────────────────────────────────────
+  // ── Yeni istasyon oluştur ────────────────────────────────────────
   const handleCreateStation = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!stName.trim() || !stCode.trim() || !stCity.trim()) {
+      setStModalError(tr ? "Ad, Kod ve Şehir zorunludur" : "Name, Code and City are required");
+      return;
+    }
     try {
       setStModalLoading(true);
       setStModalError(null);
-      await apiClient.post("/stations", {
+      const res = await apiClient.post<Station>("/stations", {
         name: stName.trim(),
         code: stCode.trim().toUpperCase(),
         city: stCity.trim(),
-        district: stDistrict.trim() || null,
-        address: stAddress.trim() || null,
+        district: stDistrict.trim() || undefined,
+        address: stAddress.trim() || undefined,
+        subscription_plan: stPlan,
+        monthly_fee: Number(stFee),
       });
+      setStations((prev) => [...prev, res.data]);
+      setSelectedStation(res.data);
       setIsStationModalOpen(false);
       setStName("");
       setStCode("");
       setStCity("");
       setStDistrict("");
       setStAddress("");
-      fetchStations();
     } catch (err: any) {
-      setStModalError(err.response?.data?.detail || "Hata oluştu");
+      setStModalError(err.response?.data?.detail || (tr ? "İstasyon oluşturulamadı" : "Failed to create station"));
     } finally {
       setStModalLoading(false);
     }
   };
 
-  // ── Pompa oluştur ─────────────────────────────────────────────────
+  // ── Yeni pompa ekle ──────────────────────────────────────────────
   const handleCreatePump = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStation) return;
     try {
       setPumpModalLoading(true);
       setPumpModalError(null);
-      await apiClient.post("/pumps/", {
+      await apiClient.post("/pumps", {
         station_id: selectedStation.id,
         pump_number: pumpNumber,
-        label: pumpLabel.trim(),
+        label: pumpLabel.trim() || `Pompa ${pumpNumber}`,
         fuel_types: pumpFuelTypes.trim(),
       });
       setIsPumpModalOpen(false);
       setPumpLabel("");
-      setPumpNumber(pumps.length + 2);
       fetchDetail(selectedStation.id);
     } catch (err: any) {
-      setPumpModalError(err.response?.data?.detail || "Hata oluştu");
+      setPumpModalError(err.response?.data?.detail || (tr ? "Pompa eklenemedi" : "Failed to add pump"));
     } finally {
       setPumpModalLoading(false);
     }
   };
 
+  // ── Pompa sil ────────────────────────────────────────────────────
+  const handleDeletePump = async (pumpId: string) => {
+    if (!confirm(tr ? "Bu pompayı deaktif etmek istediğinize emin misiniz?" : "Are you sure you want to deactivate this pump?")) return;
+    try {
+      await apiClient.delete(`/pumps/${pumpId}`);
+      if (selectedStation) fetchDetail(selectedStation.id);
+    } catch (err: any) {
+      alert(err.response?.data?.detail || (tr ? "Pompa silinemedi" : "Failed to delete pump"));
+    }
+  };
+
   if (loadingList) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-slate-400">
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-slate-500">
         <Loader2 size={36} className="animate-spin text-blue-600" />
-        <span className="text-sm font-semibold">{tr ? "İstasyon bilgileri yükleniyor..." : "Loading stations data..."}</span>
+        <span className="text-sm font-semibold">{tr ? "İstasyonlar yükleniyor..." : "Loading stations..."}</span>
       </div>
     );
   }
@@ -274,7 +217,7 @@ export const StationsPage: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                {selectedStation ? selectedStation.name : t("st.title")}
+                {selectedStation ? selectedStation.name : (tr ? "İstasyon Yönetimi" : "Station Management")}
               </h1>
               {selectedStation && (
                 <span className="text-xs font-mono font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-2.5 py-0.5 rounded-lg border border-amber-200 dark:border-amber-500/20">
@@ -291,20 +234,20 @@ export const StationsPage: React.FC = () => {
                   </span>
                 </>
               ) : (
-                t("st.subtitle")
+                tr ? "İstasyon altyapısı, pompalar ve personel kadrosu" : "Station infrastructure, pumps and staff"
               )}
             </p>
           </div>
         </div>
 
-        {/* Butonlar */}
+        {/* Aksiyon Butonları */}
         <div className="flex items-center gap-2.5 self-end md:self-auto">
           {selectedStation && (
             <button
               onClick={() => fetchDetail(selectedStation.id)}
               disabled={refreshing || loadingDetail}
               className="p-2.5 rounded-2xl bg-slate-50 dark:bg-[#181920] border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-slate-300 hover:text-blue-600 hover:bg-slate-100 transition shadow-sm"
-              title={t("header.refresh")}
+              title={tr ? "Yenile" : "Refresh"}
             >
               <RefreshCw size={16} className={loadingDetail ? "animate-spin text-blue-600" : ""} />
             </button>
@@ -320,7 +263,7 @@ export const StationsPage: React.FC = () => {
               className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black flex items-center gap-2 shadow-md shadow-blue-600/30 transition active:scale-95"
             >
               <Cpu size={15} />
-              <span>{t("st.add_pump")}</span>
+              <span>{tr ? "Pompa Ekle" : "Add Pump"}</span>
             </button>
           )}
 
@@ -330,343 +273,293 @@ export const StationsPage: React.FC = () => {
               className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black flex items-center gap-2 shadow-md shadow-amber-500/30 transition active:scale-95"
             >
               <Plus size={15} />
-              <span>{t("st.new_station")}</span>
+              <span>{tr ? "Yeni İstasyon" : "New Station"}</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* ── İSTASYON DETAY VE ANA İÇERİK (TAM GENİŞLİK) ── */}
+      {/* ── İSTASYON DETAY VE ANA İÇERİK ── */}
       <div className={`grid gap-6 ${isAdmin ? "grid-cols-1 lg:grid-cols-12" : "grid-cols-1"}`}>
-        {/* Admin için Sol Panel İstasyon Listesi */}
+        {/* Admin için Sol Panel Şube Listesi */}
         {isAdmin && (
           <div className="lg:col-span-3 space-y-2">
             <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider px-1">
-              İstasyonlar ({stations.length})
+              {tr ? "İstasyonlar" : "Stations"} ({stations.length})
             </div>
             <div className="space-y-2">
-              {stations.map((st) => (
-                <button
-                  key={st.id}
-                  onClick={() => setSelectedStation(st)}
-                  className={`w-full text-left p-4 rounded-3xl border transition flex items-center justify-between gap-3 ${
-                    selectedStation?.id === st.id
-                      ? "bg-blue-50/80 dark:bg-blue-900/20 border-blue-400 dark:border-blue-700 shadow-sm"
-                      : "bg-white dark:bg-[#111218] border-slate-100 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-slate-700"
-                  }`}
-                >
-                  <div className="min-w-0">
-                    <div className={`text-sm font-black truncate ${selectedStation?.id === st.id ? "text-blue-700 dark:text-blue-300" : "text-slate-800 dark:text-white"}`}>
-                      {st.name}
+              {stations.map((st) => {
+                const isSel = selectedStation?.id === st.id;
+                return (
+                  <button
+                    key={st.id}
+                    onClick={() => setSelectedStation(st)}
+                    className={`w-full text-left p-3.5 rounded-2xl transition border flex items-center justify-between ${
+                      isSel
+                        ? "bg-blue-50/80 dark:bg-blue-900/20 border-blue-400 dark:border-blue-700 shadow-sm"
+                        : "bg-white dark:bg-[#111218] border-slate-100 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700"
+                    }`}
+                  >
+                    <div className="min-w-0 pr-2">
+                      <div className="text-xs font-black text-slate-900 dark:text-white truncate">
+                        {st.name}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-1.5 py-0.2 rounded">
+                          {st.code}
+                        </span>
+                        <span className="text-[10px] text-slate-400 truncate">{st.city}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-1.5 py-0.2 rounded">
-                        {st.code}
-                      </span>
-                      <span className="text-[11px] text-slate-400 truncate">{st.city}</span>
-                    </div>
-                  </div>
-                  <ChevronRight size={16} className={selectedStation?.id === st.id ? "text-blue-600" : "text-slate-300 dark:text-slate-700"} />
-                </button>
-              ))}
+                    <ChevronRight
+                      size={15}
+                      className={isSel ? "text-blue-600" : "text-slate-300 dark:text-slate-600"}
+                    />
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* Ana İçerik Bloğu (Müdür için tüm 12 sütunu, Admin için 9 sütunu doldurur) */}
-        <div className={isAdmin ? "lg:col-span-9 space-y-6" : "space-y-6 w-full"}>
+        {/* Sağ Alan: Seçili İstasyon Altyapı Paneli */}
+        <div className={`${isAdmin ? "lg:col-span-9" : "w-full"} space-y-6`}>
           {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-600 text-xs font-semibold flex items-center gap-2.5">
+            <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-600 text-xs flex items-center gap-2">
               <AlertCircle size={16} />
               <span>{error}</span>
             </div>
           )}
 
-          {/* ── 1. ÜST GENEL TOPLAMLAR (3 GENİŞ METRİK KARTI) ── */}
-          {detailData && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Toplam Satış */}
-              <div className="bg-purple-50/80 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-800/40 rounded-3xl p-5 shadow-sm">
+          {/* ── 1. KURUMSAL ENENVANTER & LİSANS ROZETLERİ (CİRO DEĞİL!) ── */}
+          {selectedStation && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Şube Kodu ve Konum */}
+              <div className="bg-white dark:bg-[#111218] border border-slate-100 dark:border-zinc-800 rounded-3xl p-4 sm:p-5 shadow-sm space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wider">
-                    {t("st.card_revenue")}
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    {tr ? "Şube Kodu & Konum" : "Station Code & City"}
                   </span>
-                  <div className="w-9 h-9 rounded-xl bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-600">
-                    <TrendingUp size={18} />
+                  <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
+                    <MapPin size={16} />
                   </div>
                 </div>
-                <div className="text-2xl sm:text-3xl font-black text-purple-700 dark:text-purple-300 mt-2">
-                  {formatCurrency(detailData.grand_total_revenue)}
+                <div className="text-lg font-black text-slate-900 dark:text-white">
+                  {selectedStation.code}
                 </div>
-                <div className="text-[11px] text-purple-500/80 dark:text-purple-400/80 font-medium mt-1">
-                  {t("st.card_revenue_sub")}
+                <div className="text-xs text-slate-500 dark:text-zinc-400 truncate">
+                  {selectedStation.city} {selectedStation.district ? `· ${selectedStation.district}` : ""}
                 </div>
               </div>
 
-              {/* Toplam Litre */}
-              <div className="bg-emerald-50/80 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-800/40 rounded-3xl p-5 shadow-sm">
+              {/* SaaS Lisans Durumu */}
+              <div className="bg-white dark:bg-[#111218] border border-slate-100 dark:border-zinc-800 rounded-3xl p-4 sm:p-5 shadow-sm space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
-                    {t("st.card_liters")}
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    {tr ? "SaaS Lisans Durumu" : "License Status"}
                   </span>
-                  <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600">
-                    <Droplet size={18} />
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
+                    <ShieldCheck size={16} />
                   </div>
                 </div>
-                <div className="text-2xl sm:text-3xl font-black text-emerald-700 dark:text-emerald-300 mt-2">
-                  {formatNumber(detailData.grand_total_liters, 2)} L
+                <div className="text-lg font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>{selectedStation.subscription_status === "suspended" ? (tr ? "Askıya Alındı" : "Suspended") : (tr ? "Aktif Lisans" : "Active")}</span>
                 </div>
-                <div className="text-[11px] text-emerald-500/80 dark:text-emerald-400/80 font-medium mt-1">
-                  {t("st.card_liters_sub")}
+                <div className="text-xs text-slate-500 dark:text-zinc-400">
+                  {selectedStation.subscription_plan || "Pro SaaS"} · {tr ? "Bulut Güvencesi" : "Cloud Secured"}
                 </div>
               </div>
 
-              {/* Toplam Araç */}
-              <div className="bg-blue-50/80 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-800/40 rounded-3xl p-5 shadow-sm">
+              {/* Aktif Pompa Kapasitesi */}
+              <div className="bg-white dark:bg-[#111218] border border-slate-100 dark:border-zinc-800 rounded-3xl p-4 sm:p-5 shadow-sm space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">
-                    {t("st.card_vehicles")}
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    {tr ? "Pompa Altyapısı" : "Pump Units"}
                   </span>
-                  <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600">
-                    <Car size={18} />
+                  <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center text-amber-600">
+                    <Fuel size={16} />
                   </div>
                 </div>
-                <div className="text-2xl sm:text-3xl font-black text-blue-700 dark:text-blue-300 mt-2">
-                  {detailData.grand_total_vehicles} {t("st.vehicles_count")}
+                <div className="text-lg font-black text-slate-900 dark:text-white">
+                  {pumps.length} {tr ? "Aktif Pompa" : "Active Pumps"}
                 </div>
-                <div className="text-[11px] text-blue-500/80 dark:text-blue-400/80 font-medium mt-1">
-                  {t("st.card_vehicles_sub")}
+                <div className="text-xs text-slate-500 dark:text-zinc-400">
+                  {tr ? "Fiziksel yakıt dağıtım adası" : "Physical dispensing islands"}
+                </div>
+              </div>
+
+              {/* Atanmış Personel Kadrosu */}
+              <div className="bg-white dark:bg-[#111218] border border-slate-100 dark:border-zinc-800 rounded-3xl p-4 sm:p-5 shadow-sm space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    {tr ? "Şube Personeli" : "Assigned Staff"}
+                  </span>
+                  <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center text-purple-600">
+                    <Users size={16} />
+                  </div>
+                </div>
+                <div className="text-lg font-black text-slate-900 dark:text-white">
+                  {stationUsers.length} {tr ? "Personel" : "Staff Members"}
+                </div>
+                <div className="text-xs text-slate-500 dark:text-zinc-400">
+                  {tr ? "Müdür ve Kasiyer Kadrosu" : "Manager & Cashier team"}
                 </div>
               </div>
             </div>
           )}
 
-          {/* ── 2. YAN YANA İKİ ANA PANEL: POMPALAR (SOL) & İŞÇİ SATIŞLARI (SAĞ) ── */}
+          {/* ── 2. YAN YANA İKİ ANA YÖNETİM PANELİ: POMPALAR (SOL) & PERSONEL (SAĞ) ── */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* ══ SOL SÜTUN: İSTASYON POMPALARI (5 KOLON) ══ */}
-            <div className="lg:col-span-5 bg-white dark:bg-[#111218] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-4">
+            {/* ══ SOL SÜTUN: İSTASYON POMPALARI (7 KOLON) ══ */}
+            <div className="lg:col-span-7 bg-white dark:bg-[#111218] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center">
                     <Cpu size={16} />
                   </div>
                   <div>
-                    <h3 className="font-black text-base text-slate-900 dark:text-white">{t("st.pumps_title")}</h3>
-                    <p className="text-[11px] text-slate-400">{pumps.length} {t("st.pumps_defined")}</p>
+                    <h3 className="font-black text-base text-slate-900 dark:text-white">
+                      {tr ? "İstasyon Pompaları" : "Station Pumps"}
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      {pumps.length} {tr ? "Pompa Tanımlı" : "Pumps Configured"}
+                    </p>
                   </div>
                 </div>
+
                 <button
                   onClick={() => {
                     setPumpNumber(pumps.length + 1);
-                    setPumpLabel(`Pompa ${pumps.length + 1}`);
+                    setPumpLabel(tr ? `Pompa ${pumps.length + 1}` : `Pump ${pumps.length + 1}`);
                     setIsPumpModalOpen(true);
                   }}
                   className="px-2.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 text-blue-600 dark:text-blue-400 text-xs font-bold transition flex items-center gap-1"
                 >
                   <Plus size={13} />
-                  <span>{t("st.add_pump")}</span>
+                  <span>{tr ? "Pompa Ekle" : "Add Pump"}</span>
                 </button>
               </div>
 
               {pumps.length === 0 ? (
-                <div className="p-8 text-center text-slate-400 text-xs space-y-2">
+                <div className="p-10 text-center text-slate-400 text-xs space-y-2">
                   <Fuel size={28} className="mx-auto text-slate-300 dark:text-slate-700" />
-                  <div>{t("st.empty_pumps")}</div>
-                  <button
-                    onClick={() => setIsPumpModalOpen(true)}
-                    className="text-blue-600 font-bold underline"
-                  >
-                    {t("st.empty_pumps_btn")}
-                  </button>
+                  <p>{tr ? "Bu istasyonda tanımlı pompa bulunmuyor." : "No pumps configured for this station."}</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3">
-                  {pumps.map((pump) => {
-                    // Bu pompada çalışan işçi var mı?
-                    const assignedWorker = detailData?.workers.find(
-                      (w) => w.pump_label === pump.label
-                    );
-
-                    return (
-                      <div
-                        key={pump.id}
-                        className={`p-4 rounded-2xl border transition relative space-y-2.5 ${
-                          assignedWorker
-                            ? "bg-emerald-50/50 dark:bg-emerald-950/10 border-emerald-300 dark:border-emerald-800/60 shadow-sm"
-                            : "bg-slate-50/80 dark:bg-[#181920]/40 border-slate-200/80 dark:border-zinc-700/60"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <div className="font-black text-sm text-slate-900 dark:text-white">
-                              {pump.label}
-                            </div>
-                            <div className="text-[10px] font-mono text-slate-400">
-                              No: #{pump.pump_number}
-                            </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {pumps.map((pump) => (
+                    <div
+                      key={pump.id}
+                      className="p-4 rounded-2xl border border-slate-200/80 dark:border-zinc-700/60 bg-slate-50/80 dark:bg-[#181920]/40 space-y-3 relative group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-black text-slate-900 dark:text-white">
+                            {pump.label}
                           </div>
-                          {assignedWorker ? (
-                            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-100/70 dark:bg-emerald-900/40 px-2 py-0.5 rounded-full">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                              {t("st.active")}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-medium text-slate-400 bg-slate-200/60 dark:bg-slate-700/60 px-2 py-0.5 rounded-full">
-                              {t("st.idle")}
-                            </span>
-                          )}
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            No: #{pump.pump_number}
+                          </div>
                         </div>
 
-                        {/* Yakıt Etiketleri */}
-                        <div className="flex flex-wrap gap-1">
-                          {pump.fuel_types.split(",").map((ft, idx) => (
-                            <span
-                              key={idx}
-                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${fuelBadgeColor(
-                                ft
-                              )}`}
-                            >
-                              {ft.trim()}
-                            </span>
-                          ))}
-                        </div>
-
-                        {/* Atanan Personel */}
-                        <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-700/40 flex items-center justify-between text-[11px]">
-                          <span className="text-slate-400 font-medium">{t("st.duty")}:</span>
-                          {assignedWorker ? (
-                            <span className="font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-1">
-                              <span>👤</span>
-                              <span>{assignedWorker.worker_name}</span>
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 italic">{t("st.no_duty")}</span>
-                          )}
+                        <div className="flex items-center gap-1.5">
+                          <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-100/70 dark:bg-emerald-900/40 px-2 py-0.5 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            {tr ? "Aktif" : "Active"}
+                          </span>
+                          <button
+                            onClick={() => handleDeletePump(pump.id)}
+                            className="p-1 text-slate-400 hover:text-rose-500 rounded-lg transition"
+                            title={tr ? "Pompayı Sil" : "Delete Pump"}
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         </div>
                       </div>
-                    );
-                  })}
+
+                      <div className="flex flex-wrap gap-1">
+                        {pump.fuel_types.split(",").map((ft) => (
+                          <span
+                            key={ft}
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${fuelBadgeColor(ft)}`}
+                          >
+                            {ft.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
 
-            {/* ══ SAĞ SÜTUN: İŞÇİ BAZLI SATIŞ VE VARDİYA (7 KOLON) ══ */}
-            <div className="lg:col-span-7 bg-white dark:bg-[#111218] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-4">
+            {/* ══ SAĞ SÜTUN: İSTASYONA ATANMIŞ PERSONELLER (5 KOLON) ══ */}
+            <div className="lg:col-span-5 bg-white dark:bg-[#111218] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-900/30 text-purple-600 flex items-center justify-center">
                     <Users size={16} />
                   </div>
                   <div>
-                    <h3 className="font-black text-base text-slate-900 dark:text-white">{t("st.workers_title")}</h3>
+                    <h3 className="font-black text-base text-slate-900 dark:text-white">
+                      {tr ? "Şube Yetkili Kadrosu" : "Station Staff"}
+                    </h3>
                     <p className="text-[11px] text-slate-400">
-                      {detailData?.workers.length || 0} {t("st.active_workers")}
+                      {stationUsers.length} {tr ? "Kayıtlı Çalışan" : "Assigned Users"}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1 rounded-xl border border-emerald-200 dark:border-emerald-800/40">
-                  <CheckCircle size={13} />
-                  <span>{t("st.live_stream")}</span>
-                </div>
+
+                <Link
+                  to="/users"
+                  className="px-2.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 text-purple-600 dark:text-purple-400 text-xs font-bold transition flex items-center gap-1"
+                >
+                  <UserCheck size={13} />
+                  <span>{tr ? "Yönet" : "Manage"}</span>
+                </Link>
               </div>
 
-              {!detailData?.workers || detailData.workers.length === 0 ? (
-                <div className="p-12 text-center text-slate-400 text-xs space-y-3">
-                  <AlertTriangle size={32} className="mx-auto text-slate-300 dark:text-slate-700" />
-                  <div className="font-bold text-sm text-slate-600 dark:text-slate-400">
-                    {t("st.no_shifts")}
-                  </div>
-                  <p className="text-slate-400 max-w-sm mx-auto">
-                    {t("st.no_shifts_sub")}
-                  </p>
+              {stationUsers.length === 0 ? (
+                <div className="p-10 text-center text-slate-400 text-xs space-y-3">
+                  <Users size={28} className="mx-auto text-slate-300 dark:text-slate-700" />
+                  <p>{tr ? "Bu istasyona henüz atanmış personel bulunmuyor." : "No staff members assigned to this station yet."}</p>
+                  <Link
+                    to="/users"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:underline"
+                  >
+                    <span>{tr ? "Kullanıcılar sayfasından personel ata" : "Assign staff in Users page"}</span>
+                    <ChevronRight size={13} />
+                  </Link>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {detailData.workers.map((worker) => (
-                    <div
-                      key={worker.shift_id}
-                      className="p-4 sm:p-5 rounded-2xl bg-slate-50/70 dark:bg-[#181920]/40 border border-slate-200/80 dark:border-zinc-700/60 space-y-4"
-                    >
-                      {/* İşçi Başlık Barı */}
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <WorkerAvatar avatar={worker.worker_avatar} name={worker.worker_name} />
-                          <div className="min-w-0">
-                            <div className="text-sm font-black text-slate-900 dark:text-white truncate">
-                              {worker.worker_name}
-                            </div>
-                            <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
-                              <span className="font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800/40">
-                                {worker.pump_label || t("st.general_shift")}
-                              </span>
-                              <span>·</span>
-                              <span className="flex items-center gap-1 font-bold text-slate-600 dark:text-slate-300">
-                                <Car size={12} className="text-blue-500" />
-                                {worker.total_vehicles} {t("st.vehicles_count")}
-                              </span>
-                            </div>
+                <div className="space-y-2.5">
+                  {stationUsers.map((u) => {
+                    const isManager = u.role === "station_manager";
+                    return (
+                      <div
+                        key={u.id}
+                        className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#161720] border border-slate-200/80 dark:border-zinc-800 flex items-center justify-between gap-3"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-xs font-black text-slate-900 dark:text-white truncate">
+                            {u.full_name}
                           </div>
+                          <div className="text-[11px] text-slate-400 truncate">{u.email}</div>
                         </div>
 
-                        {/* İşçi Genel Rakamları */}
-                        <div className="text-right shrink-0">
-                          <div className="text-base font-black text-purple-600 dark:text-purple-400">
-                            {formatCurrency(worker.total_revenue)}
-                          </div>
-                          <div className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                            {formatNumber(worker.total_liters, 2)} L
-                          </div>
-                        </div>
+                        <span
+                          className={`text-[10px] font-bold px-2.5 py-1 rounded-xl border shrink-0 ${
+                            isManager
+                              ? "bg-purple-500/10 text-purple-600 border-purple-500/20"
+                              : "bg-blue-500/10 text-blue-600 border-blue-500/20"
+                          }`}
+                        >
+                          {isManager ? (tr ? "İstasyon Müdürü" : "Station Manager") : (tr ? "Kasiyer / Görevli" : "Cashier")}
+                        </span>
                       </div>
-
-                      {/* Yakıt Detay Tablosu */}
-                      {worker.fuel_breakdown.length > 0 ? (
-                        <div className="overflow-x-auto bg-white dark:bg-[#0b1329] rounded-xl border border-slate-200/60 dark:border-zinc-700/50 p-2">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800/80">
-                                <th className="text-left py-2 px-3">{t("st.col_fuel_type")}</th>
-                                <th className="text-right py-2 px-3">{t("st.col_liters")}</th>
-                                <th className="text-right py-2 px-3">{t("st.col_revenue")}</th>
-                                <th className="text-right py-2 px-3">{t("st.col_vehicles")}</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                              {worker.fuel_breakdown.map((fb) => (
-                                <tr key={fb.fuel_type} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                                  <td className="py-2.5 px-3">
-                                    <span
-                                      className={`inline-block font-extrabold px-2 py-0.5 rounded-lg border text-[11px] ${fuelBadgeColor(
-                                        fb.fuel_type
-                                      )}`}
-                                    >
-                                      {fb.fuel_type}
-                                    </span>
-                                  </td>
-                                  <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-700 dark:text-slate-300">
-                                    {formatNumber(fb.liters, 2)} L
-                                  </td>
-                                  <td className="py-2.5 px-3 text-right font-bold text-purple-600 dark:text-purple-400">
-                                    {formatCurrency(fb.revenue)}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-right">
-                                    <span className="inline-flex items-center gap-1 font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-lg">
-                                      <Car size={11} />
-                                      {fb.vehicle_count}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <div className="p-3 text-center text-slate-400 text-xs bg-white dark:bg-[#111218]/40 rounded-xl">
-                          {t("st.no_sales_yet")}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -676,97 +569,144 @@ export const StationsPage: React.FC = () => {
 
       {/* ── YENİ İSTASYON MODAL (Admin) ── */}
       {isStationModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#111218] border border-slate-200 dark:border-zinc-700 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-zinc-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center">
-                  <Building2 size={16} />
-                </div>
-                <h3 className="font-black text-lg text-slate-900 dark:text-white">{t("st.new_station")}</h3>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#111218] border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
+              <h3 className="font-black text-sm text-slate-900 dark:text-white">
+                {tr ? "Yeni İstasyon Oluştur" : "Create New Station"}
+              </h3>
               <button
+                type="button"
                 onClick={() => setIsStationModalOpen(false)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-[#181920] flex items-center justify-center text-slate-500 hover:text-slate-800 transition"
+                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-500 hover:bg-slate-200 flex items-center justify-center"
               >
                 <X size={15} />
               </button>
             </div>
+
             <form onSubmit={handleCreateStation} className="p-5 space-y-3">
               {stModalError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs flex items-center gap-2">
-                  <AlertCircle size={13} />
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-xs">
                   {stModalError}
                 </div>
               )}
               <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-                  {t("st.station_name")}
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {tr ? "İstasyon Adı *" : "Station Name *"}
                 </label>
                 <input
                   type="text"
                   required
+                  placeholder="örn: Shell Beşiktaş"
                   value={stName}
                   onChange={(e) => setStName(e.target.value)}
-                  placeholder="Örn: İzmir Bornova İstasyonu"
-                  className="w-full bg-slate-50 dark:bg-[#181920] border border-slate-200 dark:border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-                  {t("st.station_code")}
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={stCode}
-                  onChange={(e) => setStCode(e.target.value)}
-                  placeholder="IST-002"
-                  className="w-full bg-slate-50 dark:bg-[#181920] border border-slate-200 dark:border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 uppercase font-mono focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-                    {t("st.city")}
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {tr ? "Kod *" : "Code *"}
                   </label>
                   <input
                     type="text"
                     required
-                    value={stCity}
-                    onChange={(e) => setStCity(e.target.value)}
-                    placeholder="İzmir"
-                    className="w-full bg-slate-50 dark:bg-[#181920] border border-slate-200 dark:border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
+                    placeholder="örn: BSK-01"
+                    value={stCode}
+                    onChange={(e) => setStCode(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold uppercase text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-                    {t("st.district")}
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {tr ? "Şehir *" : "City *"}
                   </label>
                   <input
                     type="text"
-                    value={stDistrict}
-                    onChange={(e) => setStDistrict(e.target.value)}
-                    placeholder="Bornova"
-                    className="w-full bg-slate-50 dark:bg-[#181920] border border-slate-200 dark:border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
+                    required
+                    placeholder="örn: İstanbul"
+                    value={stCity}
+                    onChange={(e) => setStCity(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
               </div>
-              <div className="flex gap-3 pt-2">
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {tr ? "İlçe" : "District"}
+                </label>
+                <input
+                  type="text"
+                  placeholder="örn: Beşiktaş"
+                  value={stDistrict}
+                  onChange={(e) => setStDistrict(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {tr ? "Adres" : "Address"}
+                </label>
+                <input
+                  type="text"
+                  placeholder="örn: Barbaros Bulvarı No: 42"
+                  value={stAddress}
+                  onChange={(e) => setStAddress(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {tr ? "SaaS Paketi" : "SaaS Plan"}
+                  </label>
+                  <select
+                    value={stPlan}
+                    onChange={(e) => {
+                      const p = e.target.value;
+                      setStPlan(p);
+                      if (p === "Standart") setStFee(2990);
+                      else if (p === "Pro SaaS") setStFee(4990);
+                      else if (p === "Kurumsal") setStFee(8990);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="Standart">Standart</option>
+                    <option value="Pro SaaS">Pro SaaS</option>
+                    <option value="Kurumsal">Kurumsal</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {tr ? "Aylık Bedel (₺)" : "Fee (₺)"}
+                  </label>
+                  <input
+                    type="number"
+                    value={stFee}
+                    onChange={(e) => setStFee(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-100 dark:border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setIsStationModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-2xl border border-slate-200 dark:border-zinc-700 text-slate-500 text-sm font-bold"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-zinc-400"
                 >
-                  {t("common.cancel")}
+                  {tr ? "Vazgeç" : "Cancel"}
                 </button>
                 <button
                   type="submit"
                   disabled={stModalLoading}
-                  className="flex-1 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-md transition"
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-md transition disabled:opacity-50"
                 >
-                  {stModalLoading ? <Loader2 size={14} className="animate-spin" /> : null}
-                  {t("common.save")}
+                  {stModalLoading ? <Loader2 size={14} className="animate-spin" /> : (tr ? "Kaydet" : "Save")}
                 </button>
               </div>
             </form>
@@ -776,82 +716,81 @@ export const StationsPage: React.FC = () => {
 
       {/* ── YENİ POMPA MODAL ── */}
       {isPumpModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#111218] border border-slate-200 dark:border-zinc-700 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-zinc-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center">
-                  <Cpu size={16} />
-                </div>
-                <h3 className="font-black text-lg text-slate-900 dark:text-white">{t("st.add_pump_modal_title")}</h3>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#111218] border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
+              <h3 className="font-black text-sm text-slate-900 dark:text-white">
+                {tr ? "Yeni Pompa Ekle" : "Add New Pump"}
+              </h3>
               <button
+                type="button"
                 onClick={() => setIsPumpModalOpen(false)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-[#181920] flex items-center justify-center text-slate-500 hover:text-slate-800 transition"
+                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-500 hover:bg-slate-200 flex items-center justify-center"
               >
                 <X size={15} />
               </button>
             </div>
+
             <form onSubmit={handleCreatePump} className="p-5 space-y-3">
               {pumpModalError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs flex items-center gap-2">
-                  <AlertCircle size={13} />
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-xs">
                   {pumpModalError}
                 </div>
               )}
               <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-                  {t("st.pump_number")}
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {tr ? "Pompa Numarası" : "Pump Number"}
                 </label>
                 <input
                   type="number"
-                  min={1}
+                  min="1"
                   required
                   value={pumpNumber}
                   onChange={(e) => setPumpNumber(parseInt(e.target.value) || 1)}
-                  className="w-full bg-slate-50 dark:bg-[#181920] border border-slate-200 dark:border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+
               <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-                  {t("st.pump_label")}
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {tr ? "Etiket / İsim" : "Label / Name"}
                 </label>
                 <input
                   type="text"
-                  required
+                  placeholder="örn: Pompa 1 (Ada 1)"
                   value={pumpLabel}
                   onChange={(e) => setPumpLabel(e.target.value)}
-                  placeholder="Örn: Pompa 1"
-                  className="w-full bg-slate-50 dark:bg-[#181920] border border-slate-200 dark:border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+
               <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
-                  {t("st.supported_fuels")}
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {tr ? "Desteklenen Yakıtlar" : "Fuel Types (comma separated)"}
                 </label>
                 <input
                   type="text"
+                  placeholder="Motorin,Benzin,LPG"
                   value={pumpFuelTypes}
                   onChange={(e) => setPumpFuelTypes(e.target.value)}
-                  placeholder="Motorin,Benzin,LPG"
-                  className="w-full bg-slate-50 dark:bg-[#181920] border border-slate-200 dark:border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <div className="flex gap-3 pt-2">
+
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-100 dark:border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setIsPumpModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-2xl border border-slate-200 dark:border-zinc-700 text-slate-500 text-sm font-bold"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-zinc-400"
                 >
-                  {t("common.cancel")}
+                  {tr ? "Vazgeç" : "Cancel"}
                 </button>
                 <button
                   type="submit"
                   disabled={pumpModalLoading}
-                  className="flex-1 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm flex items-center justify-center gap-2 shadow-md transition"
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-md transition disabled:opacity-50"
                 >
-                  {pumpModalLoading ? <Loader2 size={14} className="animate-spin" /> : null}
-                  {t("st.add_pump")}
+                  {pumpModalLoading ? <Loader2 size={14} className="animate-spin" /> : (tr ? "Ekle" : "Add")}
                 </button>
               </div>
             </form>

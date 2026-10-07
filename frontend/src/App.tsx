@@ -11,6 +11,7 @@ import { Dashboard } from "@/pages/Dashboard";
 import { TransactionsPage } from "@/pages/TransactionsPage";
 import { ReportsPage } from "@/pages/ReportsPage";
 import { StationsPage } from "@/pages/StationsPage";
+import { UsersPage } from "@/pages/UsersPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 
 /**
@@ -45,6 +46,7 @@ export const App: React.FC = () => {
                   <Route path="/transactions" element={<TransactionsPage />} />
                   <Route path="/reports" element={<ReportsPage />} />
                   <Route path="/stations" element={<StationsPage />} />
+                  <Route path="/users" element={<UsersPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                 </Route>
               </Route>
