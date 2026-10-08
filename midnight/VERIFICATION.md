@@ -43,5 +43,32 @@ Private witness values cross two local process boundaries during proving:
 They are not logged, persisted, returned by the API, or written to files by this
 integration. The proof server therefore remains a trusted local component.
 
-Official references: [Midnight.js API](https://docs.midnight.network/api-reference/midnight-js)
-and [deploy/operate guide](https://docs.midnight.network/guides/deploy-and-operate).
+## Network verification handoff
+
+`src/compiled-contract.ts` binds the generated `Contract`, the real
+`financialInputs` witness, and the full-compile assets with Midnight.js's
+`CompiledContract` API. Run `npm run compile:full` and then
+`npm run verification:manifest` to print the circuit ID, statement version,
+and SHA-256 fingerprints of the verifier key and bZKIR. The command reads only
+public verifier material; it performs no network operation and prints no
+financial inputs or proof bytes. The deployer should compare these fingerprints
+with the artifacts used by the deployed contract.
+
+The existing standalone proof was produced using a dummy contract address and
+is **not** a deployable transaction. On the network, the integration must call
+`reconcile` through a deployed contract using `CompiledContract`, the six
+Midnight.js providers, and the private witness retained on the proving machine.
+Midnight.js then creates a transaction-specific proof, balances, submits, and
+waits for finalization. The indexer-visible public state must match the trusted
+shift context digest, reconciliation class, and tolerance. Only that completed
+flow may change FuelOS from `proved` to `verified`.
+
+The private source snapshot hash is not a Compact public input. Independent
+verification of the **financial source**, rather than just the reconciliation
+calculation, still needs an authenticated source commitment and replay policy
+agreed with the blockchain implementer. No wallet, indexer, network connection,
+deployment, or ledger verification is included in this handoff.
+
+Official references: [Midnight.js API](https://docs.midnight.network/api-reference/midnight-js),
+[deploy/operate guide](https://docs.midnight.network/guides/deploy-and-operate),
+and [compatibility matrix](https://docs.midnight.network/relnotes/support-matrix).

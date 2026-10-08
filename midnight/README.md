@@ -174,11 +174,14 @@ Pinned additional dependencies (all **4.1.1**):
 ```sh
 npm test
 npm run compile:full
+npm run test:handoff
+npm run verification:manifest
 ```
 
 Compiler 0.31.1 replaces the output directory: running `npm test` or
 `npm run compile` afterwards removes the keys and binary ZKIR. Run
-`npm run compile:full` again before `npm run test:proof`. The proof command
+`npm run compile:full` again before `npm run test:proof`, `npm run test:handoff`,
+or `npm run verification:manifest`. The proof command
 deliberately does not invoke the fast compile script.
 
 Full compilation produces these artifacts in addition to the files

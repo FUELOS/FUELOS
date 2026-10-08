@@ -13,6 +13,8 @@
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
     "test": "npm run compile && npm run typecheck && node node_modules/vitest/vitest.mjs run tests/reconciliation.test.ts tests/shift-commitment.test.ts",
     "test:proof": "npm run typecheck && node node_modules/vitest/vitest.mjs run tests/reconciliation.proof.test.ts --maxWorkers=1 --no-file-parallelism",
+    "test:handoff": "npm run typecheck && node node_modules/vitest/vitest.mjs run tests/compiled-contract.test.ts",
+    "verification:manifest": "node node_modules/tsx/dist/cli.mjs src/verification-manifest-cli.ts",
     "prove:cli": "node node_modules/tsx/dist/cli.mjs src/prove-cli.ts"
   },
   "dependencies": {
