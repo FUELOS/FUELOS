@@ -103,6 +103,7 @@ class TestZKReconciliation(unittest.TestCase):
             zk_tolerance=Decimal("1.00"),
             zk_proved_at=datetime.now(timezone.utc),
             zk_statement_version="reconcile-v2-shift-context",
+            zk_source_snapshot_hash="0" * 64,
         )
         user = SimpleNamespace(role=UserRole.CASHIER, id=uuid.uuid4())
         db = SimpleNamespace(scalar=AsyncMock(return_value=shift))

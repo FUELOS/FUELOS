@@ -103,10 +103,11 @@ class ShiftResponse(BaseModel):
 
 
 class ZKVerificationResponse(BaseModel):
-    """Persisted proof status. Ledger verification is a later network step."""
+    """Proof integrity and source-drift status; ledger verification is separate."""
     shift_id: uuid.UUID
     proof_status: Literal["proved", "verified"]
     proof_integrity_valid: bool
+    source_snapshot_consistent: bool
     ledger_verified: bool
     public_class: str
     tolerance_tl: Decimal
@@ -115,4 +116,3 @@ class ZKVerificationResponse(BaseModel):
     proved_at: datetime
     verified_at: datetime | None = None
     privacy_notice: str = "Finansal witness değerleri yanıtta yer almaz. Ledger doğrulaması ayrı Midnight network işlemidir."
-

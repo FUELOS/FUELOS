@@ -8,9 +8,11 @@ FuelOS persists the 2940-byte proof as base64 plus its SHA-256 integrity hash.
 This is proof generation, not independent ledger verification. The API uses
 "proved" until a future Midnight transaction has been accepted and checked in
 the ledger context. The "zk-verify" endpoint checks the stored proof's SHA-256
-integrity, the version of the Compact public statement, and the current shift
-metadata against the stored public context digest. These are application-level
-checks; its response still exposes "ledger_verified: false".
+integrity, the version of the Compact public statement, current shift metadata
+against the stored public context digest, and current reconciliation source
+records against the saved proof-time source hash. These are application-level
+checks; its response still exposes "ledger_verified: false". See
+[the source-snapshot format](SOURCE_SNAPSHOT.md).
 
 The next cryptographic verification step must build a real Midnight transaction
 containing the circuit call and proof, then use the supported ledger/network
@@ -25,7 +27,8 @@ metadata bytes. Backend code recomputes the digest before proving and when
 reading the proof status. Proofs made with the old statement have no version
 marker and must be regenerated.
 
-This digest does not include the transaction set or the five monetary values.
+The public context digest does not include the transaction set or the five
+monetary values. The separate source hash is stored privately by FuelOS.
 The proof does not establish that its private witness came from the FuelOS
 database, nor does it prevent another valid proof for the same shift. A future
 on-chain verifier needs the expected context digest from a trusted shift

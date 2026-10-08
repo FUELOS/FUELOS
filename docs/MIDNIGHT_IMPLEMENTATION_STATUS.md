@@ -29,6 +29,9 @@ Date: 2026-10-08
 - Proofs now bind a public digest of shift metadata and the frozen tolerance.
   Old proofs are explicitly marked as an earlier statement version and require
   regeneration before the status endpoint accepts them.
+- New proofs also save a private SHA-256 snapshot of the reconciliation source
+  rows and closing declarations. The status endpoint detects later source drift;
+  pre-existing proofs without that snapshot require regeneration.
 
 ## Removed because it was not cryptographic verification
 
@@ -42,9 +45,9 @@ Date: 2026-10-08
 
 ## Still missing
 
-1. **Financial source binding.** The circuit binds the metadata digest supplied
-   by the backend, but the digest does not commit to the transaction set or the
-   monetary witness. It does not prove that private inputs came from FuelOS's
+1. **Independent financial source binding.** The backend stores a source-drift
+   hash, but the Compact circuit does not constrain its private witness to it.
+   This does not prove to an outside verifier that amounts came from FuelOS's
    stored transactions. There is no uniqueness or replay protection yet.
 2. **Independent ledger verification.** No wallet, indexer, submitted Midnight
    transaction, "Transaction.wellFormed" validation, finalization check, or
@@ -76,9 +79,10 @@ Date: 2026-10-08
 | Binary ZKIR | 279 bytes |
 | "npm run test:proof" | 5/5 passed |
 | Backend real-proof bridge | 8/8 passed, including one real 2940-byte proof |
+| Full backend suite with local proof server | 23 passed, 5 subtests passed |
 | Closing tolerance snapshot | 2/2 passed |
 | Existing Python reconciliation tests | 9/9 passed |
-| Alembic migration chain | single head: `f7a8b9c0d2e3` |
+| Alembic migration chain | single head: `a8b9c0d1e2f3` |
 | Frontend "npm run build" | passed; existing 510 kB chunk warning |
 
 ## Next safe milestone
