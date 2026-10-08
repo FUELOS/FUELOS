@@ -150,6 +150,11 @@ class Shift(TimestampMixin, Base):
         nullable=True,
         comment="Proof'un Compact public ifade sürümü",
     )
+    zk_source_snapshot_hash: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+        comment="Proof anındaki işlem ve kapanış girdileri özeti; yalnız uygulama içi sapma kontrolü",
+    )
     zk_verified: Mapped[bool] = mapped_column(
         Boolean,
         default=False,

@@ -494,24 +494,22 @@ async def generate_zk_proof(
         generate_reconciliation_proof,
         to_kurus_int,
     )
+    from app.services.zk_snapshot import reconciliation_snapshot
     saved_tolerance = shift.reconciliation_tolerance
     tolerance_val = Decimal(str(saved_tolerance)) if saved_tolerance is not None else DEFAULT_TOLERANCE
 
     tx_res = await db.execute(
-        select(
-            func.coalesce(func.sum(Transaction.amount), 0).label("total_sales"),
-            func.coalesce(func.sum(case((Transaction.payment_method == PaymentMethod.CASH, Transaction.amount), else_=0)), 0).label("cash_sales"),
-            func.coalesce(func.sum(case((Transaction.payment_method == PaymentMethod.CREDIT_CARD, Transaction.amount), else_=0)), 0).label("pos_sales"),
-            func.coalesce(func.sum(case((Transaction.payment_method == PaymentMethod.EFT, Transaction.amount), else_=0)), 0).label("eft_sales"),
-            func.coalesce(func.sum(case((Transaction.payment_method == PaymentMethod.VERESIYE, Transaction.amount), else_=0)), 0).label("credit_sales"),
-        ).where(Transaction.shift_id == shift.id)
+        select(Transaction.id, Transaction.payment_method, Transaction.amount)
+        .where(Transaction.shift_id == shift.id)
+        .order_by(Transaction.id)
     )
-    row = tx_res.one()
-    tot_sales = Decimal(str(row.total_sales))
-    pos_s = Decimal(str(shift.declared_pos)) if shift.declared_pos is not None else Decimal(str(row.pos_sales))
-    cash_n = Decimal(str(shift.closing_cash)) - Decimal(str(shift.opening_cash))
-    eft_s = Decimal(str(shift.declared_eft)) if shift.declared_eft is not None else Decimal(str(row.eft_sales))
-    credit_s = Decimal(str(shift.declared_credit)) if shift.declared_credit is not None else Decimal(str(row.credit_sales))
+    try:
+        proof_inputs, source_snapshot_hash = reconciliation_snapshot(shift, tx_res.all(), tolerance_val)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Vardiya işlem veya kapanış tutarları proof için geçersiz",
+        ) from None
 
     context_digest = compute_shift_context_digest(
         shift.id,
@@ -524,11 +522,7 @@ async def generate_zk_proof(
 
     try:
         zk_res = await generate_reconciliation_proof(
-            total_sales=tot_sales,
-            pos=pos_s,
-            cash=cash_n,
-            eft=eft_s,
-            credit=credit_s,
+            **proof_inputs,
             tolerance_tl=tolerance_val,
             context_digest=context_digest,
         )
@@ -543,6 +537,7 @@ async def generate_zk_proof(
     shift.zk_tolerance = zk_res["tolerance_tl"]
     shift.zk_commitment = zk_res["context_digest"]
     shift.zk_statement_version = "reconcile-v2-shift-context"
+    shift.zk_source_snapshot_hash = source_snapshot_hash
     shift.zk_proof = zk_res["proof"]
     shift.zk_proof_hash = zk_res["proof_hash"]
     shift.zk_proved_at = datetime.now(timezone.utc)
@@ -561,7 +556,7 @@ async def verify_zk_proof(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Saklanan proof byte'larının SHA-256 bütünlüğünü ve proof durumunu döndürür.
+    Saklanan proof'un bütünlüğünü, kaynak sapmasını ve proof durumunu döndürür.
     Bu kontrol kriptografik ZK/ledger doğrulaması değildir.
     """
     shift = await db.scalar(_shift_query_for_user(current_user).where(Shift.id == shift_id))
@@ -587,6 +582,12 @@ async def verify_zk_proof(
             detail="Bu kanıt vardiya bağlamına bağlı eski Compact sürümüyle üretildi; yeniden oluşturulmalı",
         )
 
+    if not shift.zk_source_snapshot_hash:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Bu kanıtın işlem anlık görüntüsü kaydedilmemiş; yeniden oluşturulmalı",
+        )
+
     from app.services.zk_service import proof_integrity_matches
 
     integrity_valid = proof_integrity_matches(shift.zk_proof, shift.zk_proof_hash)
@@ -606,10 +607,28 @@ async def verify_zk_proof(
     if shift.zk_commitment != expected_context:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Vardiya bağlam özeti eşleşmiyor")
 
+    from app.services.zk_snapshot import reconciliation_snapshot
+
+    tx_res = await db.execute(
+        select(Transaction.id, Transaction.payment_method, Transaction.amount)
+        .where(Transaction.shift_id == shift.id)
+        .order_by(Transaction.id)
+    )
+    try:
+        _, current_source_hash = reconciliation_snapshot(shift, tx_res.all(), Decimal(str(shift.zk_tolerance)))
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Vardiya kaynak verileri artık geçerli bir proof girdisi oluşturmuyor",
+        ) from None
+    if shift.zk_source_snapshot_hash != current_source_hash:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Proof üretiminden sonra işlem veya kapanış verileri değişmiş")
+
     return ZKVerificationResponse(
         shift_id=shift.id,
         proof_status=shift.zk_proof_status,
         proof_integrity_valid=True,
+        source_snapshot_consistent=True,
         ledger_verified=bool(shift.zk_verified),
         public_class=shift.zk_reconciliation_class or "matched",
         tolerance_tl=Decimal(str(shift.zk_tolerance if shift.zk_tolerance is not None else DEFAULT_TOLERANCE)),
@@ -618,4 +637,3 @@ async def verify_zk_proof(
         proved_at=shift.zk_proved_at,
         verified_at=shift.zk_verified_at,
     )
-
