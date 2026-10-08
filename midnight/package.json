@@ -14,20 +14,32 @@
     "test": "npm run compile && npm run typecheck && node node_modules/vitest/vitest.mjs run tests/reconciliation.test.ts tests/shift-commitment.test.ts",
     "test:proof": "npm run typecheck && node node_modules/vitest/vitest.mjs run tests/reconciliation.proof.test.ts --maxWorkers=1 --no-file-parallelism",
     "test:handoff": "npm run typecheck && node node_modules/vitest/vitest.mjs run tests/compiled-contract.test.ts",
+    "test:ledger": "npm run typecheck && node node_modules/vitest/vitest.mjs run tests/local-ledger.test.ts --maxWorkers=1 --no-file-parallelism",
     "verification:manifest": "node node_modules/tsx/dist/cli.mjs src/verification-manifest-cli.ts",
     "prove:cli": "node node_modules/tsx/dist/cli.mjs src/prove-cli.ts"
   },
   "dependencies": {
     "@midnight-ntwrk/compact-runtime": "0.16.0",
+    "@midnight-ntwrk/midnight-js-contracts": "4.1.1",
     "@midnight-ntwrk/midnight-js-http-client-proof-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-level-private-state-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-network-id": "4.1.1",
     "@midnight-ntwrk/midnight-js-node-zk-config-provider": "4.1.1",
     "@midnight-ntwrk/midnight-js-protocol": "4.1.1",
-    "@midnight-ntwrk/midnight-js-types": "4.1.1"
+    "@midnight-ntwrk/midnight-js-types": "4.1.1",
+    "@midnight-ntwrk/midnight-js-utils": "4.1.1",
+    "@midnight-ntwrk/onchain-runtime-v3": "3.0.0",
+    "@midnight-ntwrk/testkit-js": "4.1.1",
+    "@midnight-ntwrk/wallet-sdk": "1.2.0",
+    "rxjs": "7.8.2",
+    "ws": "8.21.3"
   },
   "devDependencies": {
     "@types/node": "22.15.30",
+    "@types/ws": "8.18.1",
     "tsx": "4.20.3",
     "typescript": "5.8.3",
-    "vitest": "3.2.4"
+    "vitest": "5.0.3"
   }
 }

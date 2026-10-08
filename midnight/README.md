@@ -2,7 +2,9 @@
 
 Reconciliation implementation of `backend/app/services/reconciliation.py`,
 with real local proving through Docker and an explicit backend/UI integration.
-Blockchain deployment, wallet funding, and ledger verification are not included.
+An opt-in local Midnight network test verifies a finalized transaction and
+public state. Public-network deployment and FuelOS production verification
+are not included.
 
 ## Toolchain
 
@@ -107,8 +109,9 @@ to fail. Invalid witness amounts are rejected as well.
 
 The proof statement is: "these private amounts imply this public class under
 the disclosed tolerance policy and supplied shift context digest." Logic tests execute this relation; the separate
-proof tests generate real proofs. Independent verification and network
-acceptance are not claimed by either test suite.
+proof tests generate real proofs. The opt-in local ledger test submits a real
+transaction and checks the finalized public statement; it does not prove that
+the amounts came from FuelOS source records.
 
 The backend authorizes access to a FuelOS shift and supplies a digest of shift
 metadata to Compact. There is no commitment to its transaction snapshot,
@@ -235,7 +238,20 @@ Updated context-bound WSL results: A/MATCHED, B/SHORTAGE and E/SURPLUS each pass
 check and prove, returning **2940 bytes** each. A/SHORTAGE failed during circuit
 execution before HTTP calls. A separate 3 TL difference / 5 TL public tolerance case also produced 2940 bytes. The real proof suite passed **5/5** tests.
 `check()` checks constraints; it is not independent verification of a proof.
-See [the independent verification note](VERIFICATION.md) for the next stage.
+See [the independent verification note](VERIFICATION.md) for the local ledger
+test and remaining production requirements.
+
+## Opt-in local ledger test
+
+With the official local Midnight node, indexer, and proof server reachable only
+on localhost, run `npm run compile:full` followed by `npm run test:ledger`.
+The test uses the local development genesis wallet, deploys a fresh contract,
+submits vector A/MATCHED, waits for finalization, and compares the public class,
+tolerance, and context digest against the indexer state. A wrong class or digest
+must fail the comparison. It is a state check for the latest call on that test
+contract, not a reusable receipt for a production shift. No private amount is
+printed. The wallet seed is public and has no value outside a disposable local
+`undeployed` network. See [VERIFICATION.md](VERIFICATION.md).
 
 ## Official references
 
