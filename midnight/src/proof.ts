@@ -1,12 +1,10 @@
-import { fileURLToPath } from 'node:url';
 import { httpClientProvingProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
 import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config-provider';
+import { ARTIFACT_ROOT, CIRCUIT_ID } from './compiled-contract.js';
 import { executeReconciliation, ProvingStageError } from './execution.js';
 import { ReconciliationClass, type ReconciliationPrivateState } from './types.js';
 
 export const PROOF_SERVER_URL = 'http://127.0.0.1:6300';
-export const ARTIFACT_ROOT = fileURLToPath(new URL('../managed/reconciliation/', import.meta.url));
-export const CIRCUIT_ID = 'reconcile';
 
 async function verifyServer() {
   try {

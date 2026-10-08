@@ -32,6 +32,9 @@ Date: 2026-10-08
 - New proofs also save a private SHA-256 snapshot of the reconciliation source
   rows and closing declarations. The status endpoint detects later source drift;
   pre-existing proofs without that snapshot require regeneration.
+- The generated contract, witness, and full-compile assets are bound with the
+  official `CompiledContract` API. A local manifest prints the verifier-key and
+  bZKIR fingerprints for the future network integration without private inputs.
 
 ## Removed because it was not cryptographic verification
 
@@ -83,6 +86,7 @@ Date: 2026-10-08
 | Closing tolerance snapshot | 2/2 passed |
 | Existing Python reconciliation tests | 9/9 passed |
 | Alembic migration chain | single head: `a8b9c0d1e2f3` |
+| Midnight contract handoff | 2/2 tests passed; manifest generated |
 | Frontend "npm run build" | passed; existing 510 kB chunk warning |
 
 ## Next safe milestone
