@@ -5,7 +5,7 @@ localhost Midnight proof server 8.1.0. FuelOS calls `check()` on the circuit
 preimage and then `prove()` to obtain a non-empty binary proof.
 FuelOS persists the 2940-byte proof as base64 plus its SHA-256 integrity hash.
 
-This is proof generation, not independent ledger verification. The API uses
+This backend flow is proof generation, not independent ledger verification. The API uses
 "proved" until a future Midnight transaction has been accepted and checked in
 the ledger context. The "zk-verify" endpoint checks the stored proof's SHA-256
 integrity, the version of the Compact public statement, current shift metadata
@@ -14,10 +14,11 @@ records against the saved proof-time source hash. These are application-level
 checks; its response still exposes "ledger_verified: false". See
 [the source-snapshot format](SOURCE_SNAPSHOT.md).
 
-The next cryptographic verification step must build a real Midnight transaction
-containing the circuit call and proof, then use the supported ledger/network
-flow, including transaction well-formedness and submission/finalization. There
-is no invented "verifyProof" endpoint or custom proof envelope in this code.
+A separate opt-in integration test now builds a real Midnight transaction on a
+disposable local network, waits for finalization, and checks its public contract
+state through the indexer. This does not change the backend API status or
+independently authenticate the financial source. There is no invented
+"verifyProof" endpoint or custom proof envelope in this code.
 
 The "fuelos:shift:v1:..." value is a SHA-256 digest over shift ID, station ID,
 user ID, opening/closing timestamps, and the tolerance frozen at shift close.
@@ -55,19 +56,30 @@ financial inputs or proof bytes. The deployer should compare these fingerprints
 with the artifacts used by the deployed contract.
 
 The existing standalone proof was produced using a dummy contract address and
-is **not** a deployable transaction. On the network, the integration must call
-`reconcile` through a deployed contract using `CompiledContract`, the six
-Midnight.js providers, and the private witness retained on the proving machine.
-Midnight.js then creates a transaction-specific proof, balances, submits, and
-waits for finalization. The indexer-visible public state must match the trusted
-shift context digest, reconciliation class, and tolerance. Only that completed
-flow may change FuelOS from `proved` to `verified`.
+is **not** a deployable transaction. The opt-in `npm run test:ledger` uses
+`CompiledContract` and the six Midnight.js providers on the official local
+`undeployed` network. It deploys a fresh contract, calls `reconcile` for vector
+A/MATCHED, waits for finalization, and checks the indexer-visible class,
+tolerance, and context digest. It also rejects a wrong class and digest. The
+test keeps temporary wallet/private-state files outside the repository and
+prints only public identifiers. Run it after `npm run compile:full` with the
+local node, indexer, and proof server running; it deliberately is not part of
+the fast `npm test` command.
+
+`matchesCurrentLedgerState()` checks only the **current** public contract
+state. A later call overwrites these fields, so it is not historical evidence
+for a particular shift. The caller must obtain the expected digest and contract
+address from a trusted source and trust the queried indexer. A production
+`verified` status also needs a durable receipt tied to a finalized transaction,
+historical shift-specific state or events, source authentication, replay
+policy, and deployment on the chosen network. The current FuelOS backend
+correctly remains at `proved`.
 
 The private source snapshot hash is not a Compact public input. Independent
 verification of the **financial source**, rather than just the reconciliation
 calculation, still needs an authenticated source commitment and replay policy
-agreed with the blockchain implementer. No wallet, indexer, network connection,
-deployment, or ledger verification is included in this handoff.
+agreed with the blockchain implementer. The local test is an isolated prototype;
+it does not deploy to a public network or verify production FuelOS shifts.
 
 Official references: [Midnight.js API](https://docs.midnight.network/api-reference/midnight-js),
 [deploy/operate guide](https://docs.midnight.network/guides/deploy-and-operate),

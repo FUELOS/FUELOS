@@ -35,6 +35,11 @@ Date: 2026-10-08
 - The generated contract, witness, and full-compile assets are bound with the
   official `CompiledContract` API. A local manifest prints the verifier-key and
   bZKIR fingerprints for the future network integration without private inputs.
+- An opt-in test deploys the contract on the official disposable local Midnight
+  network, submits a real A/MATCHED call, waits for finalization, and checks
+  its public class, tolerance, and context digest via the local indexer.
+- The local ledger-state helper rejects mismatched public class and digest.
+  It checks current state only and does not promote backend proof status.
 
 ## Removed because it was not cryptographic verification
 
@@ -52,11 +57,13 @@ Date: 2026-10-08
    hash, but the Compact circuit does not constrain its private witness to it.
    This does not prove to an outside verifier that amounts came from FuelOS's
    stored transactions. There is no uniqueness or replay protection yet.
-2. **Independent ledger verification.** No wallet, indexer, submitted Midnight
-   transaction, "Transaction.wellFormed" validation, finalization check, or
-   on-chain verifier result exists.
-3. **Network deployment.** There is no Compact contract deployment, funded
-   wallet, faucet use, or Midnight network address.
+2. **Production ledger verification.** The local integration test proves the
+   deploy/call/finalization/indexer path, but the backend has no durable
+   transaction receipt, historical per-shift state, or trusted indexer/network
+   check that can set a real shift to `verified`.
+3. **Public-network deployment.** The local test uses a disposable genesis
+   wallet and network. There is no Preview/Preprod/Mainnet deployment, funded
+   production wallet, or registered network contract address.
 4. **Production prover operation.** The backend request waits synchronously for
    the local prover for up to 360 seconds. Production needs a job queue,
    concurrency limits, retries, health monitoring, and an availability policy.
@@ -87,11 +94,14 @@ Date: 2026-10-08
 | Existing Python reconciliation tests | 9/9 passed |
 | Alembic migration chain | single head: `a8b9c0d1e2f3` |
 | Midnight contract handoff | 2/2 tests passed; manifest generated |
+| Local ledger integration | 1/1 passed; finalized A/MATCHED transaction, public statement checked |
+| npm audit | 0 vulnerabilities after Vitest update to 5.0.3 |
 | Frontend "npm run build" | passed; existing 510 kB chunk warning |
 
 ## Next safe milestone
 
-Agree on a trusted transaction-snapshot commitment and its canonical encoding
-with the blockchain implementer. Then construct a real Midnight transaction,
-verify it through the supported ledger path, submit it to the selected network,
-and only after finalization change "zk_proof_status" from "proved" to "verified".
+Agree on an authenticated transaction-snapshot commitment and canonical
+encoding with the blockchain implementer, plus a historical/replay-safe ledger
+record. Preview is the selected first shared test network; its wallet must
+receive faucet tNIGHT and register for tDUST before deployment. Bind the backend status to a
+trusted finalized transaction receipt before changing `proved` to `verified`.
