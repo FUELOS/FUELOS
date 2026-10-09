@@ -5,6 +5,7 @@ import { executeReconciliation, ProvingStageError } from './execution.js';
 import { ReconciliationClass, type ReconciliationPrivateState } from './types.js';
 
 export const PROOF_SERVER_URL = 'http://127.0.0.1:6300';
+export const PROOF_SERVER_VERSION = '8.1.3';
 
 async function verifyServer() {
   try {
@@ -13,7 +14,7 @@ async function verifyServer() {
       if (!response.ok) throw new Error();
       const text = await response.text();
       if (endpoint === 'version') {
-        if (text.trim().replace(/^"|"$/g, '') !== '8.1.0') throw new Error();
+        if (text.trim().replace(/^"|"$/g, '') !== PROOF_SERVER_VERSION) throw new Error();
       } else if (JSON.parse(text).status !== 'ok') {
         throw new Error();
       }

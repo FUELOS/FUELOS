@@ -98,8 +98,10 @@ contract fields or return values. The circuit returns an empty tuple.
 The public state reveals the category, tolerance, and shift metadata digest, but no private amount or exact difference.
 
 The default initial ledger class is MATCHED because the enum starts at zero;
-it is **not** evidence that reconciliation has run. This prototype
-records only the last successful call and is not a historical shift registry.
+it is **not** evidence that reconciliation has run. The contract now also
+stores the class and tolerance under each 32-byte context digest in public
+maps. It rejects a second call for that digest on the same contract. The
+single-value ledger fields remain a convenience view of the latest call.
 
 ## Proof semantics and limitations
 
@@ -114,9 +116,10 @@ transaction and checks the finalized public statement; it does not prove that
 the amounts came from FuelOS source records.
 
 The backend authorizes access to a FuelOS shift and supplies a digest of shift
-metadata to Compact. There is no commitment to its transaction snapshot,
-uniqueness, or replay protection. The proof alone is not evidence that its
-private amounts are a specific shift's complete records. See [VERIFICATION.md](VERIFICATION.md).
+metadata to Compact. The contract prevents reuse of that digest within one
+deployed instance. The metadata digest does not commit to the transaction
+snapshot, so the proof alone is not evidence that its private amounts are a
+specific shift's complete records. See [VERIFICATION.md](VERIFICATION.md).
 
 ## Tests
 
@@ -146,8 +149,9 @@ The original 65 tests cover:
   inputs/outputs/transcripts, different private transcripts, and the
   public ledger fields. These are regression checks, not a cryptographic audit.
 
-After the context-binding update, `npm test` completed with **82 passed**, including compiler
-0.31.1 and TypeScript checks.
+The fast suite covers public/private boundaries, tolerance limits, historical
+map entries, and duplicate-context rejection. Run `npm test` for the current
+count with compiler 0.31.1 and TypeScript checks.
 
 ## Generated files
 
@@ -164,7 +168,9 @@ managed/reconciliation/
 ```
 
 Metadata confirms language 0.23.0, runtime 0.16.0, a provable `reconcile`
-circuit, an enum claim, integer tolerance and 32-byte context digest arguments, one financial witness, and public class/tolerance/digest ledger fields.
+circuit, an enum claim, integer tolerance and 32-byte context digest arguments,
+one financial witness, and public class/tolerance/digest ledger fields plus
+historical maps.
 
 ## Real local proving
 
@@ -192,9 +198,9 @@ above (observed sizes for this contract/compiler):
 
 | Artifact under managed/reconciliation | Bytes |
 | --- | ---: |
-| keys/reconcile.prover | 287580 |
+| keys/reconcile.prover | 287862 |
 | keys/reconcile.verifier | 1351 |
-| zkir/reconcile.bzkir | 279 |
+| zkir/reconcile.bzkir | 464 |
 
 Docker Engine is installed inside Ubuntu/WSL from Docker's official APT
 repository. Docker Desktop is not required for this setup. The user has not
@@ -204,7 +210,7 @@ been added to the Docker group; use `sudo` for Docker management.
 sudo docker run -d --name fuelos-proof-server \
   --log-driver none -e RUST_LOG=warn \
   -p 127.0.0.1:6300:6300 \
-  midnightntwrk/proof-server:8.1.0 midnight-proof-server
+  midnightntwrk/proof-server:8.1.3 midnight-proof-server
 curl --fail http://127.0.0.1:6300/health
 curl --fail http://127.0.0.1:6300/version
 curl --fail http://127.0.0.1:6300/ready
@@ -212,10 +218,13 @@ npm run test:proof -- -t "proves A"
 npm run test:proof
 ```
 
-If the named container already exists, use `sudo docker start
-fuelos-proof-server`. Stop it with `sudo docker stop fuelos-proof-server`.
-The image digest used was
-`sha256:801bbc0340e9e96f16735f77b523f23c7459e3359842f7c79c2c53f4e994d531`.
+If a named container already exists, check its image tag before restarting;
+an older 8.1.0 container does not become 8.1.3 by calling `docker start`.
+Stop the server with `sudo docker stop fuelos-proof-server`.
+The proof server version is pinned to **8.1.3**, the current Preview support
+matrix version. If using the official local development Compose stack, add
+`proof-server-preview.override.yml` as the final `-f` argument to override its
+older proof-server image while retaining localhost port binding.
 Do not enable verbose/debug request logging. Docker log persistence is disabled;
 the server may still emit startup diagnostics. Startup downloads public proving
 parameters; this is not a connection to a blockchain.
@@ -246,10 +255,10 @@ test and remaining production requirements.
 With the official local Midnight node, indexer, and proof server reachable only
 on localhost, run `npm run compile:full` followed by `npm run test:ledger`.
 The test uses the local development genesis wallet, deploys a fresh contract,
-submits vector A/MATCHED, waits for finalization, and compares the public class,
-tolerance, and context digest against the indexer state. A wrong class or digest
-must fail the comparison. It is a state check for the latest call on that test
-contract, not a reusable receipt for a production shift. No private amount is
+submits vector A/MATCHED, waits for finalization, and compares its historical
+public map entry against indexer state. A wrong class or digest must fail the
+comparison, and the same context cannot be submitted again to that contract.
+It is not yet a reusable receipt for a production shift. No private amount is
 printed. The wallet seed is public and has no value outside a disposable local
 `undeployed` network. See [VERIFICATION.md](VERIFICATION.md).
 

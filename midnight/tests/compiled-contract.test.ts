@@ -19,7 +19,7 @@ describe('Midnight verification handoff', () => {
     const second = await verificationArtifactManifest();
     expect(first).toEqual(second);
     expect(first.circuitId).toBe(CIRCUIT_ID);
-    expect(first.statementVersion).toBe('reconcile-v2-shift-context');
+    expect(first.statementVersion).toBe('reconcile-v3-historical-context');
     expect(first.verifierKeySha256).toMatch(/^[0-9a-f]{64}$/);
     expect(first.zkirSha256).toMatch(/^[0-9a-f]{64}$/);
   });

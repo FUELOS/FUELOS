@@ -8,7 +8,7 @@ import { witnesses } from './witnesses.js';
 
 export const CONTRACT_NAME = 'fuelos-reconciliation';
 export const CIRCUIT_ID = 'reconcile';
-export const STATEMENT_VERSION = 'reconcile-v2-shift-context';
+export const STATEMENT_VERSION = 'reconcile-v3-historical-context';
 export const ARTIFACT_ROOT = fileURLToPath(new URL('../managed/reconciliation/', import.meta.url));
 
 /** Contract binding for a future Midnight.js deploy/call; this performs no network action. */
