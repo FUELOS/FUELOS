@@ -10,8 +10,8 @@ export interface ExpectedReconciliationStatement {
   readonly contextDigest: Uint8Array;
 }
 
-/** Checks the *current finalized* contract state; callers must trust the address and indexer. */
-export async function matchesCurrentLedgerState(
+/** Checks the durable shift record in finalized public state; callers must trust the address and indexer. */
+export async function matchesRecordedLedgerState(
   provider: PublicDataProvider,
   contractAddress: string,
   expected: ExpectedReconciliationStatement,
@@ -22,7 +22,8 @@ export async function matchesCurrentLedgerState(
   const state = await provider.queryContractState(contractAddress);
   if (!state) return false;
   const observed = ledger(state.data);
-  return observed.reconciliationClass === expected.publicClass
-    && observed.reconciliationTolerance === expected.toleranceKurus
-    && Buffer.from(observed.reconciliationContextDigest).equals(Buffer.from(expected.contextDigest));
+  return observed.reconciliationByContext.member(expected.contextDigest)
+    && observed.toleranceByContext.member(expected.contextDigest)
+    && observed.reconciliationByContext.lookup(expected.contextDigest) === expected.publicClass
+    && observed.toleranceByContext.lookup(expected.contextDigest) === expected.toleranceKurus;
 }

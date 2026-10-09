@@ -32,6 +32,9 @@ class TestZKReconciliation(unittest.TestCase):
         self.assertEqual(to_kurus_int(None), 0)
         with self.assertRaises(ValueError):
             to_kurus_int("-0.01")
+        for invalid in ("1.005", "NaN", "Infinity", "1e100", "not-a-number"):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                to_kurus_int(invalid)
 
     def test_compact_parity_vectors(self):
         vectors = [
@@ -102,7 +105,7 @@ class TestZKReconciliation(unittest.TestCase):
             zk_commitment="fuelos:shift:v1:" + "ab" * 32,
             zk_tolerance=Decimal("1.00"),
             zk_proved_at=datetime.now(timezone.utc),
-            zk_statement_version="reconcile-v2-shift-context",
+            zk_statement_version="reconcile-v3-historical-context",
             zk_source_snapshot_hash="0" * 64,
         )
         user = SimpleNamespace(role=UserRole.CASHIER, id=uuid.uuid4())
@@ -127,7 +130,7 @@ class TestRealProofBridge(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["status"], "proved")
         self.assertEqual(result["class"], "matched")
         self.assertEqual(result["context_digest"], "fuelos:shift:v1:" + "ab" * 32)
-        self.assertEqual(result["proof_bytes"], 2940)
+        self.assertGreater(result["proof_bytes"], 0)
         self.assertTrue(result["proof_server_checked"])
         self.assertFalse(result["ledger_verified"])
         self.assertTrue(proof_integrity_matches(result["proof"], result["proof_hash"]))

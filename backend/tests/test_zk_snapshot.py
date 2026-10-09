@@ -26,7 +26,7 @@ def _shift():
         closing_cash=Decimal("350.00"), declared_pos=None,
         declared_eft=None, declared_credit=None,
         zk_tolerance=Decimal("1.00"), zk_proof_status="proved",
-        zk_statement_version="reconcile-v2-shift-context",
+        zk_statement_version="reconcile-v3-historical-context",
         zk_proved_at=now, zk_verified=False, zk_verified_at=None,
         zk_reconciliation_class="matched",
     )
@@ -53,6 +53,13 @@ def test_snapshot_is_order_independent_and_derived_inputs_match_rows():
     assert reconciliation_snapshot(shift, _rows(), Decimal("1.00"))[1] != digest
 
 
+def test_snapshot_rejects_sub_kurus_transaction_instead_of_rounding():
+    rows = _rows()
+    rows[0].amount = Decimal("300.005")
+    with pytest.raises(ValueError, match="whole kurus"):
+        reconciliation_snapshot(_shift(), rows, Decimal("1.00"))
+
+
 def test_status_rejects_source_drift_without_claiming_ledger_verification():
     shift = _shift()
     rows = _rows()
@@ -72,6 +79,15 @@ def test_status_rejects_source_drift_without_claiming_ledger_verification():
     assert result.proof_integrity_valid is True
     assert result.source_snapshot_consistent is True
     assert result.ledger_verified is False
+
+    # Legacy database flags must never be promoted without a finalized receipt.
+    shift.zk_proof_status = "verified"
+    shift.zk_verified = True
+    shift.zk_verified_at = shift.zk_proved_at
+    legacy = asyncio.run(verify_zk_proof(shift.id, user, db))
+    assert legacy.proof_status == "proved"
+    assert legacy.ledger_verified is False
+    assert legacy.verified_at is None
 
     rows[0].amount = Decimal("301.00")
     with pytest.raises(HTTPException) as raised:

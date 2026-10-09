@@ -18,6 +18,9 @@ witness financialInputs(): FinancialInputs;
 export ledger reconciliationClass: ReconciliationClass;
 export ledger reconciliationTolerance: Uint<17>;
 export ledger reconciliationContextDigest: Bytes<32>;
+// Durable public result keyed by the shift context; duplicate calls are rejected.
+export ledger reconciliationByContext: Map<Bytes<32>, ReconciliationClass>;
+export ledger toleranceByContext: Map<Bytes<32>, Uint<17>>;
 
 // No ledger operations in private branches; financial inputs remain private.
 circuit classify(input: FinancialInputs, tolerance: Uint<17>): ReconciliationClass {
@@ -38,9 +41,13 @@ circuit classify(input: FinancialInputs, tolerance: Uint<17>): ReconciliationCla
 
 export circuit reconcile(claim: ReconciliationClass, tolerance: Uint<17>, contextDigest: Bytes<32>): [] {
   assert(tolerance <= 100000, "Tolerance exceeds 1000 TL");
+  const publicDigest = disclose(contextDigest);
+  assert(!reconciliationByContext.member(publicDigest), "Shift context already reconciled");
   const actual = classify(financialInputs(), tolerance);
   assert(actual == claim, "Reconciliation class mismatch");
   reconciliationClass = disclose(claim);
   reconciliationTolerance = disclose(tolerance);
-  reconciliationContextDigest = disclose(contextDigest);
+  reconciliationContextDigest = publicDigest;
+  reconciliationByContext.insert(publicDigest, disclose(claim));
+  toleranceByContext.insert(publicDigest, disclose(tolerance));
 }

@@ -175,6 +175,11 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
             else:
                 recon_status = "surplus"     # Kasa Fazlası
 
+    # No production receipt verifier exists yet; legacy flags are not evidence.
+    zk_status = getattr(shift, "zk_proof_status", "none") or "none"
+    if zk_status == "verified":
+        zk_status = "proved"
+
     return ShiftResponse(
         id=shift.id,
         station_id=shift.station_id,
@@ -197,14 +202,14 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
         cash_difference=cash_diff,
         reconciliation_status=recon_status,
         reconciliation=reconciliation,
-        zk_proof_status=getattr(shift, "zk_proof_status", "none") or "none",
+        zk_proof_status=zk_status,
         zk_reconciliation_class=getattr(shift, "zk_reconciliation_class", None),
         zk_tolerance=Decimal(str(shift.zk_tolerance)) if getattr(shift, "zk_tolerance", None) is not None else None,
         zk_commitment=getattr(shift, "zk_commitment", None),
         zk_statement_version=getattr(shift, "zk_statement_version", None),
-        zk_verified=getattr(shift, "zk_verified", False) or False,
+        zk_verified=False,
         zk_proved_at=getattr(shift, "zk_proved_at", None),
-        zk_verified_at=getattr(shift, "zk_verified_at", None),
+        zk_verified_at=None,
         zk_proof_hash=getattr(shift, "zk_proof_hash", None),
     )
 
@@ -536,7 +541,7 @@ async def generate_zk_proof(
     shift.zk_reconciliation_class = zk_res["class"]
     shift.zk_tolerance = zk_res["tolerance_tl"]
     shift.zk_commitment = zk_res["context_digest"]
-    shift.zk_statement_version = "reconcile-v2-shift-context"
+    shift.zk_statement_version = "reconcile-v3-historical-context"
     shift.zk_source_snapshot_hash = source_snapshot_hash
     shift.zk_proof = zk_res["proof"]
     shift.zk_proof_hash = zk_res["proof_hash"]
@@ -576,7 +581,7 @@ async def verify_zk_proof(
             detail="Bu vardiya için henüz ZK kanıtı oluşturulmamış",
         )
 
-    if shift.zk_statement_version != "reconcile-v2-shift-context":
+    if shift.zk_statement_version != "reconcile-v3-historical-context":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Bu kanıt vardiya bağlamına bağlı eski Compact sürümüyle üretildi; yeniden oluşturulmalı",
@@ -626,14 +631,14 @@ async def verify_zk_proof(
 
     return ZKVerificationResponse(
         shift_id=shift.id,
-        proof_status=shift.zk_proof_status,
+        proof_status="proved",
         proof_integrity_valid=True,
         source_snapshot_consistent=True,
-        ledger_verified=bool(shift.zk_verified),
+        ledger_verified=False,
         public_class=shift.zk_reconciliation_class or "matched",
         tolerance_tl=Decimal(str(shift.zk_tolerance if shift.zk_tolerance is not None else DEFAULT_TOLERANCE)),
         shift_context_digest=shift.zk_commitment,
         proof_hash=shift.zk_proof_hash,
         proved_at=shift.zk_proved_at,
-        verified_at=shift.zk_verified_at,
+        verified_at=None,
     )

@@ -76,9 +76,51 @@ describe('public/private boundary', () => {
       expect(a.proofData.publicTranscript.length).toBeGreaterThan(0);
       expect(a.proofData.publicTranscript).toEqual(b.proofData.publicTranscript);
       expect(a.proofData.privateTranscriptOutputs).not.toEqual(b.proofData.privateTranscriptOutputs);
-      expect(Object.keys(ledger(a.context.currentQueryContext.state))).toEqual(['reconciliationClass', 'reconciliationTolerance', 'reconciliationContextDigest']);
+      expect(Object.keys(ledger(a.context.currentQueryContext.state))).toEqual([
+        'reconciliationClass', 'reconciliationTolerance', 'reconciliationContextDigest',
+        'reconciliationByContext', 'toleranceByContext',
+      ]);
     });
   }
+});
+
+describe('historical shift records and replay protection', () => {
+  it('stores the class and tolerance under the public context digest', () => {
+    const result = execute(vectors[0].input, Class.MATCHED);
+    const state = ledger(result.context.currentQueryContext.state);
+    expect(state.reconciliationByContext.member(contextDigest)).toBe(true);
+    expect(state.reconciliationByContext.lookup(contextDigest)).toBe(Class.MATCHED);
+    expect(state.toleranceByContext.lookup(contextDigest)).toBe(100n);
+  });
+
+  it('rejects a second call for the same context on the same contract', () => {
+    const contract = new Contract<ReconciliationPrivateState>(witnesses);
+    const coin = '00'.repeat(32);
+    const initial = contract.initialState(createConstructorContext(vectors[0].input, coin));
+    const firstContext = createCircuitContext(dummyContractAddress(), coin, initial.currentContractState, initial.currentPrivateState);
+    const first = contract.impureCircuits.reconcile(firstContext, Class.MATCHED, 100n, contextDigest);
+    const secondContext = createCircuitContext(dummyContractAddress(), coin,
+      first.context.currentQueryContext.state, first.context.currentPrivateState);
+    expect(() => contract.impureCircuits.reconcile(secondContext, Class.MATCHED, 100n, contextDigest))
+      .toThrow('Shift context already reconciled');
+  });
+
+  it('preserves the first shift after reconciling a different context', () => {
+    const contract = new Contract<ReconciliationPrivateState>(witnesses);
+    const coin = '00'.repeat(32);
+    const initial = contract.initialState(createConstructorContext(vectors[0].input, coin));
+    const firstContext = createCircuitContext(dummyContractAddress(), coin, initial.currentContractState, initial.currentPrivateState);
+    const first = contract.impureCircuits.reconcile(firstContext, Class.MATCHED, 100n, contextDigest);
+    const secondDigest = Uint8Array.from(contextDigest);
+    secondDigest[0] ^= 1;
+    const secondContext = createCircuitContext(dummyContractAddress(), coin,
+      first.context.currentQueryContext.state, first.context.currentPrivateState);
+    const second = contract.impureCircuits.reconcile(secondContext, Class.MATCHED, 100n, secondDigest);
+    const state = ledger(second.context.currentQueryContext.state);
+    expect(state.reconciliationByContext.lookup(contextDigest)).toBe(Class.MATCHED);
+    expect(state.toleranceByContext.lookup(contextDigest)).toBe(100n);
+    expect(state.reconciliationByContext.lookup(secondDigest)).toBe(Class.MATCHED);
+  });
 });
 
 describe('public tolerance policy', () => {

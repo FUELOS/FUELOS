@@ -14,7 +14,7 @@ import os
 import re
 import uuid
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Literal
 
@@ -37,7 +37,14 @@ class ZKProofGenerationError(RuntimeError):
 def to_kurus_int(value: Decimal | float | int | str | None) -> int:
     if value is None:
         return 0
-    amount = Decimal(str(value)).quantize(KURUS)
+    try:
+        amount = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValueError("Financial amount is not a decimal number") from exc
+    if not amount.is_finite() or amount < 0 or amount > Decimal(MAX_INPUT_KURUS) / 100:
+        raise ValueError("Financial amount is outside the Compact Uint<64> range")
+    if amount != amount.quantize(KURUS):
+        raise ValueError("Financial amount must contain whole kurus without rounding")
     result = int(amount * 100)
     if result < 0 or result > MAX_INPUT_KURUS:
         raise ValueError("Financial amount is outside the Compact Uint<64> range")

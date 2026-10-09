@@ -5,7 +5,7 @@ import { vectors } from './vectors.js';
 
 const contextDigest = Uint8Array.from({ length: 32 }, (_, index) => index);
 
-describe('real proof server 8.1.0 (no network deployment)', () => {
+describe('real proof server 8.1.3 (no network deployment)', () => {
   for (const index of [0, 1, 4]) {
     const vector = vectors[index];
     it(`proves ${vector.name}`, async () => {

@@ -1,6 +1,6 @@
 # FuelOS Midnight implementation status
 
-Date: 2026-10-08
+Date: 2026-10-09
 
 ## Completed
 
@@ -8,7 +8,8 @@ Date: 2026-10-08
   MATCHED, SHORTAGE, or SURPLUS class, tolerance, and 32-byte shift context digest.
 - Compact compiler 0.31.1 full compilation produces the prover key, verifier
   key, and binary ZKIR for circuit "reconcile".
-- Local proof server 8.1.0 produces non-empty 2940-byte proofs for A/MATCHED,
+- Local proof server 8.1.3 is the current Preview-supported version; it
+  produced non-empty 2940-byte proofs for A/MATCHED,
   B/SHORTAGE, E/SURPLUS, and the dynamic-tolerance case.
 - A false A/SHORTAGE claim is rejected during Compact execution before proving.
 - A private-input-safe TypeScript CLI connects the backend to real circuit
@@ -39,7 +40,14 @@ Date: 2026-10-08
   network, submits a real A/MATCHED call, waits for finalization, and checks
   its public class, tolerance, and context digest via the local indexer.
 - The local ledger-state helper rejects mismatched public class and digest.
-  It checks current state only and does not promote backend proof status.
+  It checks a durable public map entry by context digest and does not promote
+  backend proof status.
+- The contract rejects a second reconciliation for the same context digest
+  within the same deployment. Other context records remain readable after
+  subsequent calls.
+- Proof input conversion now rejects sub-kuruş values instead of rounding them.
+- API responses treat legacy database `verified` flags as `proved` until a
+  finalized, trusted on-chain receipt verifier exists.
 
 ## Removed because it was not cryptographic verification
 
@@ -56,11 +64,13 @@ Date: 2026-10-08
 1. **Independent financial source binding.** The backend stores a source-drift
    hash, but the Compact circuit does not constrain its private witness to it.
    This does not prove to an outside verifier that amounts came from FuelOS's
-   stored transactions. There is no uniqueness or replay protection yet.
+   stored transactions. Context uniqueness is enforced within one contract,
+   but this does not authenticate the financial source or prevent a second
+   deployment from accepting the same context.
 2. **Production ledger verification.** The local integration test proves the
    deploy/call/finalization/indexer path, but the backend has no durable
-   transaction receipt, historical per-shift state, or trusted indexer/network
-   check that can set a real shift to `verified`.
+   transaction receipt or trusted indexer/network check that can set a real
+   shift to `verified`. The on-chain historical map is now available.
 3. **Public-network deployment.** The local test uses a disposable genesis
    wallet and network. There is no Preview/Preprod/Mainnet deployment, funded
    production wallet, or registered network contract address.
@@ -82,26 +92,25 @@ Date: 2026-10-08
 
 | Check | Result |
 | --- | --- |
-| "npm test" in "midnight/" | 82/82 passed |
+| Compact/TypeScript fast suites (direct commands) | 87/87 passed; 82 circuit, 3 context, 2 artifact tests |
 | "npm run compile:full" | passed |
-| Prover key | 287580 bytes |
+| Prover key | 287862 bytes |
 | Verifier key | 1351 bytes |
-| Binary ZKIR | 279 bytes |
-| "npm run test:proof" | 5/5 passed |
-| Backend real-proof bridge | 8/8 passed, including one real 2940-byte proof |
-| Full backend suite with local proof server | 23 passed, 5 subtests passed |
-| Closing tolerance snapshot | 2/2 passed |
-| Existing Python reconciliation tests | 9/9 passed |
-| Alembic migration chain | single head: `a8b9c0d1e2f3` |
-| Midnight contract handoff | 2/2 tests passed; manifest generated |
-| Local ledger integration | 1/1 passed; finalized A/MATCHED transaction, public statement checked |
-| npm audit | 0 vulnerabilities after Vitest update to 5.0.3 |
-| Frontend "npm run build" | passed; existing 510 kB chunk warning |
+| Binary ZKIR | 464 bytes |
+| Real proof tests, proof server 8.1.3 | 5/5 passed; A/B/E returned 2940 bytes |
+| Backend ZK, source snapshot, reconciliation | 21 passed, 1 opt-in proof test skipped, 10 subtests passed |
+| Backend real proof bridge, proof server 8.1.3 | 8 passed, 9 subtests passed |
+| Midnight contract handoff | 2/2 tests passed |
+| Local ledger integration | 1/1 passed; finalized A/MATCHED, historical map checked, duplicate rejected (with the prior 8.1.0 server) |
 
 ## Next safe milestone
 
 Agree on an authenticated transaction-snapshot commitment and canonical
-encoding with the blockchain implementer, plus a historical/replay-safe ledger
-record. Preview is the selected first shared test network; its wallet must
-receive faucet tNIGHT and register for tDUST before deployment. Bind the backend status to a
-trusted finalized transaction receipt before changing `proved` to `verified`.
+encoding with the blockchain implementer. The intended trust policy is a
+FuelOS source attestation plus separate station-manager approval, both bound
+to the same shift snapshot and statement version. Neither signature is yet
+verified by the Compact circuit; wallet approval alone would not certify the
+database rows. Preview is the selected first shared test network. Its wallet
+must receive faucet tNIGHT and register for tDUST before deployment. Register
+the trusted contract address and bind backend status to a finalized transaction
+receipt before changing `proved` to `verified`.

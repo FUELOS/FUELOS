@@ -17,7 +17,7 @@ import { FluentWalletBuilder } from '@midnight-ntwrk/testkit-js';
 import { firstValueFrom, filter, timeout } from 'rxjs';
 import { WebSocket } from 'ws';
 import { ARTIFACT_ROOT, CIRCUIT_ID, compiledReconciliationContract } from '../src/compiled-contract.js';
-import { matchesCurrentLedgerState } from '../src/ledger-verification.js';
+import { matchesRecordedLedgerState } from '../src/ledger-verification.js';
 import { computeShiftCommitment, parseShiftContextDigest } from '../src/shift-commitment.js';
 import { ReconciliationClass } from '../src/types.js';
 import type { ReconciliationPrivateState } from '../src/types.js';
@@ -135,13 +135,15 @@ describe('local Midnight ledger verification (opt-in)', () => {
       toleranceKurus: 100n,
       contextDigest: contextBytes,
     };
-    expect(await matchesCurrentLedgerState(publicDataProvider, contractAddress, expected)).toBe(true);
-    expect(await matchesCurrentLedgerState(publicDataProvider, contractAddress, {
+    expect(await matchesRecordedLedgerState(publicDataProvider, contractAddress, expected)).toBe(true);
+    expect(await matchesRecordedLedgerState(publicDataProvider, contractAddress, {
       ...expected, publicClass: ReconciliationClass.SHORTAGE,
     })).toBe(false);
-    expect(await matchesCurrentLedgerState(publicDataProvider, contractAddress, {
+    expect(await matchesRecordedLedgerState(publicDataProvider, contractAddress, {
       ...expected, contextDigest: new Uint8Array(32),
     })).toBe(false);
+    await expect(deployed.callTx.reconcile(ReconciliationClass.MATCHED, 100n, contextBytes))
+      .rejects.toThrow('Shift context already reconciled');
     // Only public identifiers and class are emitted; no private amounts or preimage.
     process.stdout.write(JSON.stringify({
       contractAddress,
