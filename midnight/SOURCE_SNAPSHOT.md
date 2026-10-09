@@ -3,6 +3,10 @@
 FuelOS stores `zk_source_snapshot_hash` when a manager generates a local proof.
 The hash is an application-level drift check. It is **not** a Compact public
 input, a proof verification result, or an attestation by Midnight validators.
+The v4 circuit's separate public `financialCommitment` is a nonce-salted hash
+of the five financial witness amounts, not this database snapshot hash.
+FuelOS retains that nonce in a private database column for later controlled
+source review; it is not returned by the API.
 It is not returned by the API. A prior proof without this hash must be
 regenerated before the status endpoint can report source consistency.
 
@@ -29,10 +33,11 @@ changing a description or fuel type does not change this hash.
 it differs. A matching hash shows that the current FuelOS source values match
 those observed by this backend at proving time. Someone able to alter both the
 database records and the saved hash can defeat this check. The Compact circuit
-does not constrain its private monetary witness to this hash, and the hash
-does not authenticate the source records to an independent verifier. A trusted,
-externally anchored source commitment and a ledger transaction are still needed
-before claiming independent verification.
+does not constrain its private monetary witness to this snapshot hash. A separate
+source service and station manager must authenticate the relationship between
+the snapshot, monetary witness, and public financial commitment before an
+independent verifier can rely on it. Neither signing service is deployed yet.
+See [VERIFICATION.md](VERIFICATION.md).
 
 This PoC loads the shift's reconciliation rows into memory for hashing. A
 production implementation should stream or aggregate large shifts with a

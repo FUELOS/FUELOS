@@ -8,6 +8,7 @@ import { Contract } from '../managed/reconciliation/contract/index.js';
 import { ledger } from '../managed/reconciliation/contract/index.js';
 import { ReconciliationClass, type ReconciliationPrivateState } from './types.js';
 import { witnesses } from './witnesses.js';
+import { computeFinancialCommitment } from './financial-commitment.js';
 
 export type ProvingStage = 'execution' | 'artifacts' | 'health' | 'check' | 'prove';
 
@@ -27,7 +28,8 @@ export function executeReconciliation(input: ReconciliationPrivateState, claim: 
     const coin = '00'.repeat(32);
     const initial = contract.initialState(createConstructorContext(input, coin));
     const context = createCircuitContext(dummyContractAddress(), coin, initial.currentContractState, input);
-    const { proofData, context: finalContext } = contract.impureCircuits.reconcile(context, claim, tolerance, contextDigest);
+    const financialCommitment = computeFinancialCommitment(input, input.nonce);
+    const { proofData, context: finalContext } = contract.impureCircuits.reconcile(context, claim, tolerance, contextDigest, financialCommitment);
     const publicContextDigest = ledger(finalContext.currentQueryContext.state).reconciliationContextDigest;
     const serializedPreimage = proofDataIntoSerializedPreimage(
       proofData.input,
@@ -36,7 +38,7 @@ export function executeReconciliation(input: ReconciliationPrivateState, claim: 
       proofData.privateTranscriptOutputs,
       'reconcile',
     );
-    return { proofData, serializedPreimage, publicContextDigest };
+    return { proofData, serializedPreimage, publicContextDigest, financialCommitment };
   } catch {
     throw new ProvingStageError('execution');
   }

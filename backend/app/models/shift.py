@@ -155,6 +155,16 @@ class Shift(TimestampMixin, Base):
         nullable=True,
         comment="Proof anındaki işlem ve kapanış girdileri özeti; yalnız uygulama içi sapma kontrolü",
     )
+    zk_financial_commitment: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+        comment="Compact circuit'in gizli finansal girdiler ve özel nonce için public taahhüdü",
+    )
+    zk_financial_nonce: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+        comment="Finansal taahhüdün özel nonce değeri; API yanıtına dahil edilmez",
+    )
     zk_verified: Mapped[bool] = mapped_column(
         Boolean,
         default=False,

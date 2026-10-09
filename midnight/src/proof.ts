@@ -55,7 +55,7 @@ export async function proveReconciliation(input: ReconciliationPrivateState, cla
     } catch {
       throw new ProvingStageError('prove');
     }
-    return { proof, claim, tolerance, publicContextDigest: execution.publicContextDigest, checkSucceeded: true as const, independentlyVerified: false as const };
+    return { proof, claim, tolerance, publicContextDigest: execution.publicContextDigest, financialCommitment: execution.financialCommitment, checkSucceeded: true as const, independentlyVerified: false as const };
   } finally {
     execution.serializedPreimage.fill(0);
     // Best effort lifetime reduction; JS does not guarantee secure erasure.

@@ -1,89 +1,69 @@
-# Verification boundary
+# Reconciliation verification boundary
 
-The current implementation produces real reconciliation proofs with the
-localhost Midnight proof server 8.1.3. FuelOS calls `check()` on the circuit
-preimage and then `prove()` to obtain a non-empty binary proof.
-FuelOS persists the 2940-byte proof as base64 plus its SHA-256 integrity hash.
+FuelOS generates a real proof locally with the pinned Compact 0.31.1 artifacts
+and proof server 8.1.3. `check()` checks circuit constraints and `prove()`
+returns nonempty binary proof bytes. This alone is **not** a finalized Midnight
+transaction and must remain `proved` in the backend.
 
-This backend flow is proof generation, not independent ledger verification. The API uses
-"proved" until a future Midnight transaction has been accepted and checked in
-the ledger context. The "zk-verify" endpoint checks the stored proof's SHA-256
-integrity, the version of the Compact public statement, current shift metadata
-against the stored public context digest, and current reconciliation source
-records against the saved proof-time source hash. These are application-level
-checks; its response still exposes "ledger_verified: false". Legacy database
-`verified` flags are also shown as `proved` until receipt verification exists. See
-[the source-snapshot format](SOURCE_SNAPSHOT.md).
+The v4 circuit keeps all five integer-kuruş financial amounts and a random
+32-byte nonce private. It discloses the reconciliation class, tolerance,
+shift-context digest, and a salted `persistentHash` commitment to the five
+amounts. Exact amounts and difference are not disclosed. The backend stores
+the public commitment, private nonce, and a separate private proof-time source snapshot hash.
+The hash detects later database drift; it does not prove to an outside party
+that the private witness came from that database.
 
-A separate opt-in integration test now builds a real Midnight transaction on a
-disposable local network, waits for finalization, and checks its public contract
-state through the indexer. This does not change the backend API status or
-independently authenticate the financial source. There is no invented
-"verifyProof" endpoint or custom proof envelope in this code.
+`verifyFinalizedReconciliation()` uses the official Midnight.js public-data
+provider. It requires a successful finalized transaction that calls `reconcile`
+at the trusted contract address and a new historical ledger-map entry in its
+block matching all four public values. A receipt and a matching map entry do
+not, by themselves, authenticate FuelOS source rows. If multiple reconciliations
+land in the same block, the current receipt check does not decode call arguments
+to uniquely attribute a particular map entry to one transaction. Do not promote
+a shift to `verified` based solely on this helper.
 
-The "fuelos:shift:v1:..." value is a SHA-256 digest over shift ID, station ID,
-user ID, opening/closing timestamps, and the tolerance frozen at shift close.
-The 32 digest bytes are now a public argument and ledger output of "reconcile".
-The proof therefore binds the claimed class and tolerance to these caller-supplied
-metadata bytes. Backend code recomputes the digest before proving and when
-reading the proof status. Proofs made with the old statement have no version
-marker and must be regenerated.
+`verifyPublicReconciliationEvidence()` adds two Ed25519 approvals over the same
+canonical public attestation: one by an independent FuelOS source service and
+one by a station manager. The attestation includes network, trusted contract
+address, context digest, salted financial commitment, private source snapshot
+hash, public class and tolerance, verifier-key fingerprint, and statement
+version. The verifier receives the two trusted public keys and contract address
+from its own registry, not from the submitted evidence. Each signer must verify
+the source snapshot and its relationship to the private witness as part of its
+own controlled workflow. The private nonce must be available to the trusted
+source signer but never included in public evidence. These signing services and their key custody are not
+deployed in this PoC; therefore no production source-authenticity claim is made.
 
-The public context digest does not include the transaction set or the five
-monetary values. The separate source hash is stored privately by FuelOS.
-The proof does not establish that its private witness came from the FuelOS
-database. The deployed contract rejects a second call with the same digest,
-but standalone proofs and separate deployments do not share that protection.
-An on-chain verifier needs the expected context digest from a trusted shift
-snapshot and must check it against the transaction's public output. The current
-backend still controls the metadata and witness supplied to the prover.
+For a read-only public verification handoff, full-compile the contract and run:
 
-Private witness values cross two local process boundaries during proving:
+```sh
+npm run compile:full
+npm run verify:public -- public-evidence.json source-public.pem manager-public.pem \
+  TRUSTED_CONTRACT_ADDRESS \
+  https://indexer.preview.midnight.network/api/v4/graphql \
+  TRUSTED_PREVIEW_INDEXER_WEBSOCKET_URL
+```
 
-1. FuelOS backend to the Node CLI over stdin.
-2. Node CLI to the proof server bound to "127.0.0.1:6300".
+The last URL is supplied explicitly because the [official environment
+reference](https://docs.midnight.network/relnotes/network) publishes the Preview
+GraphQL HTTP endpoint but not its WebSocket endpoint. Verify that address with
+the Preview indexer operator before using this command. The command reads only
+public evidence and public keys; it never needs private amounts, nonce, wallet
+seed, or a proof server. The `public-evidence.json` shape has `txId`,
+`attestation`, and `signatures` with base64 `source` and `manager` signatures.
+The contract address argument is a locally trusted registry value. The command
+compares the signed verifier-key SHA-256 with its own compiled artifact and
+prints a public receipt only on success. A successful result still depends on
+the trustworthiness of the indexer and source/manager signing process.
 
-They are not logged, persisted, returned by the API, or written to files by this
-integration. The proof server therefore remains a trusted local component.
-
-## Network verification handoff
-
-`src/compiled-contract.ts` binds the generated `Contract`, the real
-`financialInputs` witness, and the full-compile assets with Midnight.js's
-`CompiledContract` API. Run `npm run compile:full` and then
-`npm run verification:manifest` to print the circuit ID, statement version,
-and SHA-256 fingerprints of the verifier key and bZKIR. The command reads only
-public verifier material; it performs no network operation and prints no
-financial inputs or proof bytes. The deployer should compare these fingerprints
-with the artifacts used by the deployed contract.
-
-The existing standalone proof was produced using a dummy contract address and
-is **not** a deployable transaction. The opt-in `npm run test:ledger` uses
-`CompiledContract` and the six Midnight.js providers on the official local
-`undeployed` network. It deploys a fresh contract, calls `reconcile` for vector
-A/MATCHED, waits for finalization, and checks the indexer-visible class,
-tolerance, and context digest. It also rejects a wrong class and digest. The
-test keeps temporary wallet/private-state files outside the repository and
-prints only public identifiers. Run it after `npm run compile:full` with the
-local node, indexer, and proof server running; it deliberately is not part of
-the fast `npm test` command.
-
-`matchesRecordedLedgerState()` checks the public maps keyed by the expected
-context digest. Later calls for other shifts preserve this entry, and a
-duplicate digest is rejected on the same contract. This does not prevent
-replay across separate contract deployments. The caller must obtain the
-expected digest and contract address from a trusted source and trust the
-queried indexer. A production `verified` status still needs a durable receipt
-tied to a finalized transaction, source authentication, a registered contract
-on the chosen network, and an appropriate finality policy. The FuelOS backend
-correctly remains at `proved`.
-
-The private source snapshot hash is not a Compact public input. Independent
-verification of the **financial source**, rather than just the reconciliation
-calculation, still needs an authenticated source commitment. The local test is
-an isolated prototype; it does not deploy to a public network or verify
-production FuelOS shifts.
+The local `npm run test:ledger` test uses an isolated disposable wallet/network
+and does not register a Preview contract. Before any backend status can become
+`verified`, deploy and register the exact v4 contract on Preview, complete
+independent source and manager signing, bind a specific finalized receipt to a
+shift, and define an indexer/finality policy. Do not reuse the v3 artifact or
+old proof rows: they have a different statement version.
 
 Official references: [Midnight.js API](https://docs.midnight.network/api-reference/midnight-js),
 [deploy/operate guide](https://docs.midnight.network/guides/deploy-and-operate),
-and [compatibility matrix](https://docs.midnight.network/relnotes/support-matrix).
+[compatibility matrix](https://docs.midnight.network/relnotes/support-matrix),
+[Preview endpoints](https://docs.midnight.network/relnotes/network).

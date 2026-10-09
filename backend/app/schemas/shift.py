@@ -93,6 +93,7 @@ class ShiftResponse(BaseModel):
     zk_reconciliation_class: str | None = None
     zk_tolerance: Decimal | None = None
     zk_commitment: str | None = None
+    zk_financial_commitment: str | None = None
     zk_statement_version: str | None = None
     zk_verified: bool = False
     zk_proved_at: datetime | None = None
@@ -112,6 +113,7 @@ class ZKVerificationResponse(BaseModel):
     public_class: str
     tolerance_tl: Decimal
     shift_context_digest: str
+    financial_commitment: str
     proof_hash: str
     proved_at: datetime
     verified_at: datetime | None = None
