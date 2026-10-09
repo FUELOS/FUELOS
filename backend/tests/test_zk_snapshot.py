@@ -26,7 +26,8 @@ def _shift():
         closing_cash=Decimal("350.00"), declared_pos=None,
         declared_eft=None, declared_credit=None,
         zk_tolerance=Decimal("1.00"), zk_proof_status="proved",
-        zk_statement_version="reconcile-v3-historical-context",
+        zk_statement_version="reconcile-v4-financial-commitment",
+        zk_financial_commitment="1" * 64,
         zk_proved_at=now, zk_verified=False, zk_verified_at=None,
         zk_reconciliation_class="matched",
     )
@@ -127,6 +128,8 @@ def test_proving_persists_digest_of_the_exact_rows_used_for_witness():
             shift.id, shift.station_id, shift.user_id, shift.start_time, shift.end_time, 100,
         ),
         "proof": "cHJvb2Y=", "proof_hash": "0" * 64,
+        "financial_commitment": "2" * 64,
+        "financial_nonce": "3" * 64,
     }
     with patch("app.services.zk_service.generate_reconciliation_proof", new_callable=AsyncMock, return_value=fake_proof) as prove, \
          patch("app.api.shifts._build_shift_response", new_callable=AsyncMock, return_value="ok"):
@@ -135,3 +138,5 @@ def test_proving_persists_digest_of_the_exact_rows_used_for_witness():
     assert prove.await_args.kwargs["pos"] == expected_inputs["pos"]
     assert prove.await_args.kwargs["cash"] == expected_inputs["cash"]
     assert shift.zk_source_snapshot_hash == expected_hash
+    assert shift.zk_financial_commitment == "2" * 64
+    assert shift.zk_financial_nonce == "3" * 64

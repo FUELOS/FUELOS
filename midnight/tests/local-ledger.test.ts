@@ -17,7 +17,8 @@ import { FluentWalletBuilder } from '@midnight-ntwrk/testkit-js';
 import { firstValueFrom, filter, timeout } from 'rxjs';
 import { WebSocket } from 'ws';
 import { ARTIFACT_ROOT, CIRCUIT_ID, compiledReconciliationContract } from '../src/compiled-contract.js';
-import { matchesRecordedLedgerState } from '../src/ledger-verification.js';
+import { matchesRecordedLedgerState, verifyFinalizedReconciliation } from '../src/ledger-verification.js';
+import { computeFinancialCommitment } from '../src/financial-commitment.js';
 import { computeShiftCommitment, parseShiftContextDigest } from '../src/shift-commitment.js';
 import { ReconciliationClass } from '../src/types.js';
 import type { ReconciliationPrivateState } from '../src/types.js';
@@ -113,7 +114,9 @@ describe('local Midnight ledger verification (opt-in)', () => {
 
     const privateInputs: ReconciliationPrivateState = {
       total_sales: 100000n, pos: 40000n, cash: 30000n, eft: 20000n, credit: 10000n,
+      nonce: randomBytes(32),
     };
+    const financialCommitment = computeFinancialCommitment(privateInputs, privateInputs.nonce);
     const context = computeShiftCommitment({
       shiftId: 'local-ledger-test', stationId: 'local-station', userId: 'local-user',
       startTime: '2026-10-08T08:00:00Z', endTime: '2026-10-08T16:00:00Z',
@@ -126,7 +129,7 @@ describe('local Midnight ledger verification (opt-in)', () => {
       initialPrivateState: privateInputs,
     });
     const contractAddress = deployed.deployTxData.public.contractAddress;
-    const call = await deployed.callTx.reconcile(ReconciliationClass.MATCHED, 100n, contextBytes);
+    const call = await deployed.callTx.reconcile(ReconciliationClass.MATCHED, 100n, contextBytes, financialCommitment);
     expect(call.public.txId).toBeTruthy();
     expect(call.public.blockHeight).toBeGreaterThan(0);
 
@@ -134,15 +137,19 @@ describe('local Midnight ledger verification (opt-in)', () => {
       publicClass: ReconciliationClass.MATCHED,
       toleranceKurus: 100n,
       contextDigest: contextBytes,
+      financialCommitment,
     };
     expect(await matchesRecordedLedgerState(publicDataProvider, contractAddress, expected)).toBe(true);
+    const receipt = await verifyFinalizedReconciliation(publicDataProvider, contractAddress, call.public.txId, expected);
+    expect(receipt?.txId).toBe(call.public.txId);
+    expect(receipt?.blockHeight).toBe(call.public.blockHeight);
     expect(await matchesRecordedLedgerState(publicDataProvider, contractAddress, {
       ...expected, publicClass: ReconciliationClass.SHORTAGE,
     })).toBe(false);
     expect(await matchesRecordedLedgerState(publicDataProvider, contractAddress, {
       ...expected, contextDigest: new Uint8Array(32),
     })).toBe(false);
-    await expect(deployed.callTx.reconcile(ReconciliationClass.MATCHED, 100n, contextBytes))
+    await expect(deployed.callTx.reconcile(ReconciliationClass.MATCHED, 100n, contextBytes, financialCommitment))
       .rejects.toThrow('Shift context already reconciled');
     // Only public identifiers and class are emitted; no private amounts or preimage.
     process.stdout.write(JSON.stringify({
@@ -151,6 +158,7 @@ describe('local Midnight ledger verification (opt-in)', () => {
       blockHeight: call.public.blockHeight,
       publicClass: 'MATCHED',
       contextDigest: context,
+      financialCommitment: Buffer.from(financialCommitment).toString('hex'),
       ledgerVerified: true,
     }) + '\n');
   }, 600_000);

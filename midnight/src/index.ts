@@ -5,3 +5,6 @@ export * from './proof.js';
 export * from './shift-commitment.js';
 export * from './compiled-contract.js';
 export * from './ledger-verification.js';
+export * from './financial-commitment.js';
+export * from './source-attestation.js';
+export * from './public-evidence.js';

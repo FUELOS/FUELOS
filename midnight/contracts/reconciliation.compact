@@ -13,6 +13,7 @@ export struct FinancialInputs {
 }
 
 witness financialInputs(): FinancialInputs;
+witness financialNonce(): Bytes<32>;
 
 // Public result and policy. Initial values are not evidence of execution.
 export ledger reconciliationClass: ReconciliationClass;
@@ -21,6 +22,15 @@ export ledger reconciliationContextDigest: Bytes<32>;
 // Durable public result keyed by the shift context; duplicate calls are rejected.
 export ledger reconciliationByContext: Map<Bytes<32>, ReconciliationClass>;
 export ledger toleranceByContext: Map<Bytes<32>, Uint<17>>;
+export ledger financialCommitmentByContext: Map<Bytes<32>, Bytes<32>>;
+
+// The nonce prevents low-entropy monetary totals from being guessed from a public hash.
+circuit commitFinancialInputs(input: FinancialInputs, nonce: Bytes<32>): Bytes<32> {
+  const amounts = persistentHash<Vector<5, Uint<64>>>([
+    input.total_sales, input.pos, input.cash, input.eft, input.credit
+  ]);
+  return persistentHash<Vector<2, Bytes<32>>>([nonce, amounts]);
+}
 
 // No ledger operations in private branches; financial inputs remain private.
 circuit classify(input: FinancialInputs, tolerance: Uint<17>): ReconciliationClass {
@@ -39,15 +49,18 @@ circuit classify(input: FinancialInputs, tolerance: Uint<17>): ReconciliationCla
   }
 }
 
-export circuit reconcile(claim: ReconciliationClass, tolerance: Uint<17>, contextDigest: Bytes<32>): [] {
+export circuit reconcile(claim: ReconciliationClass, tolerance: Uint<17>, contextDigest: Bytes<32>, financialCommitment: Bytes<32>): [] {
   assert(tolerance <= 100000, "Tolerance exceeds 1000 TL");
   const publicDigest = disclose(contextDigest);
   assert(!reconciliationByContext.member(publicDigest), "Shift context already reconciled");
-  const actual = classify(financialInputs(), tolerance);
+  const inputs = financialInputs();
+  assert(commitFinancialInputs(inputs, financialNonce()) == financialCommitment, "Financial commitment mismatch");
+  const actual = classify(inputs, tolerance);
   assert(actual == claim, "Reconciliation class mismatch");
   reconciliationClass = disclose(claim);
   reconciliationTolerance = disclose(tolerance);
   reconciliationContextDigest = publicDigest;
   reconciliationByContext.insert(publicDigest, disclose(claim));
   toleranceByContext.insert(publicDigest, disclose(tolerance));
+  financialCommitmentByContext.insert(publicDigest, disclose(financialCommitment));
 }

@@ -105,8 +105,9 @@ class TestZKReconciliation(unittest.TestCase):
             zk_commitment="fuelos:shift:v1:" + "ab" * 32,
             zk_tolerance=Decimal("1.00"),
             zk_proved_at=datetime.now(timezone.utc),
-            zk_statement_version="reconcile-v3-historical-context",
+            zk_statement_version="reconcile-v4-financial-commitment",
             zk_source_snapshot_hash="0" * 64,
+            zk_financial_commitment="1" * 64,
         )
         user = SimpleNamespace(role=UserRole.CASHIER, id=uuid.uuid4())
         db = SimpleNamespace(scalar=AsyncMock(return_value=shift))
@@ -130,6 +131,8 @@ class TestRealProofBridge(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["status"], "proved")
         self.assertEqual(result["class"], "matched")
         self.assertEqual(result["context_digest"], "fuelos:shift:v1:" + "ab" * 32)
+        self.assertRegex(result["financial_commitment"], r"^[0-9a-f]{64}$")
+        self.assertRegex(result["financial_nonce"], r"^[0-9a-f]{64}$")
         self.assertGreater(result["proof_bytes"], 0)
         self.assertTrue(result["proof_server_checked"])
         self.assertFalse(result["ledger_verified"])

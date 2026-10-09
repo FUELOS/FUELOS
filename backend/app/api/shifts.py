@@ -3,6 +3,7 @@ FuelOS — Shift API Router.
 Vardiya yönetimi — açma, kapama, listeleme ve Akıllı Kasa Mutabakat Analizi.
 """
 
+import re
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -206,6 +207,7 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
         zk_reconciliation_class=getattr(shift, "zk_reconciliation_class", None),
         zk_tolerance=Decimal(str(shift.zk_tolerance)) if getattr(shift, "zk_tolerance", None) is not None else None,
         zk_commitment=getattr(shift, "zk_commitment", None),
+        zk_financial_commitment=getattr(shift, "zk_financial_commitment", None),
         zk_statement_version=getattr(shift, "zk_statement_version", None),
         zk_verified=False,
         zk_proved_at=getattr(shift, "zk_proved_at", None),
@@ -541,8 +543,10 @@ async def generate_zk_proof(
     shift.zk_reconciliation_class = zk_res["class"]
     shift.zk_tolerance = zk_res["tolerance_tl"]
     shift.zk_commitment = zk_res["context_digest"]
-    shift.zk_statement_version = "reconcile-v3-historical-context"
+    shift.zk_statement_version = "reconcile-v4-financial-commitment"
     shift.zk_source_snapshot_hash = source_snapshot_hash
+    shift.zk_financial_commitment = zk_res["financial_commitment"]
+    shift.zk_financial_nonce = zk_res["financial_nonce"]
     shift.zk_proof = zk_res["proof"]
     shift.zk_proof_hash = zk_res["proof_hash"]
     shift.zk_proved_at = datetime.now(timezone.utc)
@@ -581,7 +585,7 @@ async def verify_zk_proof(
             detail="Bu vardiya için henüz ZK kanıtı oluşturulmamış",
         )
 
-    if shift.zk_statement_version != "reconcile-v3-historical-context":
+    if shift.zk_statement_version != "reconcile-v4-financial-commitment":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Bu kanıt vardiya bağlamına bağlı eski Compact sürümüyle üretildi; yeniden oluşturulmalı",
@@ -592,6 +596,10 @@ async def verify_zk_proof(
             status_code=status.HTTP_409_CONFLICT,
             detail="Bu kanıtın işlem anlık görüntüsü kaydedilmemiş; yeniden oluşturulmalı",
         )
+
+    financial_commitment = getattr(shift, "zk_financial_commitment", None)
+    if not isinstance(financial_commitment, str) or not re.fullmatch(r"[0-9a-f]{64}", financial_commitment):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Bu kanıtın finansal taahhüdü eksik veya geçersiz")
 
     from app.services.zk_service import proof_integrity_matches
 
@@ -638,6 +646,7 @@ async def verify_zk_proof(
         public_class=shift.zk_reconciliation_class or "matched",
         tolerance_tl=Decimal(str(shift.zk_tolerance if shift.zk_tolerance is not None else DEFAULT_TOLERANCE)),
         shift_context_digest=shift.zk_commitment,
+        financial_commitment=financial_commitment,
         proof_hash=shift.zk_proof_hash,
         proved_at=shift.zk_proved_at,
         verified_at=None,

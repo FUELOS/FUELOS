@@ -15,6 +15,7 @@ interface ProveRequest {
   toleranceKurus: string;
   claim: ClaimName;
   contextDigest: string;
+  nonceHex: string;
 }
 
 const claims: Record<ClaimName, ReconciliationClass> = {
@@ -39,12 +40,17 @@ async function readRequest(): Promise<ProveRequest> {
 }
 
 async function main(): Promise<void> {
+  let nonce: Buffer | undefined;
   try {
     const request = await readRequest();
     if (!(request.claim in claims)) throw new Error('invalid_claim');
 
     const tolerance = parseAmount(request.toleranceKurus, 'tolerance', 100000n);
     const contextDigest = parseShiftContextDigest(request.contextDigest);
+    if (typeof request.nonceHex !== 'string' || !/^[0-9a-f]{64}$/.test(request.nonceHex)) {
+      throw new Error('invalid_nonce');
+    }
+    nonce = Buffer.from(request.nonceHex, 'hex');
     const result = await proveReconciliation(
       {
         total_sales: parseAmount(request.totalSales, 'total_sales'),
@@ -52,6 +58,7 @@ async function main(): Promise<void> {
         cash: parseAmount(request.cash, 'cash'),
         eft: parseAmount(request.eft, 'eft'),
         credit: parseAmount(request.credit, 'credit'),
+        nonce,
       },
       claims[request.claim],
       tolerance,
@@ -64,6 +71,7 @@ async function main(): Promise<void> {
       publicClass: request.claim,
       toleranceKurus: tolerance.toString(),
       publicContextDigest: formatShiftContextDigest(result.publicContextDigest),
+      publicFinancialCommitment: Buffer.from(result.financialCommitment).toString('hex'),
       proofBytes: result.proof.byteLength,
       proofHash,
       proofBase64: Buffer.from(result.proof).toString('base64'),
@@ -76,6 +84,8 @@ async function main(): Promise<void> {
       : 'input';
     stdout.write(JSON.stringify({ status: 'failed', stage }));
     process.exitCode = 1;
+  } finally {
+    nonce?.fill(0);
   }
 }
 

@@ -2,18 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { proveReconciliation } from '../src/proof.js';
 import { ReconciliationClass } from '../src/types.js';
 import { vectors } from './vectors.js';
+import { withFinancialNonce } from '../src/financial-commitment.js';
 
 const contextDigest = Uint8Array.from({ length: 32 }, (_, index) => index);
+const nonce = Uint8Array.from({ length: 32 }, (_, index) => index + 31);
 
 describe('real proof server 8.1.3 (no network deployment)', () => {
   for (const index of [0, 1, 4]) {
     const vector = vectors[index];
     it(`proves ${vector.name}`, async () => {
-      const result = await proveReconciliation(vector.input, vector.expected, 100n, contextDigest);
+      const result = await proveReconciliation(withFinancialNonce(vector.input, nonce), vector.expected, 100n, contextDigest);
       expect(result.checkSucceeded).toBe(true);
       expect(result.proof).toBeInstanceOf(Uint8Array);
       expect(result.proof.byteLength).toBeGreaterThan(0);
       expect(result.publicContextDigest).toEqual(contextDigest);
+      expect(result.financialCommitment).toHaveLength(32);
       // Public metadata only. No witness/preimage/proof bytes are logged.
       console.info(JSON.stringify({
         case: vector.name[0], claim: ReconciliationClass[result.claim],
@@ -23,16 +26,16 @@ describe('real proof server 8.1.3 (no network deployment)', () => {
     }, 360_000);
   }
   it('rejects A -> SHORTAGE during circuit execution, before check/prove', async () => {
-    await expect(proveReconciliation(vectors[0].input, ReconciliationClass.SHORTAGE, 100n, contextDigest))
+    await expect(proveReconciliation(withFinancialNonce(vectors[0].input, nonce), ReconciliationClass.SHORTAGE, 100n, contextDigest))
       .rejects.toMatchObject({ name: 'ProvingStageError', stage: 'execution' });
     console.info('A -> SHORTAGE: rejected at execution; check/prove not called');
   });
   it('proves a 3 TL difference at public tolerance 5 TL', async () => {
     const input = { total_sales: 300n, pos: 0n, cash: 0n, eft: 0n, credit: 0n };
-    const result = await proveReconciliation(input, ReconciliationClass.MATCHED, 500n, contextDigest);
+    const result = await proveReconciliation(withFinancialNonce(input, nonce), ReconciliationClass.MATCHED, 500n, contextDigest);
     expect(result.proof.byteLength).toBeGreaterThan(0);
     expect(result.tolerance).toBe(500n);
-    await expect(proveReconciliation(input, ReconciliationClass.MATCHED, 100n, contextDigest))
+    await expect(proveReconciliation(withFinancialNonce(input, nonce), ReconciliationClass.MATCHED, 100n, contextDigest))
       .rejects.toMatchObject({ stage: 'execution' });
     console.info(JSON.stringify({ case: 'dynamic-tolerance', check: 'passed', prove: 'passed', proofBytes: result.proof.byteLength }));
   }, 360_000);

@@ -11,12 +11,13 @@
     "compile:full": "compact compile +0.31.1 contracts/reconciliation.compact managed/reconciliation",
     "compile": "compact compile +0.31.1 --skip-zk contracts/reconciliation.compact managed/reconciliation",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
-    "test": "npm run compile && npm run typecheck && node node_modules/vitest/vitest.mjs run tests/reconciliation.test.ts tests/shift-commitment.test.ts",
+    "test": "npm run compile && npm run typecheck && node node_modules/vitest/vitest.mjs run tests/reconciliation.test.ts tests/shift-commitment.test.ts tests/ledger-verification.test.ts tests/source-attestation.test.ts tests/public-evidence.test.ts",
     "test:proof": "npm run typecheck && node node_modules/vitest/vitest.mjs run tests/reconciliation.proof.test.ts --maxWorkers=1 --no-file-parallelism",
     "test:handoff": "npm run typecheck && node node_modules/vitest/vitest.mjs run tests/compiled-contract.test.ts",
     "test:ledger": "npm run typecheck && node node_modules/vitest/vitest.mjs run tests/local-ledger.test.ts --maxWorkers=1 --no-file-parallelism",
     "verification:manifest": "node node_modules/tsx/dist/cli.mjs src/verification-manifest-cli.ts",
-    "prove:cli": "node node_modules/tsx/dist/cli.mjs src/prove-cli.ts"
+    "prove:cli": "node node_modules/tsx/dist/cli.mjs src/prove-cli.ts",
+    "verify:public": "node node_modules/tsx/dist/cli.mjs src/verify-public-cli.ts"
   },
   "dependencies": {
     "@midnight-ntwrk/compact-runtime": "0.16.0",

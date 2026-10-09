@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import uuid
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
@@ -129,11 +130,13 @@ async def generate_reconciliation_proof(
         values["totalSales"], values["pos"], values["cash"],
         values["eft"], values["credit"], tolerance_kurus,
     )
+    nonce_hex = secrets.token_hex(32)
     request = {
         **{name: str(value) for name, value in values.items()},
         "toleranceKurus": str(tolerance_kurus),
         "claim": claim,
         "contextDigest": context_digest,
+        "nonceHex": nonce_hex,
     }
 
     npm = os.getenv("FUELOS_NPM_COMMAND") or ("npm.cmd" if os.name == "nt" else "npm")
@@ -166,6 +169,9 @@ async def generate_reconciliation_proof(
         raise ZKProofGenerationError("public_output")
     if response.get("publicContextDigest") != context_digest or response.get("proofServerChecked") is not True:
         raise ZKProofGenerationError("public_output")
+    financial_commitment = response.get("publicFinancialCommitment")
+    if not isinstance(financial_commitment, str) or not re.fullmatch(r"[0-9a-f]{64}", financial_commitment):
+        raise ZKProofGenerationError("public_output")
     if not proof_integrity_matches(proof_base64, proof_hash):
         raise ZKProofGenerationError("proof_integrity")
     try:
@@ -180,6 +186,8 @@ async def generate_reconciliation_proof(
         "status": "proved",
         "class": claim,
         "context_digest": context_digest,
+        "financial_commitment": financial_commitment,
+        "financial_nonce": nonce_hex,
         "tolerance_tl": tolerance_tl,
         "proof": proof_base64,
         "proof_hash": proof_hash,

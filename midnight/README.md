@@ -51,7 +51,7 @@ data, not a cryptographic proof. Never publish its private transcript or state.
 
 ## Money and constraints
 
-All five witness fields (`total_sales`, `pos`, `cash`, `eft`, `credit`) are
+All five financial witness fields (`total_sales`, `pos`, `cash`, `eft`, `credit`) are
 non-negative integer **kurus**, represented as TypeScript `bigint` and Compact
 `Uint<64>`. Each is bounded by `0 <= amount <= 18446744073709551615`.
 There is no floating-point conversion or rounding. Python parity is restricted
@@ -76,16 +76,16 @@ may offset one another, as in the Python total-reconciliation rule.
 
 ## Private inputs and public result
 
-`financialInputs()` is a witness returning one `FinancialInputs` struct from
-the caller's local private state. It supplies data only; generated runtime
+`financialInputs()` returns the five financial fields, and `financialNonce()`
+returns a private random 32-byte salt from the same local private state. They supply data only; generated runtime
 validation checks witness types/ranges, and the Compact circuit determines
 the class. No separate TypeScript implementation of reconciliation is used.
 
-The exported `reconcile(claim, tolerance, contextDigest)` circuit checks that its private computation
+The exported `reconcile(claim, tolerance, contextDigest, financialCommitment)` circuit checks that its private computation
 equals the supplied enum claim, then writes that claim into the public
 `reconciliationClass` ledger field through explicit `disclose(claim)`.
 `disclose()` alone is not publication: the ledger operation makes the class
-public. The public `reconciliationTolerance` and `reconciliationContextDigest` fields record the disclosed tolerance and the caller-supplied 32-byte metadata digest. There are no ledger operations inside the private arithmetic branches.
+public. The public `reconciliationTolerance` and `reconciliationContextDigest` fields record the disclosed tolerance and the caller-supplied 32-byte metadata digest. A separate map stores the public, nonce-salted commitment to the five private amounts. The 32-byte nonce remains private. There are no ledger operations inside the private arithmetic branches.
 
 | Enum | Encoding | FuelOS API equivalent |
 | --- | --- | --- |
@@ -95,7 +95,7 @@ public. The public `reconciliationTolerance` and `reconciliationContextDigest` f
 
 Neither monetary inputs, calculated total nor exact difference are public
 contract fields or return values. The circuit returns an empty tuple.
-The public state reveals the category, tolerance, and shift metadata digest, but no private amount or exact difference.
+The public state reveals the category, tolerance, shift metadata digest, and salted financial commitment, but no private amount or exact difference.
 
 The default initial ledger class is MATCHED because the enum starts at zero;
 it is **not** evidence that reconciliation has run. The contract now also
@@ -110,16 +110,16 @@ an invalid computation. A falsely claimed class causes the circuit assertion
 to fail. Invalid witness amounts are rejected as well.
 
 The proof statement is: "these private amounts imply this public class under
-the disclosed tolerance policy and supplied shift context digest." Logic tests execute this relation; the separate
+the disclosed tolerance policy and supplied shift context digest, and hash to this nonce-salted public commitment." Logic tests execute this relation; the separate
 proof tests generate real proofs. The opt-in local ledger test submits a real
 transaction and checks the finalized public statement; it does not prove that
 the amounts came from FuelOS source records.
 
 The backend authorizes access to a FuelOS shift and supplies a digest of shift
 metadata to Compact. The contract prevents reuse of that digest within one
-deployed instance. The metadata digest does not commit to the transaction
-snapshot, so the proof alone is not evidence that its private amounts are a
-specific shift's complete records. See [VERIFICATION.md](VERIFICATION.md).
+deployed instance. The financial commitment binds the proof to private amounts,
+but does not itself authenticate the FuelOS transaction snapshot. See
+[VERIFICATION.md](VERIFICATION.md).
 
 ## Tests
 
@@ -198,9 +198,9 @@ above (observed sizes for this contract/compiler):
 
 | Artifact under managed/reconciliation | Bytes |
 | --- | ---: |
-| keys/reconcile.prover | 287862 |
-| keys/reconcile.verifier | 1351 |
-| zkir/reconcile.bzkir | 464 |
+| keys/reconcile.prover | 2825165 |
+| keys/reconcile.verifier | 2119 |
+| zkir/reconcile.bzkir | 576 |
 
 Docker Engine is installed inside Ubuntu/WSL from Docker's official APT
 repository. Docker Desktop is not required for this setup. The user has not
@@ -243,9 +243,9 @@ The returned binary proof stays in memory. Tests log only case, public class,
 stage outcomes and proof length. Keys and ZKIR are loaded from the filesystem,
 not exposed through an HTTP artifact service.
 
-Updated context-bound WSL results: A/MATCHED, B/SHORTAGE and E/SURPLUS each passed execution,
-check and prove, returning **2940 bytes** each. A/SHORTAGE failed during circuit
-execution before HTTP calls. A separate 3 TL difference / 5 TL public tolerance case also produced 2940 bytes. The real proof suite passed **5/5** tests.
+Updated v4 WSL results: A/MATCHED, B/SHORTAGE and E/SURPLUS each passed execution,
+check and prove, returning **4508 bytes** each. A/SHORTAGE failed during circuit
+execution before HTTP calls. A separate 3 TL difference / 5 TL public tolerance case also produced 4508 bytes. The real proof suite passed **5/5** tests.
 `check()` checks constraints; it is not independent verification of a proof.
 See [the independent verification note](VERIFICATION.md) for the local ledger
 test and remaining production requirements.

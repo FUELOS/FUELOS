@@ -4,17 +4,20 @@ import { Contract, ledger } from '../managed/reconciliation/contract/index.js';
 import { MAX_INPUT_KURUS as MAX, ReconciliationClass as Class, type FinancialInputs, type ReconciliationPrivateState } from '../src/types.js';
 import { witnesses } from '../src/witnesses.js';
 import { vectors } from './vectors.js';
+import { computeFinancialCommitment, withFinancialNonce } from '../src/financial-commitment.js';
 
 const classes = [Class.MATCHED, Class.SHORTAGE, Class.SURPLUS];
 const zero: FinancialInputs = { total_sales: 0n, pos: 0n, cash: 0n, eft: 0n, credit: 0n };
 const contextDigest = Uint8Array.from({ length: 32 }, (_, index) => index);
+const nonce = Uint8Array.from({ length: 32 }, (_, index) => index + 31);
 
-function execute(input: FinancialInputs, claim: Class, tolerance: bigint = 100n, digest = contextDigest) {
+function execute(input: FinancialInputs, claim: Class, tolerance: bigint = 100n, digest = contextDigest, commitment = computeFinancialCommitment(input, nonce)) {
   const contract = new Contract<ReconciliationPrivateState>(witnesses);
   const coin = '00'.repeat(32);
-  const initial = contract.initialState(createConstructorContext(input, coin));
+  const privateInput = withFinancialNonce(input, nonce);
+  const initial = contract.initialState(createConstructorContext(privateInput, coin));
   const context = createCircuitContext(dummyContractAddress(), coin, initial.currentContractState, initial.currentPrivateState);
-  return contract.impureCircuits.reconcile(context, claim, tolerance, digest);
+  return contract.impureCircuits.reconcile(context, claim, tolerance, digest, commitment);
 }
 
 function checkClaims(name: string, input: FinancialInputs, expected: Class) {
@@ -25,7 +28,7 @@ function checkClaims(name: string, input: FinancialInputs, expected: Class) {
           const call = execute(input, claim);
           expect(call.result).toEqual([]);
           expect(ledger(call.context.currentQueryContext.state).reconciliationClass).toBe(expected);
-          expect(call.context.currentPrivateState).toEqual(input);
+          expect(call.context.currentPrivateState).toEqual(withFinancialNonce(input, nonce));
         } else {
           expect(() => execute(input, claim)).toThrow('Reconciliation class mismatch');
         }
@@ -52,7 +55,8 @@ describe('generated Compact input validation (not a TS precheck)', () => {
       it(`rejects ${field}=${String(invalid)}`, () => {
         // Deliberately bypass TS to test the actual generated witness validator.
         const input = { ...zero, [field]: invalid } as FinancialInputs;
-        expect(() => execute(input, Class.MATCHED)).toThrow(/financialInputs/);
+        const validCommitment = computeFinancialCommitment(zero, nonce);
+        expect(() => execute(input, Class.MATCHED, 100n, contextDigest, validCommitment)).toThrow(/financialInputs/);
       });
     }
   }
@@ -68,17 +72,17 @@ describe('public/private boundary', () => {
     [Class.SURPLUS, vectors[4].input, { ...zero, cash: 101n }],
   ];
   for (const [claim, left, right] of pairs) {
-    it(`${Class[claim]} has the same public transcript for different private amounts`, () => {
+    it(`${Class[claim]} commits to different private amounts without publishing them`, () => {
       const a = execute(left, claim);
       const b = execute(right, claim);
-      expect(a.proofData.input).toEqual(b.proofData.input);
+      expect(a.proofData.input).not.toEqual(b.proofData.input);
       expect(a.proofData.output).toEqual(b.proofData.output);
       expect(a.proofData.publicTranscript.length).toBeGreaterThan(0);
-      expect(a.proofData.publicTranscript).toEqual(b.proofData.publicTranscript);
+      expect(a.proofData.publicTranscript).not.toEqual(b.proofData.publicTranscript);
       expect(a.proofData.privateTranscriptOutputs).not.toEqual(b.proofData.privateTranscriptOutputs);
       expect(Object.keys(ledger(a.context.currentQueryContext.state))).toEqual([
         'reconciliationClass', 'reconciliationTolerance', 'reconciliationContextDigest',
-        'reconciliationByContext', 'toleranceByContext',
+        'reconciliationByContext', 'toleranceByContext', 'financialCommitmentByContext',
       ]);
     });
   }
@@ -96,30 +100,49 @@ describe('historical shift records and replay protection', () => {
   it('rejects a second call for the same context on the same contract', () => {
     const contract = new Contract<ReconciliationPrivateState>(witnesses);
     const coin = '00'.repeat(32);
-    const initial = contract.initialState(createConstructorContext(vectors[0].input, coin));
+    const privateInput = withFinancialNonce(vectors[0].input, nonce);
+    const commitment = computeFinancialCommitment(vectors[0].input, nonce);
+    const initial = contract.initialState(createConstructorContext(privateInput, coin));
     const firstContext = createCircuitContext(dummyContractAddress(), coin, initial.currentContractState, initial.currentPrivateState);
-    const first = contract.impureCircuits.reconcile(firstContext, Class.MATCHED, 100n, contextDigest);
+    const first = contract.impureCircuits.reconcile(firstContext, Class.MATCHED, 100n, contextDigest, commitment);
     const secondContext = createCircuitContext(dummyContractAddress(), coin,
       first.context.currentQueryContext.state, first.context.currentPrivateState);
-    expect(() => contract.impureCircuits.reconcile(secondContext, Class.MATCHED, 100n, contextDigest))
+    expect(() => contract.impureCircuits.reconcile(secondContext, Class.MATCHED, 100n, contextDigest, commitment))
       .toThrow('Shift context already reconciled');
   });
 
   it('preserves the first shift after reconciling a different context', () => {
     const contract = new Contract<ReconciliationPrivateState>(witnesses);
     const coin = '00'.repeat(32);
-    const initial = contract.initialState(createConstructorContext(vectors[0].input, coin));
+    const privateInput = withFinancialNonce(vectors[0].input, nonce);
+    const commitment = computeFinancialCommitment(vectors[0].input, nonce);
+    const initial = contract.initialState(createConstructorContext(privateInput, coin));
     const firstContext = createCircuitContext(dummyContractAddress(), coin, initial.currentContractState, initial.currentPrivateState);
-    const first = contract.impureCircuits.reconcile(firstContext, Class.MATCHED, 100n, contextDigest);
+    const first = contract.impureCircuits.reconcile(firstContext, Class.MATCHED, 100n, contextDigest, commitment);
     const secondDigest = Uint8Array.from(contextDigest);
     secondDigest[0] ^= 1;
     const secondContext = createCircuitContext(dummyContractAddress(), coin,
       first.context.currentQueryContext.state, first.context.currentPrivateState);
-    const second = contract.impureCircuits.reconcile(secondContext, Class.MATCHED, 100n, secondDigest);
+    const second = contract.impureCircuits.reconcile(secondContext, Class.MATCHED, 100n, secondDigest, commitment);
     const state = ledger(second.context.currentQueryContext.state);
     expect(state.reconciliationByContext.lookup(contextDigest)).toBe(Class.MATCHED);
     expect(state.toleranceByContext.lookup(contextDigest)).toBe(100n);
     expect(state.reconciliationByContext.lookup(secondDigest)).toBe(Class.MATCHED);
+    expect(state.financialCommitmentByContext.lookup(contextDigest)).toEqual(commitment);
+  });
+});
+
+describe('financial witness commitment', () => {
+  it('rejects a public commitment for other monetary values', () => {
+    const wrong = computeFinancialCommitment({ ...vectors[0].input, cash: 30001n }, nonce);
+    expect(() => execute(vectors[0].input, Class.MATCHED, 100n, contextDigest, wrong))
+      .toThrow('Financial commitment mismatch');
+  });
+  it('uses a nonce so identical totals can have distinct public commitments', () => {
+    const first = computeFinancialCommitment(vectors[0].input, nonce);
+    const otherNonce = Uint8Array.from(nonce);
+    otherNonce[0] ^= 1;
+    expect(computeFinancialCommitment(vectors[0].input, otherNonce)).not.toEqual(first);
   });
 });
 
