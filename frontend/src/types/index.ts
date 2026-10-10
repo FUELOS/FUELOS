@@ -77,6 +77,8 @@ export interface Transaction {
   id: string;
   shift_id: string;
   station_id: string;
+  pump_id: string | null;
+  pump_label?: string | null;
   type: TransactionType;
   payment_method: PaymentMethod;
   amount: string | number;
@@ -93,6 +95,7 @@ export interface WorkerShiftStats {
   user_id: string;
   user_name: string;
   avatar_url?: string | null;
+  station_id: string;
   station_name: string;
   start_time: string;
   opening_cash: string | number;

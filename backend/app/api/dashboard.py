@@ -40,6 +40,7 @@ class WorkerShiftStats(BaseModel):
     user_id: str
     user_name: str
     avatar_url: str | None = None
+    station_id: str
     station_name: str
     start_time: datetime
     opening_cash: Decimal
@@ -157,6 +158,7 @@ async def get_dashboard(
             "user_id": str(s.user_id),
             "user_name": display_name,
             "avatar_url": s.worker_avatar,  # emoji kodu (m1,f2..) veya base64
+            "station_id": str(s.station_id),
             "station_name": row.station_name,
             "start_time": s.start_time,
             "opening_cash": Decimal(str(s.opening_cash)),

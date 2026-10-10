@@ -785,6 +785,7 @@ export const Dashboard: React.FC = () => {
         activeShifts={
           data?.active_workers.map((w) => ({
             shift_id: w.shift_id,
+            station_id: w.station_id,
             station_name: w.station_name,
             user_name: w.user_name,
             start_time: w.start_time,

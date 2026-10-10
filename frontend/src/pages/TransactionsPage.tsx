@@ -194,6 +194,7 @@ export const TransactionsPage: React.FC = () => {
                 <th className="px-5 py-3.5">{t("tx.col_time")}</th>
                 <th className="px-5 py-3.5">{t("tx.col_type")}</th>
                 <th className="px-5 py-3.5">{t("tx.col_product")}</th>
+                <th className="px-5 py-3.5">{t("tx.col_pump")}</th>
                 <th className="px-5 py-3.5">{t("tx.col_amount_liters")}</th>
                 <th className="px-5 py-3.5">{t("tx.col_total")}</th>
                 <th className="px-5 py-3.5">{t("tx.col_channel")}</th>
@@ -209,6 +210,9 @@ export const TransactionsPage: React.FC = () => {
                   <td className="px-5 py-3.5">{getTypeBadge(tx.type)}</td>
                   <td className="px-5 py-3.5 text-slate-800 dark:text-white font-semibold">
                     {tx.fuel_type || (tx.type === "market" ? (tr ? "Market Satışı" : "Convenience Sale") : "—")}
+                  </td>
+                  <td className="px-5 py-3.5 text-slate-600 dark:text-slate-300 font-semibold text-xs">
+                    {tx.pump_label || "—"}
                   </td>
                   <td className="px-5 py-3.5 font-mono font-medium text-slate-600 dark:text-slate-300">
                     {tx.liters ? `${formatNumber(tx.liters, 2)} Lt` : "—"}

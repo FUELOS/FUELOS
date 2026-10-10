@@ -2,7 +2,8 @@
  * FuelOS — Yeni Akaryakıt Satış & Pompa Otomasyon Fişi Girişi
  * - %100 Akaryakıt Odaklı (Market/Diğer kaldırıldı)
  * - Personel RFID Kartı Tek Tıkla Seçimi (Dropdown kaldırıldı)
- * - İstasyon Pompa Seçimi (Pompa 1, 2, 3, 4...)
+ * - İstasyon Pompa Seçimi (API'den: o istasyonun aktif pompaları; zorunlu)
+ * - Seçilen pompanın satabildiği yakıt türleriyle sınırlı yakıt seçimi
  * - Ödeme Yöntemi (Varsayılan: Nakit - Kart çekilmediyse otomatik nakit sayılır)
  */
 
@@ -26,11 +27,21 @@ import {
 
 interface ShiftOption {
   shift_id: string;
+  station_id: string;
   station_name: string;
   user_name: string;
   worker_name?: string;
   worker_avatar?: string | null;
   pump_label?: string | null;
+}
+
+interface PumpOption {
+  id: string;
+  station_id: string;
+  pump_number: number;
+  label: string;
+  fuel_types: string;
+  is_active: boolean;
 }
 
 interface AddTransactionModalProps {
@@ -42,10 +53,14 @@ interface AddTransactionModalProps {
 }
 
 const FUEL_TYPES = [
-  { name: "Kurşunsuz 95 (Benzin)", priceApprox: 44.5 },
-  { name: "Motorin (Dizel)", priceApprox: 45.2 },
-  { name: "Otogaz (LPG)", priceApprox: 25.8 },
+  { name: "Kurşunsuz 95 (Benzin)", priceApprox: 44.5, matches: ["Benzin", "Kurşunsuz 95", "Benzin 95"] },
+  { name: "Motorin (Dizel)", priceApprox: 45.2, matches: ["Motorin"] },
+  { name: "Otogaz (LPG)", priceApprox: 25.8, matches: ["LPG", "Otogaz"] },
 ];
+
+// Pompanın fuel_types alanındaki kısa isimden formdaki yakıt seçeneğini bul
+const fuelOptionForPumpFuel = (pumpFuel: string): typeof FUEL_TYPES[number] | undefined =>
+  FUEL_TYPES.find((f) => f.matches.some((m) => m.toLowerCase() === pumpFuel.trim().toLowerCase()));
 
 export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   isOpen,
@@ -56,7 +71,8 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 }) => {
   const { t, language } = useLanguage();
   const [selectedShiftId, setSelectedShiftId] = useState<string>("");
-  const [selectedPumpLabel, setSelectedPumpLabel] = useState<string>("Pompa 1");
+  const [pumps, setPumps] = useState<PumpOption[]>([]);
+  const [selectedPumpId, setSelectedPumpId] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [amount, setAmount] = useState<string>("");
   const [liters, setLiters] = useState<string>("");
@@ -64,6 +80,46 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [plateNumber, setPlateNumber] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Seçili pompanın satabildiği yakıt seçenekleri
+  const selectedPump = pumps.find((p) => p.id === selectedPumpId);
+  const availableFuelOptions = selectedPump
+    ? selectedPump.fuel_types
+        .split(",")
+        .map((f) => f.trim())
+        .filter(Boolean)
+        .map(fuelOptionForPumpFuel)
+        .filter((f): f is NonNullable<typeof f> => Boolean(f))
+    : [];
+
+  // Seçili vardiyanın istasyonunun aktif pompalarını çek
+  useEffect(() => {
+    const stationId = activeShifts.find((s) => s.shift_id === selectedShiftId)?.station_id;
+    if (!stationId) {
+      setPumps([]);
+      setSelectedPumpId("");
+      return;
+    }
+    apiClient
+      .get<PumpOption[]>(`/pumps/station/${stationId}`)
+      .then((res) => {
+        setPumps(res.data);
+        // Önceki seçim geçersizse sıfırla; varsayılan olarak ilk pompa seçili gelir
+        setSelectedPumpId((prev) => (res.data.some((p) => p.id === prev) ? prev : res.data[0]?.id || ""));
+      })
+      .catch(() => {
+        setPumps([]);
+        setSelectedPumpId("");
+      });
+  }, [selectedShiftId, activeShifts]);
+
+  // Pompa değişince yakıt türü o pompanın satabildiği yakıtla sınırlanır
+  useEffect(() => {
+    if (availableFuelOptions.length > 0 && !availableFuelOptions.some((f) => f.name === fuelType)) {
+      setFuelType(availableFuelOptions[0].name);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPumpId, pumps]);
 
   // Modal açıldığında varsayılan atamalar
   useEffect(() => {
@@ -124,8 +180,13 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       return;
     }
 
+    // Akaryakıt satışında pompa seçimi zorunlu
+    if (!selectedPumpId) {
+      setError(language === "tr" ? "Dolum yapılan pompa seçimi zorunludur" : "A dispensing pump must be selected");
+      return;
+    }
+
     const descParts = [];
-    if (selectedPumpLabel) descParts.push(selectedPumpLabel);
     if (plateNumber.trim()) descParts.push(`${language === "tr" ? "Plaka" : "Plate"}: ${plateNumber.trim().toUpperCase()}`);
 
     const payload = {
@@ -135,6 +196,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       amount: parsedAmount,
       liters: parsedLiters,
       fuel_type: fuelType,
+      pump_id: selectedPumpId,
       description: descParts.length > 0 ? descParts.join(" - ") : null,
     };
 
@@ -230,37 +292,45 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             )}
           </div>
 
-          {/* ── 2. DOLUM YAPILAN POMPA ── */}
+          {/* ── 2. DOLUM YAPILAN POMPA (İstasyonun aktif pompaları — zorunlu) ── */}
           <div>
             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
               <Cpu size={13} className="text-emerald-500" />
-              {t("modal.select_pump")}
+              {t("modal.select_pump")} *
             </label>
-            <div className="grid grid-cols-4 gap-2">
-              {["Pompa 1", "Pompa 2", "Pompa 3", "Pompa 4"].map((pLabel) => (
-                <button
-                  key={pLabel}
-                  type="button"
-                  onClick={() => setSelectedPumpLabel(pLabel)}
-                  className={`py-2 px-2 rounded-xl border text-xs font-bold transition text-center ${
-                    selectedPumpLabel === pLabel
-                      ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 shadow-sm"
-                      : "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:border-slate-300"
-                  }`}
-                >
-                  {pLabel}
-                </button>
-              ))}
-            </div>
+            {pumps.length === 0 ? (
+              <div className="p-3.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-2xl text-amber-700 dark:text-amber-300 text-xs">
+                {language === "tr"
+                  ? "Bu istasyonda aktif pompa bulunamadı. Satış kaydı için önce istasyona pompa tanımlayın."
+                  : "No active pumps found for this station. Please define a pump before recording sales."}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {pumps.map((pump) => (
+                  <button
+                    key={pump.id}
+                    type="button"
+                    onClick={() => setSelectedPumpId(pump.id)}
+                    className={`py-2 px-2 rounded-xl border text-xs font-bold transition text-center ${
+                      selectedPumpId === pump.id
+                        ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 shadow-sm"
+                        : "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                    }`}
+                  >
+                    {pump.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* ── 3. YAKIT TÜRÜ ── */}
+          {/* ── 3. YAKIT TÜRÜ (Seçili pompanın satabildiği yakıtlarla sınırlı) ── */}
           <div>
             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
               {t("modal.fuel_type")}
             </label>
             <div className="grid grid-cols-3 gap-2">
-              {FUEL_TYPES.map((f) => (
+              {availableFuelOptions.map((f) => (
                 <button
                   key={f.name}
                   type="button"
