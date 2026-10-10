@@ -5,12 +5,13 @@
  * - Fiziksel pompalar, yakıt türleri, lisans/altyapı bilgileri ve şube personelleri yönetilir.
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { apiClient } from "@/lib/api";
 import { Station, User } from "@/types";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { formatCurrency, formatNumber } from "@/lib/utils";
 import {
   Building2,
   Plus,
@@ -26,6 +27,7 @@ import {
   ShieldCheck,
   Trash2,
   UserCheck,
+  CalendarDays,
 } from "lucide-react";
 
 interface Pump {
@@ -35,6 +37,34 @@ interface Pump {
   fuel_types: string;
   is_active: boolean;
 }
+
+// Adım 4 endpoint'inin yanıt modeli: GET /api/pump-analytics/daily-summary
+interface PumpFuelSummary {
+  fuel_type: string;
+  liters: string;
+  amount: string;
+  transaction_count: number;
+}
+interface PumpDailySummary {
+  pump_id: string;
+  pump_label: string;
+  is_active: boolean;
+  fuel_breakdown: PumpFuelSummary[];
+  total_liters: string;
+  total_amount: string;
+  transaction_count: number;
+}
+interface StationPumpDailySummary {
+  station_id: string;
+  station_name: string;
+  station_code: string;
+  date: string;
+  pumps: PumpDailySummary[];
+}
+
+// Türkiye saatine göre bugünün YYYY-MM-DD değeri (gün kaymasın diye)
+const todayTR = (): string =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" }).format(new Date());
 
 const fuelBadgeColor = (ft: string) => {
   const low = ft.toLowerCase();
@@ -46,7 +76,7 @@ const fuelBadgeColor = (ft: string) => {
 
 export const StationsPage: React.FC = () => {
   const { user } = useAuth();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const tr = language === "tr";
   const isAdmin = user?.role === "super_admin";
 
@@ -59,6 +89,15 @@ export const StationsPage: React.FC = () => {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ── Pompa günlük satış özeti (Adım 4 endpoint'i) ──────────────────
+  const [salesDate, setSalesDate] = useState<string>(todayTR());
+  const [pumpSummary, setPumpSummary] = useState<StationPumpDailySummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  // Aynı istasyon+tarih için gereksiz tekrar istek atılmasın (cache).
+  const summaryCache = useRef<Map<string, StationPumpDailySummary>>(new Map());
+  const summaryAbort = useRef<AbortController | null>(null);
 
   // Yeni istasyon modal
   const [isStationModalOpen, setIsStationModalOpen] = useState(false);
@@ -128,6 +167,56 @@ export const StationsPage: React.FC = () => {
   useEffect(() => {
     if (selectedStation) fetchDetail(selectedStation.id);
   }, [selectedStation, fetchDetail]);
+
+  // ── Fetch pompa günlük satış özeti (Adım 4 endpoint'i) ────────────
+  const fetchPumpSummary = useCallback(async (stationId: string, date: string, force = false) => {
+    const cacheKey = `${stationId}|${date}`;
+    if (!force) {
+      const cached = summaryCache.current.get(cacheKey);
+      if (cached) {
+        setPumpSummary(cached);
+        setSummaryError(null);
+        return;
+      }
+    }
+    // Bekleyen önceki isteği iptal et
+    summaryAbort.current?.abort();
+    const controller = new AbortController();
+    summaryAbort.current = controller;
+    setSummaryLoading(true);
+    setSummaryError(null);
+    try {
+      const res = await apiClient.get<StationPumpDailySummary>("/pump-analytics/daily-summary", {
+        params: { station_id: stationId, date },
+        signal: controller.signal,
+      });
+      summaryCache.current.set(cacheKey, res.data);
+      setPumpSummary(res.data);
+    } catch (err: any) {
+      // İptal edilen istek hata sayılmaz
+      if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError" || err?.name === "AbortError") return;
+      setSummaryError(err?.response?.data?.detail || t("st.load_failed"));
+    } finally {
+      if (summaryAbort.current === controller) setSummaryLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    if (selectedStation) fetchPumpSummary(selectedStation.id, salesDate);
+    return () => {
+      // Bileşen kapandığında / bağımlılık değiştiğinde bekleyen isteği iptal et
+      summaryAbort.current?.abort();
+    };
+  }, [selectedStation, salesDate, fetchPumpSummary]);
+
+  // Özet verisi pompa ID'sine göre eşlenmiş harita + günlük toplamlar
+  const summaryByPump = new Map<string, PumpDailySummary>(
+    (pumpSummary?.pumps || []).map((p) => [p.pump_id, p])
+  );
+  const dayTotalLiters = (pumpSummary?.pumps || []).reduce((acc, p) => acc + Number(p.total_liters), 0);
+  const dayTotalAmount = (pumpSummary?.pumps || []).reduce((acc, p) => acc + Number(p.total_amount), 0);
+  const dayTotalCount = (pumpSummary?.pumps || []).reduce((acc, p) => acc + p.transaction_count, 0);
+  const hasNoSales = !summaryLoading && !summaryError && pumpSummary !== null && dayTotalCount === 0;
 
   // ── Yeni istasyon oluştur ────────────────────────────────────────
   const handleCreateStation = async (e: React.FormEvent) => {
@@ -413,7 +502,7 @@ export const StationsPage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* ══ SOL SÜTUN: İSTASYON POMPALARI (7 KOLON) ══ */}
             <div className="lg:col-span-7 bg-white dark:bg-[#111218] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-zinc-800 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center">
                     <Cpu size={16} />
@@ -428,18 +517,77 @@ export const StationsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => {
-                    setPumpNumber(pumps.length + 1);
-                    setPumpLabel(tr ? `Pompa ${pumps.length + 1}` : `Pump ${pumps.length + 1}`);
-                    setIsPumpModalOpen(true);
-                  }}
-                  className="px-2.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 text-blue-600 dark:text-blue-400 text-xs font-bold transition flex items-center gap-1"
-                >
-                  <Plus size={13} />
-                  <span>{tr ? "Pompa Ekle" : "Add Pump"}</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* Tarih seçici — varsayılan bugün, ileri tarih seçilemez */}
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-[#181920] border border-slate-200 dark:border-zinc-700">
+                    <CalendarDays size={13} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                    <input
+                      type="date"
+                      value={salesDate}
+                      max={todayTR()}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v && v <= todayTR()) setSalesDate(v);
+                      }}
+                      className="bg-transparent text-[11px] font-bold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
+                      aria-label={tr ? "Satış tarihi" : "Sales date"}
+                    />
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setPumpNumber(pumps.length + 1);
+                      setPumpLabel(tr ? `Pompa ${pumps.length + 1}` : `Pump ${pumps.length + 1}`);
+                      setIsPumpModalOpen(true);
+                    }}
+                    className="px-2.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 text-blue-600 dark:text-blue-400 text-xs font-bold transition flex items-center gap-1"
+                  >
+                    <Plus size={13} />
+                    <span>{tr ? "Pompa Ekle" : "Add Pump"}</span>
+                  </button>
+                </div>
               </div>
+
+              {/* Günlük istasyon toplamı (seçili tarih) */}
+              <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40">
+                <span className="text-[10px] font-black text-blue-700 dark:text-blue-300 uppercase tracking-wider">
+                  {t("st.daily_total")}
+                </span>
+                {summaryLoading ? (
+                  <div className="h-4 w-40 rounded-md bg-blue-200/60 dark:bg-blue-900/40 animate-pulse" />
+                ) : summaryError ? (
+                  <span className="text-[11px] text-rose-500 font-bold">—</span>
+                ) : (
+                  <span className="text-xs font-black text-slate-800 dark:text-white font-mono">
+                    {hasNoSales ? (
+                      <span className="text-slate-400 dark:text-slate-500 font-sans">
+                        {t("st.no_sales_date")}
+                      </span>
+                    ) : (
+                      <>
+                        {formatNumber(dayTotalLiters, 2)} Lt · {formatCurrency(dayTotalAmount)}
+                      </>
+                    )}
+                  </span>
+                )}
+              </div>
+
+              {/* Satış özeti yüklenemedi — tekrar dene */}
+              {summaryError && (
+                <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50">
+                  <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                    <AlertCircle size={13} />
+                    {t("st.load_failed")}
+                  </span>
+                  <button
+                    onClick={() => selectedStation && fetchPumpSummary(selectedStation.id, salesDate, true)}
+                    className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold transition flex items-center gap-1 active:scale-95"
+                  >
+                    <RefreshCw size={11} />
+                    {t("st.retry")}
+                  </button>
+                </div>
+              )}
 
               {pumps.length === 0 ? (
                 <div className="p-10 text-center text-slate-400 text-xs space-y-2">
@@ -448,48 +596,79 @@ export const StationsPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {pumps.map((pump) => (
-                    <div
-                      key={pump.id}
-                      className="p-4 rounded-2xl border border-slate-200/80 dark:border-zinc-700/60 bg-slate-50/80 dark:bg-[#181920]/40 space-y-3 relative group"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-sm font-black text-slate-900 dark:text-white">
-                            {pump.label}
+                  {pumps.map((pump) => {
+                    const summary = summaryByPump.get(pump.id);
+                    return (
+                      <div
+                        key={pump.id}
+                        className="p-4 rounded-2xl border border-slate-200/80 dark:border-zinc-700/60 bg-slate-50/80 dark:bg-[#181920]/40 space-y-3 relative group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-sm font-black text-slate-900 dark:text-white">
+                              {pump.label}
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-mono">
+                              No: #{pump.pump_number}
+                            </div>
                           </div>
-                          <div className="text-[10px] text-slate-400 font-mono">
-                            No: #{pump.pump_number}
+
+                          <div className="flex items-center gap-1.5">
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-100/70 dark:bg-emerald-900/40 px-2 py-0.5 rounded-full">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              {tr ? "Aktif" : "Active"}
+                            </span>
+                            <button
+                              onClick={() => handleDeletePump(pump.id)}
+                              className="p-1 text-slate-400 hover:text-rose-500 rounded-lg transition"
+                              title={tr ? "Pompayı Sil" : "Delete Pump"}
+                            >
+                              <Trash2 size={13} />
+                            </button>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1.5">
-                          <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-100/70 dark:bg-emerald-900/40 px-2 py-0.5 rounded-full">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            {tr ? "Aktif" : "Active"}
-                          </span>
-                          <button
-                            onClick={() => handleDeletePump(pump.id)}
-                            className="p-1 text-slate-400 hover:text-rose-500 rounded-lg transition"
-                            title={tr ? "Pompayı Sil" : "Delete Pump"}
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                        {/* Yakıt etiketleri + o yakıttan satılan litre */}
+                        <div className="flex flex-wrap gap-1">
+                          {pump.fuel_types.split(",").map((ft) => {
+                            const fuel = ft.trim();
+                            const sold = summary?.fuel_breakdown.find(
+                              (f) => f.fuel_type.toLowerCase() === fuel.toLowerCase()
+                            );
+                            return (
+                              <span
+                                key={ft}
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${fuelBadgeColor(ft)}`}
+                              >
+                                {fuel}
+                                {summaryLoading ? null : (
+                                  <span className="font-mono font-black opacity-80">
+                                    {" "}: {formatNumber(sold?.liters ?? 0, 0)} Lt
+                                  </span>
+                                )}
+                              </span>
+                            );
+                          })}
                         </div>
-                      </div>
 
-                      <div className="flex flex-wrap gap-1">
-                        {pump.fuel_types.split(",").map((ft) => (
-                          <span
-                            key={ft}
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${fuelBadgeColor(ft)}`}
-                          >
-                            {ft.trim()}
-                          </span>
-                        ))}
+                        {/* Günlük satış toplamı (litre · tutar) */}
+                        {summaryLoading ? (
+                          <div className="h-[30px] rounded-xl bg-slate-200/70 dark:bg-zinc-700/40 animate-pulse" />
+                        ) : (
+                          <div className="pt-1 border-t border-slate-200/60 dark:border-zinc-700/50 flex items-center justify-between gap-2">
+                            <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider shrink-0">
+                              {t("st.pump_daily")}
+                            </span>
+                            <span className="text-[11px] font-black text-slate-800 dark:text-white font-mono truncate">
+                              {summary
+                                ? `${formatNumber(summary.total_liters, 2)} Lt · ${formatCurrency(summary.total_amount)}`
+                                : "—"}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
