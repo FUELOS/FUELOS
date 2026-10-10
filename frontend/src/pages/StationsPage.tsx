@@ -12,6 +12,7 @@ import { Station, User } from "@/types";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { formatCurrency, formatNumber } from "@/lib/utils";
+import { PumpFuelAnalysisModal } from "@/components/modals/PumpFuelAnalysisModal";
 import {
   Building2,
   Plus,
@@ -98,6 +99,12 @@ export const StationsPage: React.FC = () => {
   // Aynı istasyon+tarih için gereksiz tekrar istek atılmasın (cache).
   const summaryCache = useRef<Map<string, StationPumpDailySummary>>(new Map());
   const summaryAbort = useRef<AbortController | null>(null);
+
+  // ── Pompa + yakıt analiz paneli (Adım 6) ──────────────────────────
+  const [analysisPump, setAnalysisPump] = useState<{ id: string; label: string } | null>(null);
+  const [analysisFuel, setAnalysisFuel] = useState<string>("");
+  // Panel kapandığında odak tıklanan yakıt etiketine geri dönsün.
+  const fuelTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   // Yeni istasyon modal
   const [isStationModalOpen, setIsStationModalOpen] = useState(false);
@@ -628,17 +635,27 @@ export const StationsPage: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Yakıt etiketleri + o yakıttan satılan litre */}
+                        {/* Yakıt etiketleri + o yakıttan satılan litre (tıklanabilir → analiz paneli) */}
                         <div className="flex flex-wrap gap-1">
                           {pump.fuel_types.split(",").map((ft) => {
                             const fuel = ft.trim();
                             const sold = summary?.fuel_breakdown.find(
                               (f) => f.fuel_type.toLowerCase() === fuel.toLowerCase()
                             );
+                            const isAnalysisOpen = analysisPump?.id === pump.id && analysisFuel === fuel;
                             return (
-                              <span
+                              <button
                                 key={ft}
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${fuelBadgeColor(ft)}`}
+                                type="button"
+                                onClick={(e) => {
+                                  fuelTriggerRef.current = e.currentTarget;
+                                  setAnalysisPump({ id: pump.id, label: pump.label });
+                                  setAnalysisFuel(fuel);
+                                }}
+                                title={tr ? `${pump.label} · ${fuel} analizini gör` : `View ${pump.label} · ${fuel} analysis`}
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-md border transition cursor-pointer hover:scale-105 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-[#181920] ${fuelBadgeColor(ft)} ${
+                                  isAnalysisOpen ? "ring-2 ring-blue-500" : ""
+                                }`}
                               >
                                 {fuel}
                                 {summaryLoading ? null : (
@@ -646,7 +663,7 @@ export const StationsPage: React.FC = () => {
                                     {" "}: {formatNumber(sold?.liters ?? 0, 0)} Lt
                                   </span>
                                 )}
-                              </span>
+                              </button>
                             );
                           })}
                         </div>
@@ -745,6 +762,23 @@ export const StationsPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* ── POMPA + YAKIT ANALİZ PANELİ (Adım 6) ── */}
+      {/* Bileşen her zaman render edilir (isOpen ile kontrol); böylece pompa+yakıt+tarih
+          önbelleği sayfa ömrü boyunca korunur ve tekrar açılışta gereksiz istek atılmaz. */}
+      <PumpFuelAnalysisModal
+        isOpen={analysisPump !== null}
+        stationId={selectedStation?.id || null}
+        pump={analysisPump}
+        fuelType={analysisFuel}
+        date={salesDate}
+        onClose={() => {
+          setAnalysisPump(null);
+          setAnalysisFuel("");
+          // Odak, paneli açan yakıt etiketine geri dönsün
+          fuelTriggerRef.current?.focus();
+        }}
+      />
 
       {/* ── YENİ İSTASYON MODAL (Admin) ── */}
       {isStationModalOpen && (
