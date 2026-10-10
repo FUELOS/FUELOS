@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     Enum as SAEnum,
     ForeignKey,
+    Index,
     Numeric,
     String,
     func,
@@ -39,6 +40,11 @@ class Transaction(Base):
     Yalnızca created_at tutulur.
     """
     __tablename__ = "transactions"
+    # Analitik sorguları için bileşik indeksler (istasyon/pompa + tarih).
+    __table_args__ = (
+        Index("ix_transactions_station_time", "station_id", "transaction_time"),
+        Index("ix_transactions_pump_time", "pump_id", "transaction_time"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

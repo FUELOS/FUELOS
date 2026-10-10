@@ -91,6 +91,9 @@ async def run_full_flow_test():
         assert k_login_res.status_code == 200, f"Cashier login failed: {k_login_res.text}"
         k_token = k_login_res.json()["access_token"]
         cashier_headers = {"Authorization": f"Bearer {k_token}"}
+        # Vardiya ve pompa kurulumu kasiyerin kendi istasyonuyla hizalanır;
+        # aksi halde stations[0] sırası değişince pompa/istasyon uyumsuzluğu doğar.
+        cashier_station_id = k_login_res.json()["station_id"] or station_id
         print("✅ 5. Kasiyer başarıyla JWT oturumu aldı.")
 
         # 6. Açık vardiya kontrolü veya yeni vardiya açma
@@ -98,7 +101,7 @@ async def run_full_flow_test():
         open_shifts = shifts_res.json()
         if not open_shifts:
             open_res = await client.post("/api/shifts/open", headers=cashier_headers, json={
-                "station_id": station_id,
+                "station_id": cashier_station_id,
                 "opening_cash": "1500.00",
                 "notes": "Sabah vardiyası açılışı"
             })
@@ -115,7 +118,7 @@ async def run_full_flow_test():
         # Testin 3 yakıt türünü de (Motorin, Benzin, LPG) satan bir pompayı bul;
         # yoksa oluştur. Eski/sınırlı pompalarla karışmasın diye fuel_types koşullu.
         wanted_fuels = {"Motorin", "Benzin", "LPG"}
-        pumps_res = await client.get(f"/api/pumps/station/{station_id}", headers=admin_headers)
+        pumps_res = await client.get(f"/api/pumps/station/{cashier_station_id}", headers=admin_headers)
         pump = next(
             (
                 p for p in pumps_res.json()
@@ -125,7 +128,7 @@ async def run_full_flow_test():
         )
         if pump is None:
             pump_res = await client.post("/api/pumps/", headers=admin_headers, json={
-                "station_id": station_id,
+                "station_id": cashier_station_id,
                 "pump_number": 99,
                 "label": "Pompa Full",
                 "fuel_types": "Motorin,Benzin,LPG",
