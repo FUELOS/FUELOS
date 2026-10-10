@@ -123,6 +123,8 @@ async def list_transactions(
     """
     İşlemleri listeler — rol bazlı filtreleme.
     Opsiyonel: shift_id veya station_id ile filtreleme.
+    İstasyon Müdürü için station_id istek parametresi yok sayılır; filtre
+    oturumdaki kullanıcının istasyonundan zorlanır.
     """
     query = select(Transaction)
 
@@ -138,7 +140,9 @@ async def list_transactions(
     if shift_id is not None:
         query = query.where(Transaction.shift_id == shift_id)
 
-    if station_id is not None:
+    # İstasyon Müdürü: istasyon ID'si istekten değil oturumdaki kullanıcıdan
+    # alınır — başka bir istasyon ID'si gönderilse bile yok sayılır.
+    if station_id is not None and current_user.role != UserRole.STATION_MANAGER:
         query = query.where(Transaction.station_id == station_id)
 
     query = query.order_by(Transaction.transaction_time.desc()).limit(500)
@@ -156,6 +160,8 @@ async def get_transaction_summary(
     """
     İşlem özeti — Dashboard için.
     Toplam satış, litre, ödeme yöntemi bazlı dağılım.
+    İstasyon Müdürü için station_id istek parametresi yok sayılır; filtre
+    oturumdaki kullanıcının istasyonundan zorlanır.
     """
     # Temel sorgu
     base_filter = []
@@ -173,7 +179,9 @@ async def get_transaction_summary(
         shift_ids_query = select(Shift.id).where(Shift.user_id == current_user.id)
         base_filter.append(Transaction.shift_id.in_(shift_ids_query))
 
-    if station_id is not None:
+    # İstasyon Müdürü: istasyon ID'si istekten değil oturumdaki kullanıcıdan
+    # alınır — başka bir istasyon ID'si gönderilse bile yok sayılır.
+    if station_id is not None and current_user.role != UserRole.STATION_MANAGER:
         base_filter.append(Transaction.station_id == station_id)
 
     if date is not None:
