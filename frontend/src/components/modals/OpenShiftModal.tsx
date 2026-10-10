@@ -2,7 +2,7 @@
  * FuelOS — Yeni Vardiya Başlat Modal
  * - Personel / İşçi Adı & Avatar (Fotoğraf / Erkek / Kadın / Yok)
  * - Otomatik Kapanış Süresi (Manuel / 8 Saatlik / 12 Saatlik / Özel Saat)
- * - Opsiyonel Pompa Seçimi (Tüm pompalar / Sahada serbest işçi)
+ * - Pompa / Saha Ataması (Sabit: Tüm Pompalar — gezici personel)
  * - Personele Verilen Bozuk Para Avansı (Zorunlu değil, varsayılan 0 TL)
  */
 
@@ -27,13 +27,6 @@ import {
   Timer,
   CheckCircle2,
 } from "lucide-react";
-
-interface Pump {
-  id: string;
-  pump_number: number;
-  label: string;
-  fuel_types: string;
-}
 
 interface OpenShiftModalProps {
   isOpen: boolean;
@@ -66,8 +59,6 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
   // Form state
   const [stations, setStations] = useState<Station[]>([]);
   const [selectedStationId, setSelectedStationId] = useState("");
-  const [pumps, setPumps] = useState<Pump[]>([]);
-  const [selectedPumpId, setSelectedPumpId] = useState("");
   const [workerName, setWorkerName] = useState("");
   const [openingCash, setOpeningCash] = useState("0");
   const [notes, setNotes] = useState("");
@@ -91,8 +82,6 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
     if (!isOpen) return;
     setError(null);
     setStep(1);
-    setPumps([]);
-    setSelectedPumpId("");
     setWorkerName("");
     setOpeningCash("0");
     setDurationMode("manual");
@@ -110,20 +99,6 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
       })
       .catch(console.error);
   }, [isOpen, user]);
-
-  // ── Fetch pompalar (istasyon değişince) ──────────────────────────
-  useEffect(() => {
-    if (!selectedStationId) {
-      setPumps([]);
-      return;
-    }
-    apiClient
-      .get<Pump[]>(`/pumps/station/${selectedStationId}`)
-      .then((res) => {
-        setPumps(res.data);
-      })
-      .catch(() => setPumps([]));
-  }, [selectedStationId]);
 
   if (!isOpen) return null;
 
@@ -183,7 +158,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
       setError(null);
       await apiClient.post("/shifts/open", {
         station_id: selectedStationId,
-        pump_id: selectedPumpId || null,
+        pump_id: null,
         worker_name: workerName.trim(),
         worker_avatar: getAvatarValue(),
         opening_cash: parseFloat(openingCash) || 0,
@@ -304,7 +279,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                 )}
               </div>
 
-              {/* Pompa Ön Seçimi (Artık Zorunlu Değil / Gezici Personel) */}
+              {/* Pompa / Saha Ataması (Sabit: Tüm Pompalar) */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
@@ -314,35 +289,9 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                   <span className="text-[10px] text-slate-400 font-normal lowercase">{language === "tr" ? "kart tüm pompalarda geçerlidir" : "card valid on all pumps"}</span>
                 </label>
 
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPumpId("")}
-                    className={`p-2.5 rounded-2xl border text-center transition ${
-                      selectedPumpId === ""
-                        ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-black shadow-sm"
-                        : "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-slate-800/60 text-slate-500 hover:border-slate-300 font-semibold"
-                    }`}
-                  >
-                    <div className="text-xs">{language === "tr" ? "Tüm Pompalar" : "All Pumps"}</div>
-                    <div className="text-[9px] text-slate-400">{language === "tr" ? "Gezici" : "Roaming"}</div>
-                  </button>
-
-                  {pumps.map((pump) => (
-                    <button
-                      key={pump.id}
-                      type="button"
-                      onClick={() => setSelectedPumpId(pump.id)}
-                      className={`p-2.5 rounded-2xl border text-center transition ${
-                        selectedPumpId === pump.id
-                          ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-black shadow-sm"
-                          : "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:border-slate-300 font-semibold"
-                      }`}
-                    >
-                      <div className="text-xs">{pump.label}</div>
-                      <div className="text-[9px] text-slate-400">{language === "tr" ? "Sabit" : "Dedicated"}</div>
-                    </button>
-                  ))}
+                <div className="p-2.5 rounded-2xl border border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-black shadow-sm text-center">
+                  <div className="text-xs">{language === "tr" ? "Tüm Pompalar" : "All Pumps"}</div>
+                  <div className="text-[9px] text-slate-400">{language === "tr" ? "Gezici" : "Roaming"}</div>
                 </div>
               </div>
 
@@ -547,7 +496,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({ isOpen, onClose,
                       {workerName || (language === "tr" ? "İsimsiz Personel" : "Anonymous Staff")}
                     </div>
                     <div className="text-[11px] text-blue-200 flex items-center gap-1.5 mt-0.5">
-                      <span>{selectedPumpId ? pumps.find((p) => p.id === selectedPumpId)?.label : (language === "tr" ? "Tüm Pompalar (Gezici)" : "All Pumps (Roaming)")}</span>
+                      <span>{language === "tr" ? "Tüm Pompalar (Gezici)" : "All Pumps (Roaming)"}</span>
                       <span>·</span>
                       <span>{durationMode === "manual" ? (language === "tr" ? "Süresiz" : "Open-ended") : durationMode === "8hours" ? (language === "tr" ? "8 Saat" : "8 Hours") : durationMode === "12hours" ? (language === "tr" ? "12 Saat" : "12 Hours") : customEndTime || (language === "tr" ? "Özel Saat" : "Custom")}</span>
                     </div>
