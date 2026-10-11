@@ -3,6 +3,7 @@ import { apiClient } from "@/lib/api";
 import { Transaction, Station } from "@/types";
 import { formatCurrency, formatNumber, formatDateTime } from "@/lib/utils";
 import { useLanguage } from "@/context/LanguageContext";
+import { useAuth } from "@/context/AuthContext";
 import { AddTransactionModal } from "@/components/modals/AddTransactionModal";
 import {
   Receipt,
@@ -16,11 +17,14 @@ import {
   CreditCard,
   Building,
   ChevronRight,
+  MapPin,
 } from "lucide-react";
 
 export const TransactionsPage: React.FC = () => {
   const { t, language } = useLanguage();
   const tr = language === "tr";
+  const { user: currentUser } = useAuth();
+  const isStationManager = currentUser?.role === "station_manager";
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [stations, setStations] = useState<Station[]>([]);
@@ -118,19 +122,33 @@ export const TransactionsPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          {stations.length > 0 && (
-            <select
-              value={selectedStationId}
-              onChange={(e) => setSelectedStationId(e.target.value)}
-              className="bg-white dark:bg-[#111218] border border-slate-200 dark:border-zinc-800 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-amber-500 transition shadow-sm"
-            >
-              <option value="">{t("header.all_stations")}</option>
-              {stations.map((st) => (
-                <option key={st.id} value={st.id}>
-                  {st.name} ({st.code})
-                </option>
-              ))}
-            </select>
+          {isStationManager ? (
+            /* İstasyon Müdürü — sabit kurumsal şube rozeti (Dashboard ile aynı bileşen stili) */
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-blue-50/70 dark:bg-[#121217] border border-blue-200/80 dark:border-zinc-800 shadow-sm text-xs font-black text-slate-800 dark:text-zinc-100">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <MapPin size={13} className="text-blue-600 dark:text-blue-400 shrink-0" />
+              <span>
+                {stations.find((s) => s.id === currentUser?.station_id)?.name || stations[0]?.name || "Ankara Merkez İstasyonu"}
+              </span>
+              <span className="font-mono text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-100/70 dark:bg-blue-900/40 px-1.5 py-0.5 rounded-lg border border-blue-200/60 dark:border-blue-800/40">
+                {stations.find((s) => s.id === currentUser?.station_id)?.code || stations[0]?.code || "ANK-01"}
+              </span>
+            </div>
+          ) : (
+            stations.length > 0 && (
+              <select
+                value={selectedStationId}
+                onChange={(e) => setSelectedStationId(e.target.value)}
+                className="bg-white dark:bg-[#111218] border border-slate-200 dark:border-zinc-800 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-amber-500 transition shadow-sm"
+              >
+                <option value="">{t("header.all_stations")}</option>
+                {stations.map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.name} ({st.code})
+                  </option>
+                ))}
+              </select>
+            )
           )}
 
           <button
