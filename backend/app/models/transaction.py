@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     Enum as SAEnum,
     ForeignKey,
+    Index,
     Numeric,
     String,
     func,
@@ -24,9 +25,10 @@ from app.models.base import (
     generate_uuid,
 )
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
+    from app.models.pump import Pump
     from app.models.shift import Shift
     from app.models.station import Station
 
@@ -38,6 +40,11 @@ class Transaction(Base):
     Yalnızca created_at tutulur.
     """
     __tablename__ = "transactions"
+    # Analitik sorguları için bileşik indeksler (istasyon/pompa + tarih).
+    __table_args__ = (
+        Index("ix_transactions_station_time", "station_id", "transaction_time"),
+        Index("ix_transactions_pump_time", "pump_id", "transaction_time"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -57,6 +64,13 @@ class Transaction(Base):
         nullable=False,
         index=True,
         comment="Hangi istasyonda (denormalize — hızlı sorgulama)",
+    )
+    pump_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pumps.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Hangi pompadan (yalnızca akaryakıt satışlarında; market/diğer satışlarda NULL)",
     )
     type: Mapped[TransactionType] = mapped_column(
         SAEnum(TransactionType, name="transaction_type", values_callable=lambda x: [e.value for e in x], create_constraint=True),
@@ -109,6 +123,15 @@ class Transaction(Base):
         "Station",
         back_populates="transactions",
     )
+    pump: Mapped[Optional["Pump"]] = relationship(
+        "Pump",
+        lazy="selectin",
+    )
+
+    @property
+    def pump_label(self) -> str | None:
+        """Satışın yapıldığı pompanın etiketi (pompa yoksa None)."""
+        return self.pump.label if self.pump else None
 
     def __repr__(self) -> str:
         return (
