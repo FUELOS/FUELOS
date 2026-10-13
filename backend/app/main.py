@@ -27,6 +27,7 @@ from app.api.pump_analytics import router as pump_analytics_router
 from app.api.admin_dashboard import router as admin_dashboard_router
 from app.api.station_detail import router as station_detail_router
 from app.api.settings import router as settings_router
+from app.api.zk_preview import router as zk_preview_router
 
 settings = get_settings()
 
@@ -67,7 +68,8 @@ app = FastAPI(
 # CORS — Frontend (React Vite dev server) ile iletişim
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173",
+                   "http://localhost:5188", "http://127.0.0.1:5188"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -87,6 +89,7 @@ app.include_router(pump_analytics_router)
 app.include_router(admin_dashboard_router)
 app.include_router(station_detail_router)
 app.include_router(settings_router)
+app.include_router(zk_preview_router)
 
 
 # ─── Health Check ───

@@ -3,3 +3,4 @@ managed/
 coverage/
 *.tsbuildinfo
 midnight-level-db/
+dist-preview/

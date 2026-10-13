@@ -28,13 +28,13 @@ function states() {
   return { before: initial.currentContractState, after };
 }
 
-function provider(options: { status?: string; entryPoint?: string; beforeAlreadyRecorded?: boolean } = {}) {
+function provider(options: { status?: string; entryPoint?: string; beforeAlreadyRecorded?: boolean; extraContractAction?: boolean } = {}) {
   const state = states();
   const call = { address, entryPoint: options.entryPoint ?? 'reconcile' };
   const receipt = {
     status: options.status ?? 'SucceedEntirely', txId, identifiers: [txId],
     txHash: 'ef'.repeat(32), blockHash: '12'.repeat(32), blockHeight: 8,
-    tx: { intents: new Map([[1, { actions: [call] }]]) },
+    tx: { intents: new Map([[1, { actions: options.extraContractAction ? [call, { address, entryPoint: 'update' }] : [call] }]]) },
   };
   return {
     watchForTxData: async () => receipt,
@@ -43,22 +43,34 @@ function provider(options: { status?: string; entryPoint?: string; beforeAlready
   } as unknown as Pick<ReturnType<typeof indexerPublicDataProvider>, 'watchForTxData' | 'queryContractState'>;
 }
 
+function transition(options: { beforeAlreadyRecorded?: boolean; sameTransaction?: boolean } = {}) {
+  const state = states();
+  return async () => options.sameTransaction === false ? null : {
+    before: options.beforeAlreadyRecorded ? state.after : state.before,
+    after: state.after,
+  };
+}
+
 describe('finalized reconciliation receipt verification', () => {
   it('accepts a successful call that creates the exact public record in its block', async () => {
-    const result = await verifyFinalizedReconciliation(provider(), address, txId, expected);
+    const result = await verifyFinalizedReconciliation(provider(), address, txId, expected, transition());
     expect(result).toMatchObject({ txId, blockHeight: 8, contractAddress: address });
   });
   it('rejects wrong class or salted financial commitment', async () => {
     expect(await verifyFinalizedReconciliation(provider(), address, txId, {
       ...expected, publicClass: ReconciliationClass.SHORTAGE,
-    })).toBeNull();
+    }, transition())).toBeNull();
     expect(await verifyFinalizedReconciliation(provider(), address, txId, {
       ...expected, financialCommitment: new Uint8Array(32),
-    })).toBeNull();
+    }, transition())).toBeNull();
   });
   it('rejects a failed or unrelated receipt and a pre-existing context', async () => {
-    expect(await verifyFinalizedReconciliation(provider({ status: 'FailFallible' }), address, txId, expected)).toBeNull();
-    expect(await verifyFinalizedReconciliation(provider({ entryPoint: 'other' }), address, txId, expected)).toBeNull();
-    expect(await verifyFinalizedReconciliation(provider({ beforeAlreadyRecorded: true }), address, txId, expected)).toBeNull();
+    expect(await verifyFinalizedReconciliation(provider({ status: 'FailFallible' }), address, txId, expected, transition())).toBeNull();
+    expect(await verifyFinalizedReconciliation(provider({ entryPoint: 'other' }), address, txId, expected, transition())).toBeNull();
+    expect(await verifyFinalizedReconciliation(provider({ extraContractAction: true }), address, txId, expected, transition())).toBeNull();
+    expect(await verifyFinalizedReconciliation(provider(), address, txId, expected, transition({ beforeAlreadyRecorded: true }))).toBeNull();
+    expect(await verifyFinalizedReconciliation(provider(), address, txId, expected, transition({ sameTransaction: false }))).toBeNull();
+    const noPriorState = async () => ({ before: null, after: states().after });
+    expect(await verifyFinalizedReconciliation(provider(), address, txId, expected, noPriorState)).toBeNull();
   });
 });

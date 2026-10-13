@@ -29,6 +29,7 @@ def _shift():
         zk_statement_version="reconcile-v4-financial-commitment",
         zk_financial_commitment="1" * 64,
         zk_proved_at=now, zk_verified=False, zk_verified_at=None,
+        zk_proof_hash=None,
         zk_reconciliation_class="matched",
     )
 
@@ -117,7 +118,7 @@ def test_proving_persists_digest_of_the_exact_rows_used_for_witness():
     rows = _rows()
     expected_inputs, expected_hash = reconciliation_snapshot(shift, rows, Decimal("1.00"))
     db = SimpleNamespace(
-        scalar=AsyncMock(return_value=shift),
+        scalar=AsyncMock(side_effect=[shift, None, shift, None]),
         execute=AsyncMock(return_value=Mock(all=Mock(return_value=rows))),
         flush=AsyncMock(), refresh=AsyncMock(),
     )
@@ -140,3 +141,62 @@ def test_proving_persists_digest_of_the_exact_rows_used_for_witness():
     assert shift.zk_source_snapshot_hash == expected_hash
     assert shift.zk_financial_commitment == "2" * 64
     assert shift.zk_financial_nonce == "3" * 64
+
+
+def test_proving_rejects_source_change_during_external_proof():
+    shift = _shift()
+    shift.status = ShiftStatus.CLOSED
+    shift.zk_proof_status = "not_requested"
+    shift.reconciliation_tolerance = Decimal("1.00")
+    rows = _rows()
+    db = SimpleNamespace(
+        scalar=AsyncMock(side_effect=[shift, None, shift, None]),
+        execute=AsyncMock(return_value=Mock(all=Mock(side_effect=[list(rows), rows]))),
+        flush=AsyncMock(), refresh=AsyncMock(),
+    )
+    user = SimpleNamespace(role=UserRole.STATION_MANAGER, station_id=shift.station_id)
+
+    async def proof_then_source_changes(**_kwargs):
+        rows[0].amount = Decimal("301.00")
+        return {"status": "proved"}
+
+    with patch("app.services.zk_service.generate_reconciliation_proof", side_effect=proof_then_source_changes):
+        with pytest.raises(HTTPException) as raised:
+            asyncio.run(generate_zk_proof(shift.id, user, db))
+    assert raised.value.status_code == 409
+    assert shift.zk_proof_status == "not_requested"
+    db.flush.assert_not_awaited()
+
+
+def test_proving_rejects_concurrent_proof_overwrite():
+    shift = _shift()
+    shift.status = ShiftStatus.CLOSED
+    shift.reconciliation_tolerance = Decimal("1.00")
+    rows = _rows()
+    db = SimpleNamespace(
+        scalar=AsyncMock(side_effect=[shift, None, shift, None]),
+        execute=AsyncMock(return_value=Mock(all=Mock(return_value=rows))),
+        flush=AsyncMock(), refresh=AsyncMock(),
+    )
+    user = SimpleNamespace(role=UserRole.STATION_MANAGER, station_id=shift.station_id)
+
+    async def another_proof_commits(**_kwargs):
+        shift.zk_proof_hash = "a" * 64
+        return {"status": "proved"}
+
+    with patch("app.services.zk_service.generate_reconciliation_proof", side_effect=another_proof_commits):
+        with pytest.raises(HTTPException) as raised:
+            asyncio.run(generate_zk_proof(shift.id, user, db))
+    assert raised.value.status_code == 409
+    assert db.scalar.await_count == 3
+    db.flush.assert_not_awaited()
+
+
+def test_proving_rejects_existing_preview_handoff():
+    shift = _shift()
+    shift.status = ShiftStatus.CLOSED
+    db = SimpleNamespace(scalar=AsyncMock(side_effect=[shift, object()]))
+    user = SimpleNamespace(role=UserRole.STATION_MANAGER, station_id=shift.station_id)
+    with pytest.raises(HTTPException) as raised:
+        asyncio.run(generate_zk_proof(shift.id, user, db))
+    assert raised.value.status_code == 409

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="tr">
+  <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FuelOS Midnight Preview</title></head>
+  <body>
+    <main style="max-width:720px;margin:3rem auto;font:16px system-ui;line-height:1.5">
+      <h1>FuelOS Midnight Preview</h1>
+      <p>Yalnız yerel demo. Örnek finansal girdiler ve nonce, parolanızla şifrelenmiş tarayıcı özel durumunda saklanır; zincire veya FuelOS API'sine gönderilmez. Cüzdan parolanız ve seed bu uygulamada saklanmaz.</p>
+      <label>Cüzdan <select id="wallet"></select></label>
+      <button id="connect" disabled>Lace bağla</button>
+      <p id="wallet-status">Uygulama başlatılıyor…</p>
+      <label>Yerel özel durum parolası (16+ karakter, güçlü ve benzersiz) <input id="password" type="password" autocomplete="off"></label>
+      <hr>
+      <button id="deploy" disabled>Preview sözleşmesini deploy et</button>
+      <p><label>Sözleşme adresi <input id="address" size="68" spellcheck="false"></label></p>
+      <p>Yalnız örnek girdiler: A/MATCHED, B/SHORTAGE, E/SURPLUS. Gerçek vardiya kaydı değildir.</p>
+      <label>Demo vektörü <select id="vector"><option value="A">A — MATCHED</option><option value="B">B — SHORTAGE</option><option value="E">E — SURPLUS</option></select></label>
+      <button id="reconcile" disabled>Seçili demo için proof ve işlem gönder</button>
+      <p id="result" role="status">JavaScript yükleniyor…</p>
+      <section id="real-shift" hidden>
+        <hr>
+        <h2>FuelOS vardiyası</h2>
+        <p>Özel tutarlar ve nonce FuelOS sunucusunda kalır. Lace yalnız kanıtlı işlemi imzalar.</p>
+        <p id="shift-label"></p>
+        <button id="submit-shift" disabled>Vardiya kanıtını Preview ağına gönder</button>
+        <p id="shift-result" role="status">FuelOS bağlantısı bekleniyor…</p>
+      </section>
+      <p>Her deploy ve işlem için Lace onayı gerekir. Sözleşme adresini güvenilir kayıt alanına ayrıca kaydedin.</p>
+    </main>
+    <script type="module" src="./bootstrap.ts"></script>
+  </body>
+</html>

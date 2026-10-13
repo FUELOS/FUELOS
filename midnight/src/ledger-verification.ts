@@ -2,6 +2,7 @@ import type { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-inde
 import { SucceedEntirely } from '@midnight-ntwrk/midnight-js-types';
 import { ledger } from '../managed/reconciliation/contract/index.js';
 import type { ReconciliationClass } from './types.js';
+import type { ContractState } from '@midnight-ntwrk/midnight-js-protocol/onchain-runtime';
 
 type PublicDataProvider = Pick<ReturnType<typeof indexerPublicDataProvider>, 'queryContractState'>;
 type ReceiptProvider = Pick<ReturnType<typeof indexerPublicDataProvider>, 'queryContractState' | 'watchForTxData'>;
@@ -44,6 +45,10 @@ export interface FinalizedReconciliationReceipt {
   readonly contractAddress: string;
 }
 
+export type TransactionTransitionReader = (
+  contractAddress: string, txId: string, blockHeight: number, blockHash: string,
+) => Promise<{ before: ContractState | null; after: ContractState } | null>;
+
 /**
  * Independently checks a finalized call and the newly-created public record.
  * `contractAddress` must come from a trusted deployment registry, not the submitter.
@@ -54,6 +59,7 @@ export async function verifyFinalizedReconciliation(
   contractAddress: string,
   txId: string,
   expected: ExpectedReconciliationStatement,
+  readTransition: TransactionTransitionReader,
   timeoutMs = 30_000,
 ): Promise<FinalizedReconciliationReceipt | null> {
   if (!/^[0-9a-f]{64}$/i.test(contractAddress) || !/^[0-9a-f]{66}$/i.test(txId)) {
@@ -71,18 +77,17 @@ export async function verifyFinalizedReconciliation(
       }),
     ]);
     if (receipt.status !== SucceedEntirely || !receipt.identifiers.includes(txId) || receipt.blockHeight < 1) return null;
-    const callsContract = [...(receipt.tx.intents?.values() ?? [])]
+    const contractActions = [...(receipt.tx.intents?.values() ?? [])]
       .flatMap((intent) => intent.actions)
-      .some((action) => 'entryPoint' in action
-        && action.address.toLowerCase() === contractAddress.toLowerCase()
-        && action.entryPoint === 'reconcile');
-    if (!callsContract) return null;
+      .filter((action) => 'address' in action
+        && action.address.toLowerCase() === contractAddress.toLowerCase());
+    if (contractActions.length !== 1 || !('entryPoint' in contractActions[0])
+      || contractActions[0].entryPoint !== 'reconcile') return null;
 
-    const before = await provider.queryContractState(contractAddress, { type: 'blockHeight', blockHeight: receipt.blockHeight - 1 });
-    if (before && ledger(before.data).reconciliationByContext.member(expected.contextDigest)) return null;
-    const atReceipt = await provider.queryContractState(contractAddress, { type: 'blockHeight', blockHeight: receipt.blockHeight });
-    if (!atReceipt) return null;
-    const viewAtReceipt: PublicDataProvider = { queryContractState: async () => atReceipt };
+    const transition = await readTransition(contractAddress, txId, receipt.blockHeight, receipt.blockHash);
+    if (!transition?.before) return null;
+    if (ledger(transition.before.data).reconciliationByContext.member(expected.contextDigest)) return null;
+    const viewAtReceipt: PublicDataProvider = { queryContractState: async () => transition.after };
     if (!await matchesRecordedLedgerState(viewAtReceipt, contractAddress, expected)) return null;
     return {
       txId: receipt.txId, txHash: receipt.txHash, blockHash: receipt.blockHash,

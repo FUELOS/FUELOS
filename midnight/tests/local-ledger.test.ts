@@ -18,6 +18,7 @@ import { firstValueFrom, filter, timeout } from 'rxjs';
 import { WebSocket } from 'ws';
 import { ARTIFACT_ROOT, CIRCUIT_ID, compiledReconciliationContract } from '../src/compiled-contract.js';
 import { matchesRecordedLedgerState, verifyFinalizedReconciliation } from '../src/ledger-verification.js';
+import { queryReconciliationTransition } from '../src/indexer-transaction-state.js';
 import { computeFinancialCommitment } from '../src/financial-commitment.js';
 import { computeShiftCommitment, parseShiftContextDigest } from '../src/shift-commitment.js';
 import { ReconciliationClass } from '../src/types.js';
@@ -140,7 +141,8 @@ describe('local Midnight ledger verification (opt-in)', () => {
       financialCommitment,
     };
     expect(await matchesRecordedLedgerState(publicDataProvider, contractAddress, expected)).toBe(true);
-    const receipt = await verifyFinalizedReconciliation(publicDataProvider, contractAddress, call.public.txId, expected);
+    const receipt = await verifyFinalizedReconciliation(publicDataProvider, contractAddress, call.public.txId, expected,
+      (address, txId, height, hash) => queryReconciliationTransition(INDEXER, address, txId, height, hash));
     expect(receipt?.txId).toBe(call.public.txId);
     expect(receipt?.blockHeight).toBe(call.public.blockHeight);
     expect(await matchesRecordedLedgerState(publicDataProvider, contractAddress, {

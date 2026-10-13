@@ -2,8 +2,10 @@ import { readFile } from 'node:fs/promises';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 import { WebSocket } from 'ws';
-import { verificationArtifactManifest } from './compiled-contract.js';
+import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config-provider';
+import { ARTIFACT_ROOT, CIRCUIT_ID, verificationArtifactManifest } from './compiled-contract.js';
 import { verifyPublicReconciliationEvidence, type PublicReconciliationEvidence } from './public-evidence.js';
+import { queryReconciliationTransition } from './indexer-transaction-state.js';
 
 const [evidenceFile, sourceKeyFile, managerKeyFile, trustedContractAddress, indexerHttp, indexerWs] = process.argv.slice(2);
 if (!evidenceFile || !sourceKeyFile || !managerKeyFile || !trustedContractAddress || !indexerHttp || !indexerWs) {
@@ -13,17 +15,19 @@ if (!evidenceFile || !sourceKeyFile || !managerKeyFile || !trustedContractAddres
   try {
     setNetworkId('preview');
     globalThis.WebSocket = WebSocket as unknown as typeof globalThis.WebSocket;
-    const [rawEvidence, sourceKey, managerKey, manifest] = await Promise.all([
+    const [rawEvidence, sourceKey, managerKey, manifest, verifierKey] = await Promise.all([
       readFile(evidenceFile, 'utf8'), readFile(sourceKeyFile, 'utf8'), readFile(managerKeyFile, 'utf8'),
       verificationArtifactManifest(),
+      new NodeZkConfigProvider<typeof CIRCUIT_ID>(ARTIFACT_ROOT).getVerifierKey(CIRCUIT_ID),
     ]);
     const evidence = JSON.parse(rawEvidence) as PublicReconciliationEvidence;
     const provider = indexerPublicDataProvider(indexerHttp, indexerWs);
     const receipt = await verifyPublicReconciliationEvidence(provider, evidence, {
       network: 'preview', contractAddress: trustedContractAddress,
       verifierKeySha256: manifest.verifierKeySha256,
+      verifierKey,
       sourcePublicKeyPem: sourceKey, managerPublicKeyPem: managerKey,
-    });
+    }, (address, txId, height, hash) => queryReconciliationTransition(indexerHttp, address, txId, height, hash));
     process.stdout.write(JSON.stringify(receipt
       ? { verified: true, network: 'preview', ...receipt }
       : { verified: false, network: 'preview' }) + '\n');

@@ -1,0 +1,26 @@
+{
+  "network": "preview",
+  "demoOnly": true,
+  "contractAddress": "449953a0d1e907bc37ed0f36f10028809820cff7cb915bc18e09e03b7503b8bb",
+  "statementVersion": "reconcile-v4-financial-commitment",
+  "verifierKeySha256": "15944c63e2ac8569fa739572a36e7a6dd56c091a03d057fc9b1a23d8d051ee92",
+  "zkirSha256": "7a62987c7d2554c7a4e32c6040f15d7c28519e35234aa6b9dd83e0d0d2e8d8e1",
+  "deployment": {
+    "txId": "00d0365b2a8b56bd4ca18eb1bc7db4ecf23fbbfd7a872eb16e2d0c7b6cd3f8e49c",
+    "txHash": "e667b23b9344343c3c7f9e7f9fd2df648795bfea503a81b746d8475a07892345",
+    "blockHeight": 1225157,
+    "blockHash": "0fad5c21ba2325a50d796e9c0588f117f133f7f0a3324bbe03b638628a1d4d51"
+  },
+  "demoReconciliation": {
+    "txId": "000b478056cd6253077aa652b1f36311a7633045a02fb3b533f2cb94041e840bdc",
+    "txHash": "386883dcd936635732c8183b65ca04563156a01024688c6dc1da8c7569f4f301",
+    "blockHeight": 1225164,
+    "blockHash": "951bae82a81793bcaa5d32556826a29522258b3729b9e4b00f33c06d9474b5ac",
+    "contextDigest": "2e3b90dd4ccae5ac42dcfea784935062b37f25c933bca22ac3e077e5c594e736",
+    "publicClass": "MATCHED",
+    "toleranceKurus": "100",
+    "financialCommitment": "db5637a0bdf0935c8d8531456569317419e0af78d76855a384d383c38790a379",
+    "transactionAttributed": true,
+    "sourceAuthenticated": false
+  }
+}

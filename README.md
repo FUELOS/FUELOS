@@ -11,7 +11,7 @@ FuelOS; akaryakıt dağıtım şirketleri ve bayiler için fiziksel pompa, otoma
 - **Veri Mahremiyeti (Privacy-Preserving Reconciliation):**  
   İstasyonların anlık litre satışları, nakit akışları ve işçi bazlı ciroları ticari bir sır olarak korunur.
 - **Cardano / Midnight ZK Kanıt Motoru:**  
-  Vardiya kapandığında hesaplanan kasa mutabakatı (`shifts.zk_proof_status`, `shifts.zk_proof_hash`, `shifts.zk_verified_at`) üzerinden sıfır bilgi kanıtı üretilir. Rakamlar üçüncü taraflara veya SuperAdmin'e ifşa edilmeksizin vardiya mutabakatının matematiksel doğruluğu kriptografik olarak tescillenir.
+  Kapanmış vardiyanın özel finansal girdilerinden sıfır bilgi kanıtı üretilir. Midnight üzerindeki kayıt yalnız sonuç sınıfını, toleransı ve taahhütleri açıklar; tutarlar zincirde yayımlanmaz. FuelOS backend'i finansal kaynak kayıtlarını işler ve yetkili uygulama rolleri bu kayıtları görebilir. Preview zincir kaydı kaynak kayıtlarının bağımsız olarak onaylandığı anlamına gelmez.
 
 ### 2. 💳 SuperAdmin SaaS Lisanslama & Çoklu Şube Yönetimi
 - **Abonelik Seviyeleri (Plans):** `Standart`, `Pro SaaS`, `Kurumsal` lisans paketleri.

@@ -16,6 +16,7 @@ from app.models.user import User
 from app.models.shift import Shift
 from app.models.transaction import Transaction
 from app.models.pump import Pump
+from app.models.zk_preview_handoff import ZKPreviewHandoff
 
 __all__ = [
     # Modeller
@@ -25,6 +26,7 @@ __all__ = [
     "Shift",
     "Transaction",
     "Pump",
+    "ZKPreviewHandoff",
     # Enum'lar
     "UserRole",
     "ShiftStatus",
