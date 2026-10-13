@@ -12,6 +12,7 @@ export const Sidebar: React.FC = () => {
   // SuperAdmin: SaaS platform & şube yönetimi odaklı menü
   const adminNavItems = [
     { to: "/", label: t("nav.system_panel"), icon: LayoutDashboard },
+    { to: "/shifts", label: t("nav.shift"), icon: Clock },
     { to: "/stations", label: t("nav.station"), icon: Building2 },
     { to: "/users", label: t("nav.users"), icon: Users },
     { to: "/settings", label: t("nav.settings"), icon: Settings },
@@ -20,6 +21,7 @@ export const Sidebar: React.FC = () => {
   // Müdür / Kasiyer: vardiya odaklı menü
   const managerNavItems = [
     { to: "/", label: t("nav.shift"), icon: Clock },
+    { to: "/shifts", label: t("shifts.title"), icon: Clock },
     { to: "/stations", label: t("nav.station"), icon: Building2 },
     { to: "/transactions", label: t("nav.transactions"), icon: Receipt },
     { to: "/reports", label: t("nav.reports"), icon: BarChart3 },
