@@ -21,6 +21,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.shift import Shift
 from app.models.station import Station
+from app.models.pump import Pump
 from app.models.transaction import Transaction
 from app.models.base import (
     UserRole,
@@ -96,9 +97,58 @@ async def create_transaction(
                 detail="Yakıt satışında yakıt türü zorunludur (örn: Motorin, Benzin 95)",
             )
 
+    # ── Pompa doğrulamaları (UI'a güvenilmez) ──
+    if data.type == TransactionType.FUEL:
+        # Akaryakıt satışında pompa zorunludur.
+        if data.pump_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Akaryakıt satışında pompa seçimi zorunludur",
+            )
+
+        pump_result = await db.execute(select(Pump).where(Pump.id == data.pump_id))
+        pump = pump_result.scalar_one_or_none()
+        if pump is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Pompa bulunamadı",
+            )
+        # Pompa, satışın yapıldığı vardiyanın istasyonuna ait olmalı.
+        # (İstasyon müdürü için vardiyanın istasyonu oturumdan zorlandığından,
+        # yalnızca kendi istasyonunun pompalarıyla satış kaydedebilir.)
+        if pump.station_id != shift.station_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Pompa bu vardiyanın istasyonuna ait değil",
+            )
+        if not pump.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Pompa aktif değil",
+            )
+        pump_fuels = [f.strip() for f in (pump.fuel_types or "").split(",") if f.strip()]
+        fuel = (data.fuel_type or "").strip()
+        # Önce birebir eşleşme, sonra alt-dizi toleransı (pompa "Motorin" derken
+        # satış kaydı "Motorin (Dizel)" gibi uzun ad kullanabilir).
+        fuel_matches = fuel in pump_fuels or any(
+            pf.lower() in fuel.lower() for pf in pump_fuels
+        )
+        if not fuel_matches:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Bu pompa seçilen yakıt türünü satmıyor (pompanın yakıtları: {', '.join(pump_fuels)})",
+            )
+    elif data.pump_id is not None:
+        # Pompa bilgisi yalnızca akaryakıt satışlarında geçerlidir.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Pompa yalnızca akaryakıt satışlarında seçilebilir",
+        )
+
     transaction = Transaction(
         shift_id=data.shift_id,
         station_id=shift.station_id,  # Shift'ten otomatik alınır
+        pump_id=data.pump_id if data.type == TransactionType.FUEL else None,
         type=data.type,
         payment_method=data.payment_method,
         amount=data.amount,
@@ -123,6 +173,8 @@ async def list_transactions(
     """
     İşlemleri listeler — rol bazlı filtreleme.
     Opsiyonel: shift_id veya station_id ile filtreleme.
+    İstasyon Müdürü için station_id istek parametresi yok sayılır; filtre
+    oturumdaki kullanıcının istasyonundan zorlanır.
     """
     query = select(Transaction)
 
@@ -138,7 +190,9 @@ async def list_transactions(
     if shift_id is not None:
         query = query.where(Transaction.shift_id == shift_id)
 
-    if station_id is not None:
+    # İstasyon Müdürü: istasyon ID'si istekten değil oturumdaki kullanıcıdan
+    # alınır — başka bir istasyon ID'si gönderilse bile yok sayılır.
+    if station_id is not None and current_user.role != UserRole.STATION_MANAGER:
         query = query.where(Transaction.station_id == station_id)
 
     query = query.order_by(Transaction.transaction_time.desc()).limit(500)
@@ -156,6 +210,8 @@ async def get_transaction_summary(
     """
     İşlem özeti — Dashboard için.
     Toplam satış, litre, ödeme yöntemi bazlı dağılım.
+    İstasyon Müdürü için station_id istek parametresi yok sayılır; filtre
+    oturumdaki kullanıcının istasyonundan zorlanır.
     """
     # Temel sorgu
     base_filter = []
@@ -173,7 +229,9 @@ async def get_transaction_summary(
         shift_ids_query = select(Shift.id).where(Shift.user_id == current_user.id)
         base_filter.append(Transaction.shift_id.in_(shift_ids_query))
 
-    if station_id is not None:
+    # İstasyon Müdürü: istasyon ID'si istekten değil oturumdaki kullanıcıdan
+    # alınır — başka bir istasyon ID'si gönderilse bile yok sayılır.
+    if station_id is not None and current_user.role != UserRole.STATION_MANAGER:
         base_filter.append(Transaction.station_id == station_id)
 
     if date is not None:

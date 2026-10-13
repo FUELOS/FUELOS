@@ -91,6 +91,9 @@ async def run_full_flow_test():
         assert k_login_res.status_code == 200, f"Cashier login failed: {k_login_res.text}"
         k_token = k_login_res.json()["access_token"]
         cashier_headers = {"Authorization": f"Bearer {k_token}"}
+        # Vardiya ve pompa kurulumu kasiyerin kendi istasyonuyla hizalanır;
+        # aksi halde stations[0] sırası değişince pompa/istasyon uyumsuzluğu doğar.
+        cashier_station_id = k_login_res.json()["station_id"] or station_id
         print("✅ 5. Kasiyer başarıyla JWT oturumu aldı.")
 
         # 6. Açık vardiya kontrolü veya yeni vardiya açma
@@ -98,7 +101,7 @@ async def run_full_flow_test():
         open_shifts = shifts_res.json()
         if not open_shifts:
             open_res = await client.post("/api/shifts/open", headers=cashier_headers, json={
-                "station_id": station_id,
+                "station_id": cashier_station_id,
                 "opening_cash": "1500.00",
                 "notes": "Sabah vardiyası açılışı"
             })
@@ -111,6 +114,32 @@ async def run_full_flow_test():
 
         shift_id = shift["id"]
 
+        # 6b. Pompa kurulumu (akaryakıt satışları için zorunlu — pump_id)
+        # Testin 3 yakıt türünü de (Motorin, Benzin, LPG) satan bir pompayı bul;
+        # yoksa oluştur. Eski/sınırlı pompalarla karışmasın diye fuel_types koşullu.
+        wanted_fuels = {"Motorin", "Benzin", "LPG"}
+        pumps_res = await client.get(f"/api/pumps/station/{cashier_station_id}", headers=admin_headers)
+        pump = next(
+            (
+                p for p in pumps_res.json()
+                if wanted_fuels.issubset({f.strip() for f in p["fuel_types"].split(",")})
+            ),
+            None,
+        )
+        if pump is None:
+            pump_res = await client.post("/api/pumps/", headers=admin_headers, json={
+                "station_id": cashier_station_id,
+                "pump_number": 99,
+                "label": "Pompa Full",
+                "fuel_types": "Motorin,Benzin,LPG",
+            })
+            assert pump_res.status_code in (200, 201), f"Pump create failed: {pump_res.text}"
+            pump = pump_res.json()
+            print(f"✅ 6b. Test pompası oluşturuldu: {pump['label']} ({pump['fuel_types']})")
+        else:
+            print(f"✅ 6b. Mevcut pompa kullanılıyor: {pump['label']} ({pump['fuel_types']})")
+        pump_id = pump["id"]
+
         # 7. Satış İşlemleri Ekleme
         # İşlem 1: Motorin (Kredi Kartı)
         t1 = await client.post("/api/transactions", headers=cashier_headers, json={
@@ -120,6 +149,7 @@ async def run_full_flow_test():
             "amount": "2150.00",
             "liters": "50.000",
             "fuel_type": "Motorin (Dizel)",
+            "pump_id": pump_id,
             "description": "06 ABC 123"
         })
         assert t1.status_code == 201, f"Tx1 failed: {t1.text}"
@@ -132,6 +162,7 @@ async def run_full_flow_test():
             "amount": "1320.00",
             "liters": "30.000",
             "fuel_type": "Kurşunsuz 95 (Benzin)",
+            "pump_id": pump_id,
             "description": "34 XYZ 789"
         })
         assert t2.status_code == 201, f"Tx2 failed: {t2.text}"
@@ -154,6 +185,7 @@ async def run_full_flow_test():
             "amount": "980.00",
             "liters": "40.000",
             "fuel_type": "Otogaz (LPG)",
+            "pump_id": pump_id,
             "description": "Çiftçi Kooperatifi cari hesabı"
         })
         assert t4.status_code == 201, f"Tx4 failed: {t4.text}"

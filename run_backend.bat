@@ -6,5 +6,9 @@ echo FastAPI: http://127.0.0.1:8000
 echo Swagger Dokumantasyonu: http://127.0.0.1:8000/docs
 echo ==============================================
 cd backend
+echo Veritabani tablolari kontrol ediliyor (Alembic)...
+.\venv\Scripts\python.exe -m alembic upgrade head
+echo.
+echo API Sunucusu Calistiriliyor...
 .\venv\Scripts\uvicorn.exe app.main:app --host 127.0.0.1 --port 8000 --reload
 pause
