@@ -21,6 +21,7 @@
     "prepare:shift": "node node_modules/tsx/dist/cli.mjs src/prepare-shift-cli.ts",
     "verify:public": "node node_modules/tsx/dist/cli.mjs src/verify-public-cli.ts",
     "inspect:preview": "node node_modules/tsx/dist/cli.mjs src/inspect-preview-cli.ts",
+    "sign:attestation": "node node_modules/tsx/dist/cli.mjs src/sign-attestation-cli.ts",
     "dev:preview": "vite --host 127.0.0.1 --port 5188 --strictPort",
     "build:preview": "vite build"
   },

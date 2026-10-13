@@ -4,6 +4,7 @@ import { STATEMENT_VERSION } from './compiled-contract.js';
 /** Signed off-chain by an independent FuelOS source service and a station manager. */
 export interface ReconciliationAttestation {
   readonly network: 'undeployed' | 'preview' | 'preprod' | 'mainnet';
+  readonly txId: string;
   readonly contractAddress: string;
   readonly contextDigest: string;
   readonly financialCommitment: string;
@@ -20,11 +21,13 @@ export interface AttestationSignatures {
 }
 
 const hex32 = /^[0-9a-f]{64}$/;
+const txId = /^[0-9a-f]{66}$/;
 const context = /^fuelos:shift:v1:[0-9a-f]{64}$/;
 
 /** Exact UTF-8 message both independent signers must approve. No monetary amounts are public. */
 export function attestationMessage(value: ReconciliationAttestation): Buffer {
   if (!['undeployed', 'preview', 'preprod', 'mainnet'].includes(value.network)
+    || !txId.test(value.txId)
     || !hex32.test(value.contractAddress)
     || !context.test(value.contextDigest)
     || !hex32.test(value.financialCommitment)
@@ -38,8 +41,9 @@ export function attestationMessage(value: ReconciliationAttestation): Buffer {
   }
   // Fixed property order and ASCII-only values make this encoding portable.
   return Buffer.from(JSON.stringify({
-    domain: 'FUELOS_RECONCILIATION_ATTESTATION_V1',
+    domain: 'FUELOS_RECONCILIATION_ATTESTATION_V2',
     network: value.network,
+    txId: value.txId,
     contractAddress: value.contractAddress,
     contextDigest: value.contextDigest,
     financialCommitment: value.financialCommitment,

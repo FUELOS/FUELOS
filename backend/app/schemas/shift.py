@@ -110,6 +110,7 @@ class ZKVerificationResponse(BaseModel):
     proof_integrity_valid: bool
     source_snapshot_consistent: bool
     ledger_verified: bool
+    source_authenticated: bool = False
     public_class: str
     tolerance_tl: Decimal
     shift_context_digest: str

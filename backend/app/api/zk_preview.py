@@ -18,6 +18,7 @@ from app.models.transaction import Transaction
 from app.models.user import User
 from app.models.zk_preview_handoff import ZKPreviewHandoff
 from app.services.reconciliation import DEFAULT_TOLERANCE
+from app.services.zk_attestation import public_statement, verify_dual_attestation
 from app.services.zk_preview import (
     PreviewHandoffError, inspect_preview_transaction, prepare_preview_transaction,
     trusted_preview_deployment,
@@ -40,6 +41,11 @@ class ReceiptRequest(BaseModel):
 
 class IntentRequest(ReceiptRequest):
     pass
+
+
+class AttestationSubmission(BaseModel):
+    source_signature: str = Field(min_length=88, max_length=88)
+    manager_signature: str = Field(min_length=88, max_length=88)
 
 
 async def _preview_user(
@@ -99,7 +105,7 @@ async def _matching_preview_receipt(shift: Shift, handoff: ZKPreviewHandoff, tx_
 
 def _valid_proof(shift: Shift, source_hash: str, context: str, tolerance: Decimal) -> bool:
     return (shift.status == ShiftStatus.CLOSED
-        and shift.zk_proof_status == "proved"
+        and shift.zk_proof_status in ("proved", "verified")
         and shift.zk_statement_version == "reconcile-v4-financial-commitment"
         and shift.zk_source_snapshot_hash == source_hash
         and shift.zk_commitment == context
@@ -109,6 +115,26 @@ def _valid_proof(shift: Shift, source_hash: str, context: str, tolerance: Decima
         and shift.zk_reconciliation_class in ("matched", "shortage", "surplus")
         and shift.zk_proof is not None and shift.zk_proof_hash is not None
         and proof_integrity_matches(shift.zk_proof, shift.zk_proof_hash))
+
+
+async def _attestable_statement(db: AsyncSession, shift: Shift, handoff: ZKPreviewHandoff) -> dict:
+    if not handoff.submitted_tx_id:
+        raise HTTPException(status_code=409, detail="Preview işlemi henüz kesinleşmedi")
+    try:
+        _, source_hash, context, tolerance = await _snapshot(db, shift)
+    except ValueError:
+        raise HTTPException(status_code=409, detail="Vardiya kaynağı geçersiz") from None
+    if (handoff.proof_hash != shift.zk_proof_hash or handoff.source_snapshot_hash != source_hash
+        or not _valid_proof(shift, source_hash, context, tolerance)):
+        raise HTTPException(status_code=409, detail="Güncel vardiya proof'u gerekli")
+    try:
+        observed = await _matching_preview_receipt(shift, handoff, handoff.submitted_tx_id)
+    except PreviewHandoffError:
+        raise HTTPException(status_code=409, detail="Preview işlemi doğrulanamadı") from None
+    if (observed.get("txHash") != handoff.tx_hash or observed.get("blockHash") != handoff.block_hash
+        or observed.get("blockHeight") != handoff.block_height):
+        raise HTTPException(status_code=409, detail="Preview işlem bloğu değişti")
+    return public_statement(shift, handoff)
 
 
 @router.post("/{shift_id}/zk-preview/session")
@@ -304,6 +330,99 @@ async def confirm_shift_preview(
         "txId": data.tx_id, "blockHeight": handoff.block_height}
 
 
+@router.get("/{shift_id}/zk-preview/attestation-request")
+async def preview_attestation_request(
+    shift_id: uuid.UUID, response: Response,
+    current_user: User = Depends(require_role(UserRole.SUPER_ADMIN, UserRole.STATION_MANAGER)),
+    db: AsyncSession = Depends(get_db),
+):
+    response.headers["Cache-Control"] = "no-store"
+    shift = await db.scalar(_authorized_shift_query(shift_id, current_user))
+    handoff = await db.scalar(select(ZKPreviewHandoff).where(ZKPreviewHandoff.shift_id == shift_id))
+    if shift is None or handoff is None:
+        raise HTTPException(status_code=404, detail="Preview handoff bulunamadı")
+    return {"txId": handoff.submitted_tx_id, "attestation": await _attestable_statement(db, shift, handoff)}
+
+
+@router.post("/{shift_id}/zk-preview/attest")
+async def submit_preview_attestation(
+    shift_id: uuid.UUID, data: AttestationSubmission, response: Response,
+    current_user: User = Depends(require_role(UserRole.SUPER_ADMIN, UserRole.STATION_MANAGER)),
+    db: AsyncSession = Depends(get_db),
+):
+    response.headers["Cache-Control"] = "no-store"
+    # Indexer I/O can take tens of seconds; do not hold database row locks while waiting.
+    shift = await db.scalar(_authorized_shift_query(shift_id, current_user))
+    handoff = await db.scalar(select(ZKPreviewHandoff).where(ZKPreviewHandoff.shift_id == shift_id))
+    if shift is None or handoff is None:
+        raise HTTPException(status_code=404, detail="Preview handoff bulunamadı")
+    statement = await _attestable_statement(db, shift, handoff)
+    tx_id, tx_hash, block_hash, block_height = (
+        handoff.submitted_tx_id, handoff.tx_hash, handoff.block_hash, handoff.block_height,
+    )
+    fingerprints = verify_dual_attestation(
+        statement, data.source_signature, data.manager_signature, str(shift.station_id),
+    )
+    if fingerprints is None:
+        raise HTTPException(status_code=409, detail="Bağımsız kaynak ve müdür imzaları doğrulanamadı")
+    shift = await db.scalar(_authorized_shift_query(shift_id, current_user)
+                            .with_for_update().execution_options(populate_existing=True))
+    handoff = await db.scalar(select(ZKPreviewHandoff).where(ZKPreviewHandoff.shift_id == shift_id)
+                              .with_for_update().execution_options(populate_existing=True))
+    if shift is None or handoff is None:
+        raise HTTPException(status_code=409, detail="Preview handoff değişti")
+    try:
+        _, source_hash, context, tolerance = await _snapshot(db, shift)
+    except ValueError:
+        raise HTTPException(status_code=409, detail="Vardiya kaynağı değişti") from None
+    if (handoff.submitted_tx_id != tx_id or handoff.tx_hash != tx_hash
+        or handoff.block_hash != block_hash or handoff.block_height != block_height
+        or handoff.proof_hash != shift.zk_proof_hash
+        or handoff.source_snapshot_hash != source_hash
+        or not _valid_proof(shift, source_hash, context, tolerance)
+        or public_statement(shift, handoff) != statement):
+        raise HTTPException(status_code=409, detail="Vardiya veya Preview kanıtı değişti")
+    if handoff.attested_at is not None:
+        if (handoff.source_signature != data.source_signature
+            or handoff.manager_signature != data.manager_signature
+            or handoff.source_key_fingerprint != fingerprints[0]
+            or handoff.manager_key_fingerprint != fingerprints[1]):
+            raise HTTPException(status_code=409, detail="Vardiya için farklı kaynak imzaları zaten kaydedildi")
+    else:
+        handoff.source_signature = data.source_signature
+        handoff.manager_signature = data.manager_signature
+        handoff.source_key_fingerprint, handoff.manager_key_fingerprint = fingerprints
+        handoff.attested_at = datetime.now(timezone.utc)
+    # The dynamic status endpoint rechecks the chain and signatures. A persisted
+    # verified flag would become stale after a reorg or a trusted-key rotation.
+    await db.flush()
+    return {"ledgerConfirmed": True, "sourceAuthenticated": True,
+        "txId": handoff.submitted_tx_id, "verifiedAt": handoff.attested_at.isoformat()}
+
+
+@router.get("/{shift_id}/zk-preview/evidence")
+async def preview_public_evidence(
+    shift_id: uuid.UUID, response: Response,
+    current_user: User = Depends(require_role(UserRole.SUPER_ADMIN, UserRole.STATION_MANAGER)),
+    db: AsyncSession = Depends(get_db),
+):
+    response.headers["Cache-Control"] = "no-store"
+    shift = await db.scalar(_authorized_shift_query(shift_id, current_user))
+    handoff = await db.scalar(select(ZKPreviewHandoff).where(ZKPreviewHandoff.shift_id == shift_id))
+    if shift is None or handoff is None:
+        raise HTTPException(status_code=404, detail="Preview handoff bulunamadı")
+    statement = await _attestable_statement(db, shift, handoff)
+    fingerprints = verify_dual_attestation(
+        statement, handoff.source_signature or "", handoff.manager_signature or "",
+        str(shift.station_id),
+    )
+    if (fingerprints is None or handoff.attested_at is None
+        or fingerprints != (handoff.source_key_fingerprint, handoff.manager_key_fingerprint)):
+        raise HTTPException(status_code=409, detail="Bağımsız kaynak imzaları bekleniyor")
+    return {"txId": handoff.submitted_tx_id, "attestation": statement,
+        "signatures": {"source": handoff.source_signature, "manager": handoff.manager_signature}}
+
+
 @router.get("/{shift_id}/zk-preview/status")
 async def shift_preview_status(
     shift_id: uuid.UUID,
@@ -332,8 +451,17 @@ async def shift_preview_status(
                 and observed.get("blockHeight") == handoff.block_height)
     except (ValueError, PreviewHandoffError):
         current = False
+    authenticated = False
+    if current and handoff.attested_at is not None:
+        fingerprints = verify_dual_attestation(
+            public_statement(shift, handoff),
+            handoff.source_signature or "", handoff.manager_signature or "",
+            str(shift.station_id),
+        )
+        authenticated = (fingerprints is not None
+            and fingerprints == (handoff.source_key_fingerprint, handoff.manager_key_fingerprint))
     return {"ledgerConfirmed": current,
-        "sourceAuthenticated": False, "txId": handoff.submitted_tx_id,
+        "sourceAuthenticated": authenticated, "txId": handoff.submitted_tx_id,
         "blockHeight": handoff.block_height,
         "pendingTxId": None if current else handoff.submitted_tx_id,
         "handoffId": None if current else str(handoff.id)}

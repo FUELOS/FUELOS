@@ -30,9 +30,11 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
   const [verifying, setVerifying] = useState<boolean>(false);
   const [verifyMessage, setVerifyMessage] = useState<string | null>(null);
   const [previewConfirmed, setPreviewConfirmed] = useState(false);
+  const [sourceAuthenticated, setSourceAuthenticated] = useState(false);
 
   useEffect(() => {
     setPreviewConfirmed(false);
+    setSourceAuthenticated(false);
     if (!isOpen || !shift?.id || !["proved", "verified"].includes(shift.zk_proof_status || "")) return;
     let active = true;
     const refreshPreview = async () => {
@@ -41,9 +43,15 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
         const status = await apiClient.get(`/shifts/${shift.id}/zk-preview/status`, {
           headers: { Authorization: `Bearer ${session.data.token}` },
         });
-        if (active) setPreviewConfirmed(status.data.ledgerConfirmed === true);
+        if (active) {
+          setPreviewConfirmed(status.data.ledgerConfirmed === true);
+          setSourceAuthenticated(status.data.ledgerConfirmed === true && status.data.sourceAuthenticated === true);
+        }
       } catch {
-        if (active) setPreviewConfirmed(false);
+        if (active) {
+          setPreviewConfirmed(false);
+          setSourceAuthenticated(false);
+        }
       }
     };
     void refreshPreview();
@@ -66,8 +74,10 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
       if (shift.zk_proof_status === "proved" || shift.zk_proof_status === "verified") {
         const response = await apiClient.get(`/shifts/${shift.id}/zk-verify`);
         setVerifyMessage(
-          response.data.ledger_verified
-            ? "Ledger doğrulaması tamamlandı"
+          response.data.source_authenticated
+            ? "Zincir ve bağımsız kaynak imzaları doğrulandı"
+            : response.data.ledger_verified
+              ? "Preview zincirinde doğrulandı; kaynak imzaları bekleniyor"
             : previewConfirmed
               ? "Preview zincirinde doğrulandı; kaynak imzaları bekleniyor"
               : "Proof bütünlüğü geçerli; ledger doğrulaması bekliyor",
@@ -116,7 +126,7 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
   const proofHash = shift.zk_proof_hash;
   const publicClass = (shift.zk_reconciliation_class || shift.reconciliation_status || "matched").toUpperCase();
   const tolerance = shift.zk_tolerance != null ? `${shift.zk_tolerance} TL` : "Henüz kanıtlanmadı";
-  const ledgerVerified = shift.zk_verified === true;
+  const ledgerVerified = previewConfirmed && sourceAuthenticated;
   const proofProduced = shift.zk_proof_status === "proved" || shift.zk_proof_status === "verified";
 
   return (
