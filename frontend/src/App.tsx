@@ -8,6 +8,7 @@ import { Layout } from "@/components/layout/Layout";
 import { Login } from "@/pages/Login";
 import { SuperAdminDashboard } from "@/pages/SuperAdminDashboard";
 import { Dashboard } from "@/pages/Dashboard";
+import { ShiftsPage } from "@/pages/ShiftsPage";
 import { TransactionsPage } from "@/pages/TransactionsPage";
 import { ReportsPage } from "@/pages/ReportsPage";
 import { StationsPage } from "@/pages/StationsPage";
@@ -39,8 +40,8 @@ export const App: React.FC = () => {
                   {/* Ana sayfa: role'e göre farklı dashboard */}
                   <Route path="/" element={<RoleBasedHome />} />
 
-                  {/* Müdür paneli (vardiya mutabakatı) — tüm roller erişebilir */}
-                  <Route path="/shifts" element={<Dashboard />} />
+                  {/* Vardiya listesi ve Midnight ZK işlemleri */}
+                  <Route path="/shifts" element={<ShiftsPage />} />
 
                   {/* Diğer sayfalar */}
                   <Route path="/transactions" element={<TransactionsPage />} />

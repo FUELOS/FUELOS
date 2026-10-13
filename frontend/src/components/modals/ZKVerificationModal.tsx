@@ -251,7 +251,7 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
           <p className="text-[11px] text-indigo-200/90 leading-relaxed">
             <span className="font-bold text-indigo-100">Gizli girdiler:</span> Toplam ciro,
             POS dağılımı ve nakit kasası API yanıtında veya proof içinde açıklanmaz. Proof üretimi
-            yerel proof server tarafından yapılır; bağımsız ledger doğrulaması ağ entegrasyonunda tamamlanır.
+            yerel proof server tarafından yapılır; Preview zincir doğrulaması işlem kesinleşince kontrol edilir.
           </p>
         </div>
 

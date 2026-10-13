@@ -31,10 +31,16 @@ const shiftSection = byId<HTMLElement>('real-shift');
 const shiftLabel = byId<HTMLElement>('shift-label');
 const shiftResult = byId<HTMLElement>('shift-result');
 const submitShiftButton = byId<HTMLButtonElement>('submit-shift');
+const demoFlow = byId<HTMLElement>('demo-flow');
+const intro = byId<HTMLElement>('intro');
+const flowNote = byId<HTMLElement>('flow-note');
 const shiftId = new URLSearchParams(location.search).get('shift');
 const pendingKey = shiftId ? `fuelos-preview-pending:${shiftId}` : '';
 let fuelosToken: string | undefined;
 if (shiftId && /^[0-9a-f-]{36}$/i.test(shiftId)) {
+  demoFlow.hidden = true;
+  intro.textContent = 'FuelOS vardiyasının gizli mutabakat kanıtını mevcut Midnight Preview sözleşmesine gönderin. Cüzdan parolanız ve seed bu uygulamada saklanmaz.';
+  flowNote.textContent = 'Bu işlem için Lace onayı gerekir. Sözleşme yeniden deploy edilmez.';
   shiftSection.hidden = false;
   shiftLabel.textContent = `Vardiya: ${shiftId}`;
   window.addEventListener('message', (event) => {
