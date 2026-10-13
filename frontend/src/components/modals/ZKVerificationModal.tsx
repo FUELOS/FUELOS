@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Shift } from "@/types";
 import { apiClient } from "@/lib/api";
 import {
@@ -29,6 +29,27 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [verifying, setVerifying] = useState<boolean>(false);
   const [verifyMessage, setVerifyMessage] = useState<string | null>(null);
+  const [previewConfirmed, setPreviewConfirmed] = useState(false);
+
+  useEffect(() => {
+    setPreviewConfirmed(false);
+    if (!isOpen || !shift?.id || !["proved", "verified"].includes(shift.zk_proof_status || "")) return;
+    let active = true;
+    const refreshPreview = async () => {
+      try {
+        const session = await apiClient.post(`/shifts/${shift.id}/zk-preview/session`);
+        const status = await apiClient.get(`/shifts/${shift.id}/zk-preview/status`, {
+          headers: { Authorization: `Bearer ${session.data.token}` },
+        });
+        if (active) setPreviewConfirmed(status.data.ledgerConfirmed === true);
+      } catch {
+        if (active) setPreviewConfirmed(false);
+      }
+    };
+    void refreshPreview();
+    window.addEventListener("focus", refreshPreview);
+    return () => { active = false; window.removeEventListener("focus", refreshPreview); };
+  }, [isOpen, shift?.id, shift?.zk_proof_status]);
 
   if (!isOpen || !shift) return null;
 
@@ -47,7 +68,9 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
         setVerifyMessage(
           response.data.ledger_verified
             ? "Ledger doğrulaması tamamlandı"
-            : "Proof bütünlüğü geçerli; ledger doğrulaması bekliyor",
+            : previewConfirmed
+              ? "Preview zincirinde doğrulandı; kaynak imzaları bekleniyor"
+              : "Proof bütünlüğü geçerli; ledger doğrulaması bekliyor",
         );
       } else {
         await apiClient.post(`/shifts/${shift.id}/zk-prove`);
@@ -61,6 +84,32 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
     } finally {
       setVerifying(false);
     }
+  };
+
+  const openPreview = async () => {
+    const previewOrigin = "http://127.0.0.1:5188";
+    const popup = window.open(`${previewOrigin}/preview/?shift=${encodeURIComponent(shift.id)}`, "fuelos-midnight-preview");
+    if (!popup) {
+      setVerifyMessage("Preview penceresi açılamadı");
+      return;
+    }
+    let previewToken: string;
+    try {
+      const session = await apiClient.post(`/shifts/${shift.id}/zk-preview/session`);
+      previewToken = session.data.token as string;
+    } catch {
+      popup.close();
+      setVerifyMessage("Preview vardiya yetkisi alınamadı");
+      return;
+    }
+    const relay = (event: MessageEvent) => {
+      if (event.source !== popup || event.origin !== previewOrigin
+        || event.data?.type !== "fuelos-preview-ready" || event.data?.shiftId !== shift.id) return;
+      popup.postMessage({ type: "fuelos-preview-auth", shiftId: shift.id, token: previewToken }, previewOrigin);
+      window.removeEventListener("message", relay);
+    };
+    window.addEventListener("message", relay);
+    window.setTimeout(() => window.removeEventListener("message", relay), 60_000);
   };
 
   const commitment = shift.zk_commitment;
@@ -115,7 +164,9 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
                 {ledgerVerified
                   ? "Kriptografik Olarak Doğrulandı"
                   : proofProduced
-                    ? "Proof Üretildi — Ledger Bekleniyor"
+                    ? previewConfirmed
+                      ? "Preview Zincirinde Doğrulandı — Kaynak İmzaları Bekleniyor"
+                      : "Proof Üretildi — Ledger Bekleniyor"
                     : "Proof Henüz Üretilmedi"}
               </div>
             </div>
@@ -142,7 +193,7 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
             <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
               <span className="flex items-center gap-1.5">
                 <Lock size={12} className="text-indigo-400" />
-                <span>Vardiya Bağlam Özeti (henüz devreye bağlı değil)</span>
+                <span>Vardiya Bağlam Özeti</span>
               </span>
               <button
                 onClick={() => commitment && copyToClipboard(commitment, "commitment")}
@@ -220,6 +271,10 @@ export const ZKVerificationModal: React.FC<ZKVerificationModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {proofProduced && <button onClick={openPreview}
+              className="px-3 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold">
+              Preview ağına gönder
+            </button>}
             <button
               onClick={handleVerify}
               disabled={verifying}

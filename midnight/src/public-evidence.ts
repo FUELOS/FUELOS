@@ -1,5 +1,9 @@
+import { createHash } from 'node:crypto';
 import type { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
-import { verifyFinalizedReconciliation, type FinalizedReconciliationReceipt } from './ledger-verification.js';
+import { verifyContractState } from '@midnight-ntwrk/midnight-js-contracts';
+import type { VerifierKey } from '@midnight-ntwrk/midnight-js-types';
+import { CIRCUIT_ID } from './compiled-contract.js';
+import { verifyFinalizedReconciliation, type FinalizedReconciliationReceipt, type TransactionTransitionReader } from './ledger-verification.js';
 import { verifyDualAttestation, type AttestationSignatures, type ReconciliationAttestation } from './source-attestation.js';
 import { ReconciliationClass } from './types.js';
 
@@ -16,6 +20,7 @@ export interface TrustedReconciliationRegistry {
   readonly network: 'preview' | 'undeployed';
   readonly contractAddress: string;
   readonly verifierKeySha256: string;
+  readonly verifierKey: VerifierKey;
   readonly sourcePublicKeyPem: string;
   readonly managerPublicKeyPem: string;
 }
@@ -25,8 +30,11 @@ export async function verifyPublicReconciliationEvidence(
   provider: PublicDataProvider,
   evidence: PublicReconciliationEvidence,
   trusted: TrustedReconciliationRegistry,
+  readTransition: TransactionTransitionReader,
 ): Promise<FinalizedReconciliationReceipt | null> {
   const signed = evidence.attestation;
+  if (!(trusted.verifierKey instanceof Uint8Array) || !trusted.verifierKey.byteLength
+    || createHash('sha256').update(trusted.verifierKey).digest('hex') !== trusted.verifierKeySha256) return null;
   if (signed.network !== trusted.network
     || signed.contractAddress !== trusted.contractAddress
     || signed.verifierKeySha256 !== trusted.verifierKeySha256) return null;
@@ -38,10 +46,21 @@ export async function verifyPublicReconciliationEvidence(
     SHORTAGE: ReconciliationClass.SHORTAGE,
     SURPLUS: ReconciliationClass.SURPLUS,
   } as const;
+  const readVerifiedTransition: TransactionTransitionReader = async (address, txId, height, hash) => {
+    const transition = await readTransition(address, txId, height, hash);
+    if (!transition?.before) return null;
+    try {
+      verifyContractState([[CIRCUIT_ID, trusted.verifierKey]], transition.before);
+      verifyContractState([[CIRCUIT_ID, trusted.verifierKey]], transition.after);
+    } catch {
+      return null;
+    }
+    return transition;
+  };
   return verifyFinalizedReconciliation(provider, trusted.contractAddress, evidence.txId, {
     publicClass: classByName[signed.publicClass],
     toleranceKurus: BigInt(signed.toleranceKurus),
     contextDigest: Buffer.from(signed.contextDigest.slice('fuelos:shift:v1:'.length), 'hex'),
     financialCommitment: Buffer.from(signed.financialCommitment, 'hex'),
-  });
+  }, readVerifiedTransition);
 }

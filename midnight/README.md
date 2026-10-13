@@ -3,8 +3,10 @@
 Reconciliation implementation of `backend/app/services/reconciliation.py`,
 with real local proving through Docker and an explicit backend/UI integration.
 An opt-in local Midnight network test verifies a finalized transaction and
-public state. Public-network deployment and FuelOS production verification
-are not included.
+public state. A fixed demo was also deployed and reconciled on Preview.
+The backend and Lace page now support a real shift-to-Preview handoff; the
+actual shift transaction still requires a manager-controlled Lace submission.
+Independent source authentication is a separate trust boundary.
 
 ## Toolchain
 
@@ -33,6 +35,17 @@ compact compile +0.31.1 --version
 npm ci --ignore-scripts --no-audit --no-fund
 npm test
 ```
+
+For a real closed shift, apply backend migrations, run the local backend and
+proof server, then start `npm run dev:preview`. A station manager opens the
+shift's ZK modal, produces its proof, and selects **Preview ağına gönder**.
+The page receives a shift-scoped token, asks Lace to sign the proved transaction,
+and records a confirmed public receipt after six indexed blocks. The five
+amounts and nonce stay in the backend/prover process. The backend reserves the
+wallet transaction ID before submission, rejects a different concurrent ID,
+and lets the popup recover a pending ID after restart. A Preview receipt is
+shown separately from independent source authentication; it does not set
+`zk_verified`.
 
 `npm test` runs compilation, TypeScript checking, then Vitest against the
 compiler-generated JavaScript. Individual commands:
@@ -240,8 +253,10 @@ best-effort buffer cleanup is not a guarantee of secure JavaScript memory erasur
 The server receives private witness/transcript data and therefore can learn
 the financial inputs. Only the local trusted prover should receive them.
 The returned binary proof stays in memory. Tests log only case, public class,
-stage outcomes and proof length. Keys and ZKIR are loaded from the filesystem,
-not exposed through an HTTP artifact service.
+stage outcomes and proof length. CLI tests load keys and ZKIR from the
+filesystem. The opt-in Preview browser page serves artifacts on localhost so
+the wallet-connected browser can fetch them; never expose that development
+server on a public interface.
 
 Updated v4 WSL results: A/MATCHED, B/SHORTAGE and E/SURPLUS each passed execution,
 check and prove, returning **4508 bytes** each. A/SHORTAGE failed during circuit
@@ -261,6 +276,24 @@ comparison, and the same context cannot be submitted again to that contract.
 It is not yet a reusable receipt for a production shift. No private amount is
 printed. The wallet seed is public and has no value outside a disposable local
 `undeployed` network. See [VERIFICATION.md](VERIFICATION.md).
+
+## Preview demo and read-only inspection
+
+After `npm run compile:full`, run `npm run dev:preview` and open
+`http://localhost:5188/preview/` in the browser profile containing Lace.
+The local page connects to Preview, deploys the v4 contract with Lace approval,
+and can submit demo vector A/MATCHED. Public deployment and transaction IDs
+from the successful test are recorded in
+[deployment.preview.json](preview/deployment.preview.json). To independently
+inspect the public transaction and compare the deployed verifier key with the
+local artifact, run:
+
+```sh
+npm run inspect:preview -- 000b478056cd6253077aa652b1f36311a7633045a02fb3b533f2cb94041e840bdc 2e3b90dd4ccae5ac42dcfea784935062b37f25c933bca22ac3e077e5c594e736
+```
+
+This confirms the on-chain public reconciliation statement, not the origin
+of a real FuelOS shift's private financial inputs. See [VERIFICATION.md](VERIFICATION.md).
 
 ## Official references
 

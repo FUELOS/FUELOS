@@ -401,7 +401,7 @@ async def close_shift(
     """
     Vardiyayı kapatır ve kasa mutabakat farkını hesaplar.
     """
-    result = await db.execute(select(Shift).where(Shift.id == shift_id))
+    result = await db.execute(select(Shift).where(Shift.id == shift_id).with_for_update())
     shift = result.scalar_one_or_none()
 
     if shift is None:
@@ -502,6 +502,11 @@ async def generate_zk_proof(
         to_kurus_int,
     )
     from app.services.zk_snapshot import reconciliation_snapshot
+    from app.models.zk_preview_handoff import ZKPreviewHandoff
+    if await db.scalar(select(ZKPreviewHandoff).where(ZKPreviewHandoff.shift_id == shift_id)):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Preview handoff sonrası proof değiştirilemez")
+    prior_proof_hash = shift.zk_proof_hash
+    prior_proved_at = shift.zk_proved_at
     saved_tolerance = shift.reconciliation_tolerance
     tolerance_val = Decimal(str(saved_tolerance)) if saved_tolerance is not None else DEFAULT_TOLERANCE
 
@@ -539,6 +544,38 @@ async def generate_zk_proof(
             detail=f"Midnight proof üretimi tamamlanamadı (aşama: {exc.stage})",
         ) from None
 
+    # Proving can take minutes. Lock and reread the source under the same DB
+    # transaction that stores the proof, so stale witnesses are never persisted.
+    locked_shift = await db.scalar(
+        select(Shift).where(Shift.id == shift_id)
+        .with_for_update().execution_options(populate_existing=True)
+    )
+    if locked_shift is None or locked_shift.status != ShiftStatus.CLOSED or locked_shift.closing_cash is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Vardiya proof sırasında değişti")
+    if locked_shift.zk_proof_hash != prior_proof_hash or locked_shift.zk_proved_at != prior_proved_at:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Vardiya için yeni bir proof zaten kaydedildi")
+    if await db.scalar(select(ZKPreviewHandoff).where(ZKPreviewHandoff.shift_id == shift_id)):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Preview handoff sonrası proof değiştirilemez")
+    current_tolerance = (
+        Decimal(str(locked_shift.reconciliation_tolerance))
+        if locked_shift.reconciliation_tolerance is not None else DEFAULT_TOLERANCE
+    )
+    current_rows = await db.execute(
+        select(Transaction.id, Transaction.payment_method, Transaction.amount)
+        .where(Transaction.shift_id == shift_id).order_by(Transaction.id)
+    )
+    try:
+        _, current_snapshot_hash = reconciliation_snapshot(locked_shift, current_rows.all(), current_tolerance)
+        current_context = compute_shift_context_digest(
+            locked_shift.id, locked_shift.station_id, locked_shift.user_id,
+            locked_shift.start_time, locked_shift.end_time, to_kurus_int(current_tolerance),
+        )
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Vardiya proof sırasında değişti") from None
+    if current_snapshot_hash != source_snapshot_hash or current_context != context_digest:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Vardiya proof sırasında değişti")
+
+    shift = locked_shift
     shift.zk_proof_status = zk_res["status"]
     shift.zk_reconciliation_class = zk_res["class"]
     shift.zk_tolerance = zk_res["tolerance_tl"]

@@ -54,7 +54,7 @@ async def create_transaction(
     4. fuel türünde liters ve fuel_type zorunlu.
     """
     # Vardiyayı getir
-    result = await db.execute(select(Shift).where(Shift.id == data.shift_id))
+    result = await db.execute(select(Shift).where(Shift.id == data.shift_id).with_for_update())
     shift = result.scalar_one_or_none()
 
     if shift is None:
