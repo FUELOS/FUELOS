@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8 saat (bir vardiya süresi)
 
+    # JSON object: station UUID -> base64-encoded public Ed25519 PEM.
+    # Private signer keys stay outside FuelOS. No global cross-station trust.
+    ZK_SOURCE_PUBLIC_KEYS_JSON: str = "{}"
+    ZK_MANAGER_PUBLIC_KEYS_JSON: str = "{}"
+
     # App
     APP_NAME: str = "FuelOS"
     DEBUG: bool = False

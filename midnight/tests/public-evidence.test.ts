@@ -24,7 +24,7 @@ const nonce = Uint8Array.from({ length: 32 }, (_, i) => i + 31);
 const financialCommitment = computeFinancialCommitment(vectors[0].input, nonce);
 const verifierKey = Uint8Array.from([1, 2, 3, 4]) as VerifierKey;
 const attestation: ReconciliationAttestation = {
-  network: 'preview', contractAddress: address,
+  network: 'preview', txId, contractAddress: address,
   contextDigest: `fuelos:shift:v1:${contextDigest.toString('hex')}`,
   financialCommitment: Buffer.from(financialCommitment).toString('hex'),
   sourceSnapshotHash: '12'.repeat(32), publicClass: 'MATCHED',
@@ -89,6 +89,9 @@ describe('independent public evidence handoff', () => {
   it('requires both trusted signatures and the finalized public statement', async () => {
     expect(await verifyPublicReconciliationEvidence(provider(), evidence, trusted, transition))
       .toMatchObject({ txId, blockHeight: 8 });
+    expect(await verifyPublicReconciliationEvidence(provider(), {
+      ...evidence, txId: '00' + 'ff'.repeat(32),
+    }, trusted, transition)).toBeNull();
   });
   it('rejects an untrusted contract, signer or verifier key', async () => {
     expect(await verifyPublicReconciliationEvidence(provider(), evidence, { ...trusted, contractAddress: 'ff'.repeat(32) }, transition)).toBeNull();

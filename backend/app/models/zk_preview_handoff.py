@@ -30,3 +30,8 @@ class ZKPreviewHandoff(Base):
     block_hash: Mapped[str | None] = mapped_column(String(64))
     block_height: Mapped[int | None] = mapped_column(Integer)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source_signature: Mapped[str | None] = mapped_column(String(88))
+    manager_signature: Mapped[str | None] = mapped_column(String(88))
+    source_key_fingerprint: Mapped[str | None] = mapped_column(String(64))
+    manager_key_fingerprint: Mapped[str | None] = mapped_column(String(64))
+    attested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -1,4 +1,4 @@
-import { generateKeyPairSync, sign } from 'node:crypto';
+import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { attestationMessage, verifyDualAttestation, type ReconciliationAttestation } from '../src/source-attestation.js';
 
@@ -7,7 +7,7 @@ const manager = generateKeyPairSync('ed25519');
 const sourcePem = source.publicKey.export({ type: 'spki', format: 'pem' }).toString();
 const managerPem = manager.publicKey.export({ type: 'spki', format: 'pem' }).toString();
 const statement: ReconciliationAttestation = {
-  network: 'preview', contractAddress: 'ab'.repeat(32),
+  network: 'preview', txId: '00' + 'ab'.repeat(32), contractAddress: 'ab'.repeat(32),
   contextDigest: 'fuelos:shift:v1:' + 'cd'.repeat(32),
   financialCommitment: 'ef'.repeat(32), sourceSnapshotHash: '12'.repeat(32),
   publicClass: 'MATCHED', toleranceKurus: '100', verifierKeySha256: '34'.repeat(32),
@@ -20,6 +20,10 @@ const signatures = {
 };
 
 describe('independent source and manager attestations', () => {
+  it('uses the exact same canonical bytes as the Python API', () => {
+    expect(createHash('sha256').update(message).digest('hex'))
+      .toBe('db4d491a41aa795582ab764e2758b70ee1c1c731b46ff6d1b6c14d7cbeb5fd69');
+  });
   it('accepts two distinct trusted Ed25519 signatures over the same public statement', () => {
     expect(verifyDualAttestation(statement, signatures, sourcePem, managerPem)).toBe(true);
   });
@@ -29,6 +33,7 @@ describe('independent source and manager attestations', () => {
       { sourceSnapshotHash: 'ff'.repeat(32) },
       { publicClass: 'SURPLUS' as const },
       { contractAddress: 'ff'.repeat(32) },
+      { txId: '00' + 'ff'.repeat(32) },
     ]) {
       expect(verifyDualAttestation({ ...statement, ...changed }, signatures, sourcePem, managerPem)).toBe(false);
     }

@@ -602,8 +602,8 @@ async def verify_zk_proof(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Saklanan proof'un bütünlüğünü, kaynak sapmasını ve proof durumunu döndürür.
-    Bu kontrol kriptografik ZK/ledger doğrulaması değildir.
+    Saklanan proof'u ve güncel Preview işlem durumunu kontrol eder.
+    Kaynak doğrulaması ancak iki güvenilir bağımsız imzayla geçerlidir.
     """
     shift = await db.scalar(_shift_query_for_user(current_user).where(Shift.id == shift_id))
     if shift is None:
@@ -674,17 +674,45 @@ async def verify_zk_proof(
     if shift.zk_source_snapshot_hash != current_source_hash:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Proof üretiminden sonra işlem veya kapanış verileri değişmiş")
 
+    from app.models.zk_preview_handoff import ZKPreviewHandoff
+    from app.api.zk_preview import _matching_preview_receipt
+    from app.services.zk_preview import PreviewHandoffError
+    from app.services.zk_attestation import public_statement, verify_dual_attestation
+
+    handoff = await db.scalar(select(ZKPreviewHandoff).where(ZKPreviewHandoff.shift_id == shift.id))
+    ledger_verified = False
+    source_authenticated = False
+    if (handoff is not None and getattr(handoff, "submitted_tx_id", None)
+        and handoff.proof_hash == shift.zk_proof_hash
+        and handoff.source_snapshot_hash == current_source_hash):
+        try:
+            observed = await _matching_preview_receipt(shift, handoff, handoff.submitted_tx_id)
+            ledger_verified = (observed.get("txHash") == handoff.tx_hash
+                and observed.get("blockHash") == handoff.block_hash
+                and observed.get("blockHeight") == handoff.block_height)
+        except PreviewHandoffError:
+            pass
+        if ledger_verified and handoff.attested_at is not None:
+            fingerprints = verify_dual_attestation(
+                public_statement(shift, handoff),
+                handoff.source_signature or "", handoff.manager_signature or "",
+                str(shift.station_id),
+            )
+            source_authenticated = (fingerprints is not None
+                and fingerprints == (handoff.source_key_fingerprint, handoff.manager_key_fingerprint))
+
     return ZKVerificationResponse(
         shift_id=shift.id,
-        proof_status="proved",
+        proof_status="verified" if source_authenticated else "proved",
         proof_integrity_valid=True,
         source_snapshot_consistent=True,
-        ledger_verified=False,
+        ledger_verified=ledger_verified,
+        source_authenticated=source_authenticated,
         public_class=shift.zk_reconciliation_class or "matched",
         tolerance_tl=Decimal(str(shift.zk_tolerance if shift.zk_tolerance is not None else DEFAULT_TOLERANCE)),
         shift_context_digest=shift.zk_commitment,
         financial_commitment=financial_commitment,
         proof_hash=shift.zk_proof_hash,
         proved_at=shift.zk_proved_at,
-        verified_at=None,
+        verified_at=handoff.attested_at if source_authenticated else None,
     )

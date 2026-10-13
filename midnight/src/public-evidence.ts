@@ -36,6 +36,7 @@ export async function verifyPublicReconciliationEvidence(
   if (!(trusted.verifierKey instanceof Uint8Array) || !trusted.verifierKey.byteLength
     || createHash('sha256').update(trusted.verifierKey).digest('hex') !== trusted.verifierKeySha256) return null;
   if (signed.network !== trusted.network
+    || signed.txId !== evidence.txId
     || signed.contractAddress !== trusted.contractAddress
     || signed.verifierKeySha256 !== trusted.verifierKeySha256) return null;
   if (!verifyDualAttestation(signed, evidence.signatures, trusted.sourcePublicKeyPem, trusted.managerPublicKeyPem)) {
