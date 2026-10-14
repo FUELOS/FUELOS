@@ -2,8 +2,8 @@
  * FuelOS — Yeni Akaryakıt Satış & Pompa Otomasyon Fişi Girişi
  * - %100 Akaryakıt Odaklı (Market/Diğer kaldırıldı)
  * - Personel RFID Kartı Tek Tıkla Seçimi (Dropdown kaldırıldı)
- * - İstasyon Pompa Seçimi (API'den: o istasyonun aktif pompaları; zorunlu)
- * - Seçilen pompanın satabildiği yakıt türleriyle sınırlı yakıt seçimi
+ * - Tüm aktif pompaları kapsayan satış kaydı
+ * - Aktif pompalarda satılan yakıt türleriyle sınırlı yakıt seçimi
  * - Ödeme Yöntemi (Varsayılan: Nakit - Kart çekilmediyse otomatik nakit sayılır)
  */
 
@@ -57,6 +57,7 @@ const FUEL_TYPES = [
   { name: "Motorin (Dizel)", priceApprox: 45.2, matches: ["Motorin"] },
   { name: "Otogaz (LPG)", priceApprox: 25.8, matches: ["LPG", "Otogaz"] },
 ];
+const ALL_PUMPS = "all";
 
 // Pompanın fuel_types alanındaki kısa isimden formdaki yakıt seçeneğini bul
 const fuelOptionForPumpFuel = (pumpFuel: string): typeof FUEL_TYPES[number] | undefined =>
@@ -81,16 +82,14 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Seçili pompanın satabildiği yakıt seçenekleri
+  // Tüm pompalar seçiliyken, istasyondaki aktif pompaların yakıt seçeneklerini birleştir.
   const selectedPump = pumps.find((p) => p.id === selectedPumpId);
-  const availableFuelOptions = selectedPump
-    ? selectedPump.fuel_types
-        .split(",")
-        .map((f) => f.trim())
-        .filter(Boolean)
-        .map(fuelOptionForPumpFuel)
-        .filter((f): f is NonNullable<typeof f> => Boolean(f))
-    : [];
+  const availableFuelOptions = (selectedPumpId === ALL_PUMPS
+    ? [...new Set(pumps.flatMap((pump) => pump.fuel_types.split(",").map((fuel) => fuel.trim()).filter(Boolean)))]
+    : selectedPump?.fuel_types.split(",").map((fuel) => fuel.trim()).filter(Boolean) || []
+  )
+    .map(fuelOptionForPumpFuel)
+    .filter((fuel): fuel is NonNullable<typeof fuel> => Boolean(fuel));
 
   // Seçili vardiyanın istasyonunun aktif pompalarını çek
   useEffect(() => {
@@ -104,8 +103,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       .get<PumpOption[]>(`/pumps/station/${stationId}`)
       .then((res) => {
         setPumps(res.data);
-        // Önceki seçim geçersizse sıfırla; varsayılan olarak ilk pompa seçili gelir
-        setSelectedPumpId((prev) => (res.data.some((p) => p.id === prev) ? prev : res.data[0]?.id || ""));
+        setSelectedPumpId(res.data.length > 0 ? ALL_PUMPS : "");
       })
       .catch(() => {
         setPumps([]);
@@ -113,7 +111,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       });
   }, [selectedShiftId, activeShifts]);
 
-  // Pompa değişince yakıt türü o pompanın satabildiği yakıtla sınırlanır
+  // Pompa kapsamı değişince yakıt türü güncel kapsamın satabildiği yakıtlarla sınırlanır.
   useEffect(() => {
     if (availableFuelOptions.length > 0 && !availableFuelOptions.some((f) => f.name === fuelType)) {
       setFuelType(availableFuelOptions[0].name);
@@ -180,7 +178,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       return;
     }
 
-    // Akaryakıt satışında pompa seçimi zorunlu
+    // Tüm pompalar seçeneği de aktif pompalar yüklendikten sonra geçerlidir.
     if (!selectedPumpId) {
       setError(language === "tr" ? "Dolum yapılan pompa seçimi zorunludur" : "A dispensing pump must be selected");
       return;
@@ -196,7 +194,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       amount: parsedAmount,
       liters: parsedLiters,
       fuel_type: fuelType,
-      pump_id: selectedPumpId,
+      pump_id: selectedPumpId === ALL_PUMPS ? null : selectedPumpId,
       description: descParts.length > 0 ? descParts.join(" - ") : null,
     };
 
@@ -305,26 +303,23 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   : "No active pumps found for this station. Please define a pump before recording sales."}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {pumps.map((pump) => (
-                  <button
-                    key={pump.id}
-                    type="button"
-                    onClick={() => setSelectedPumpId(pump.id)}
-                    className={`py-2 px-2 rounded-xl border text-xs font-bold transition text-center ${
-                      selectedPumpId === pump.id
-                        ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 shadow-sm"
-                        : "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:border-slate-300"
-                    }`}
-                  >
-                    {pump.label}
-                  </button>
-                ))}
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPumpId(ALL_PUMPS)}
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition text-center ${
+                    selectedPumpId === ALL_PUMPS
+                      ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 shadow-sm"
+                      : "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                  }`}
+                >
+                  {t("modal.all_pumps")}
+                </button>
               </div>
             )}
           </div>
 
-          {/* ── 3. YAKIT TÜRÜ (Seçili pompanın satabildiği yakıtlarla sınırlı) ── */}
+          {/* ── 3. YAKIT TÜRÜ (Aktif pompaların satabildiği yakıtlarla sınırlı) ── */}
           <div>
             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
               {t("modal.fuel_type")}

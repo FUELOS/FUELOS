@@ -19,7 +19,7 @@ class TransactionCreate(BaseModel):
     amount: Decimal
     liters: Decimal | None = None
     fuel_type: str | None = None
-    pump_id: uuid.UUID | None = None  # Akaryakıt satışlarında zorunlu (API katmanında doğrulanır)
+    pump_id: uuid.UUID | None = None  # None ise satış tüm aktif pompalar kapsamında kaydedilir
     description: str | None = None
     transaction_time: datetime | None = None  # None ise sunucu zamanı kullanılır
 

@@ -99,44 +99,64 @@ async def create_transaction(
 
     # ── Pompa doğrulamaları (UI'a güvenilmez) ──
     if data.type == TransactionType.FUEL:
-        # Akaryakıt satışında pompa zorunludur.
-        if data.pump_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Akaryakıt satışında pompa seçimi zorunludur",
-            )
-
-        pump_result = await db.execute(select(Pump).where(Pump.id == data.pump_id))
-        pump = pump_result.scalar_one_or_none()
-        if pump is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Pompa bulunamadı",
-            )
-        # Pompa, satışın yapıldığı vardiyanın istasyonuna ait olmalı.
-        # (İstasyon müdürü için vardiyanın istasyonu oturumdan zorlandığından,
-        # yalnızca kendi istasyonunun pompalarıyla satış kaydedebilir.)
-        if pump.station_id != shift.station_id:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Pompa bu vardiyanın istasyonuna ait değil",
-            )
-        if not pump.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Pompa aktif değil",
-            )
-        pump_fuels = [f.strip() for f in (pump.fuel_types or "").split(",") if f.strip()]
         fuel = (data.fuel_type or "").strip()
-        # Önce birebir eşleşme, sonra alt-dizi toleransı (pompa "Motorin" derken
-        # satış kaydı "Motorin (Dizel)" gibi uzun ad kullanabilir).
-        fuel_matches = fuel in pump_fuels or any(
-            pf.lower() in fuel.lower() for pf in pump_fuels
-        )
+        if data.pump_id is not None:
+            pump_result = await db.execute(select(Pump).where(Pump.id == data.pump_id))
+            pump = pump_result.scalar_one_or_none()
+            if pump is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Pompa bulunamadı",
+                )
+            # Pompa, satışın yapıldığı vardiyanın istasyonuna ait olmalı.
+            if pump.station_id != shift.station_id:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Pompa bu vardiyanın istasyonuna ait değil",
+                )
+            if not pump.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Pompa aktif değil",
+                )
+            pump_fuels = [f.strip() for f in (pump.fuel_types or "").split(",") if f.strip()]
+            # Önce birebir eşleşme, sonra alt-dizi toleransı (pompa "Motorin" derken
+            # satış kaydı "Motorin (Dizel)" gibi uzun ad kullanabilir).
+            fuel_matches = fuel in pump_fuels or any(
+                pf.lower() in fuel.lower() for pf in pump_fuels
+            )
+        else:
+            # Pompa belirtilmediyse satış tüm aktif pompalar kapsamında kaydedilir.
+            pumps_result = await db.execute(
+                select(Pump).where(
+                    Pump.station_id == shift.station_id,
+                    Pump.is_active.is_(True),
+                )
+            )
+            station_pumps = pumps_result.scalars().all()
+            fuel_matches = any(
+                fuel in supported_fuels
+                or any(supported_fuel.lower() in fuel.lower() for supported_fuel in supported_fuels)
+                for supported_fuels in (
+                    [f.strip() for f in pump.fuel_types.split(",") if f.strip()]
+                    for pump in station_pumps
+                )
+            )
+            if not station_pumps:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Bu istasyonda aktif pompa bulunmuyor",
+                )
+
         if not fuel_matches:
+            detail = (
+                "Bu istasyondaki aktif pompalar seçilen yakıt türünü satmıyor"
+                if data.pump_id is None
+                else f"Bu pompa seçilen yakıt türünü satmıyor (pompanın yakıtları: {', '.join(pump_fuels)})"
+            )
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Bu pompa seçilen yakıt türünü satmıyor (pompanın yakıtları: {', '.join(pump_fuels)})",
+                detail=detail,
             )
     elif data.pump_id is not None:
         # Pompa bilgisi yalnızca akaryakıt satışlarında geçerlidir.

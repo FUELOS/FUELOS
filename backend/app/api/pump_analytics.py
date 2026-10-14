@@ -7,7 +7,7 @@ FuelOS — Pompa Satış Analizi API.
   oturumdaki kullanıcıdan zorlanır; istekten farklı bir istasyon gelirse 403).
 - SuperAdmin tüm istasyonları sorgulayabilir. Cashier bu raporlara erişemez.
 - Gün sınırları Türkiye saat dilimine (UTC+3) göre hesaplanır.
-- pump_id'si NULL olan eski satışlar pompa analizine dahil edilmez.
+- Belirli bir pompa seçilmeden kaydedilen satışlar pompa analizine dahil edilmez.
 - Toplamlar veritabanında GROUP BY ile hesaplanır; para/litre Decimal olarak döner.
 """
 

@@ -70,7 +70,7 @@ class Transaction(Base):
         ForeignKey("pumps.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
-        comment="Hangi pompadan (yalnızca akaryakıt satışlarında; market/diğer satışlarda NULL)",
+        comment="Satışın pompası (belirli pompa yoksa NULL; market/diğer satışlarda da NULL)",
     )
     type: Mapped[TransactionType] = mapped_column(
         SAEnum(TransactionType, name="transaction_type", values_callable=lambda x: [e.value for e in x], create_constraint=True),

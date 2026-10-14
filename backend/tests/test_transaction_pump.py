@@ -2,7 +2,7 @@
 FuelOS — Satış kaydı pompa doğrulama testleri (pump_id).
 
 Kapsam:
-- Akaryakıt satışında pump_id zorunluluğu.
+- Akaryakıt satışında belirli pompa veya tüm pompalar kapsamında kayıt.
 - Pompanın satış istasyonuna ait olması.
 - Pompanın aktif olması.
 - Pompanın seçilen yakıt türünü satması.
@@ -63,6 +63,15 @@ async def setup_fixtures(client: AsyncClient, admin_headers: dict) -> dict:
     })
     assert pump_res.status_code in (200, 201), f"Pompa oluşturulamadı: {pump_res.text}"
     pump = pump_res.json()
+
+    # İkinci aktif pompa, tüm-pompalar yakıt doğrulaması için kullanılır.
+    all_pumps_res = await client.post("/api/pumps/", headers=admin_headers, json={
+        "station_id": station["id"],
+        "pump_number": 3,
+        "label": "Pompa 3",
+        "fuel_types": "Otogaz",
+    })
+    assert all_pumps_res.status_code in (200, 201), f"Pompa 3 oluşturulamadı: {all_pumps_res.text}"
 
     # Diğer istasyona pompa
     other_pump_res = await client.post("/api/pumps/", headers=admin_headers, json={
@@ -164,69 +173,76 @@ async def run_tests() -> None:
         fx = await setup_fixtures(client, admin_headers)
         passed = 0
 
-        # 1) Akaryakıt satışında pump_id zorunlu
+        # 1) Tüm pompalar kapsamında pompa belirtilmeden satış kaydedilebilmeli
         res = await client.post("/api/transactions", headers=fx["cashier_headers"],
-                                json=fuel_payload(fx, pump_id=None))
-        assert res.status_code == 422, f"Beklenen 422, gelen {res.status_code}: {res.text}"
-        assert "pompa" in res.json()["detail"].lower()
-        print("✅ 1. Akaryakıt satışında pump_id zorunlu (422)")
+                                json=fuel_payload(fx, pump_id=None, fuel_type="Otogaz (LPG)"))
+        assert res.status_code == 201, f"Beklenen 201, gelen {res.status_code}: {res.text}"
+        assert res.json()["pump_id"] is None and res.json()["pump_label"] is None
+        print("✅ 1. Tüm pompalar kapsamında satış pompa numarası olmadan kaydedildi")
         passed += 1
 
-        # 2) Başka istasyonun pompası reddedilmeli
+        # 2) Tüm aktif pompaların desteklemediği yakıt reddedilmeli
+        res = await client.post("/api/transactions", headers=fx["cashier_headers"],
+                                json=fuel_payload(fx, pump_id=None, fuel_type="AdBlue"))
+        assert res.status_code == 422, f"Beklenen 422, gelen {res.status_code}: {res.text}"
+        print("✅ 2. Hiçbir aktif pompanın satmadığı yakıt → 422")
+        passed += 1
+
+        # 3) Başka istasyonun pompası reddedilmeli
         res = await client.post("/api/transactions", headers=fx["cashier_headers"],
                                 json=fuel_payload(fx, pump_id=fx["other_pump"]["id"]))
         assert res.status_code == 422, f"Beklenen 422, gelen {res.status_code}: {res.text}"
-        print("✅ 2. Pompa başka istasyona ait → 422")
+        print("✅ 3. Pompa başka istasyona ait → 422")
         passed += 1
 
-        # 3) Aktif olmayan pompa reddedilmeli
+        # 4) Aktif olmayan pompa reddedilmeli
         res = await client.post("/api/transactions", headers=fx["cashier_headers"],
                                 json=fuel_payload(fx, pump_id=fx["inactive_pump"]["id"]))
         assert res.status_code == 422, f"Beklenen 422, gelen {res.status_code}: {res.text}"
-        print("✅ 3. Pompa aktif değil → 422")
+        print("✅ 4. Pompa aktif değil → 422")
         passed += 1
 
-        # 4) Pompanın satmadığı yakıt türü reddedilmeli
+        # 5) Pompanın satmadığı yakıt türü reddedilmeli
         res = await client.post("/api/transactions", headers=fx["cashier_headers"],
                                 json=fuel_payload(fx, fuel_type="Otogaz (LPG)"))
         assert res.status_code == 422, f"Beklenen 422, gelen {res.status_code}: {res.text}"
-        print("✅ 4. Pompa seçilen yakıtı satmıyor → 422")
+        print("✅ 5. Pompa seçilen yakıtı satmıyor → 422")
         passed += 1
 
-        # 5) Market satışında pump_id gönderilirse reddedilmeli
+        # 6) Market satışında pump_id gönderilirse reddedilmeli
         res = await client.post("/api/transactions", headers=fx["cashier_headers"],
                                 json=fuel_payload(fx, type="market", pump_id=fx["pump"]["id"]))
         assert res.status_code == 422, f"Beklenen 422, gelen {res.status_code}: {res.text}"
-        print("✅ 5. Market satışında pump_id gönderilirse → 422")
+        print("✅ 6. Market satışında pump_id gönderilirse → 422")
         passed += 1
 
-        # 6) Market satışı pump olmadan başarili olmalı (pump_id null)
+        # 7) Market satışı pump olmadan başarili olmalı (pump_id null)
         res = await client.post("/api/transactions", headers=fx["cashier_headers"],
                                 json=fuel_payload(fx, type="market", pump_id=None, liters=None, fuel_type=None))
         assert res.status_code == 201, f"Beklenen 201, gelen {res.status_code}: {res.text}"
         body = res.json()
         assert body["pump_id"] is None and (body.get("pump_label") is None)
-        print("✅ 6. Market satışı pump'sız → 201, pump_id=null")
+        print("✅ 7. Market satışı pump'sız → 201, pump_id=null")
         passed += 1
 
-        # 7) Geçerli akaryakıt satışı: pump_id kaydedilmeli ve yanıtta pompa etiketi dönmeli
+        # 8) Geçerli akaryakıt satışı: pump_id kaydedilmeli ve yanıtta pompa etiketi dönmeli
         res = await client.post("/api/transactions", headers=fx["cashier_headers"],
                                 json=fuel_payload(fx))
         assert res.status_code == 201, f"Beklenen 201, gelen {res.status_code}: {res.text}"
         body = res.json()
         assert body["pump_id"] == fx["pump"]["id"], f"pump_id kaydedilmedi: {body}"
         assert body["pump_label"] == "Pompa 1", f"pump_label dönmedi: {body}"
-        print("✅ 7. Geçerli akaryakıt satışı → 201, pump_id + pump_label doğru")
+        print("✅ 8. Geçerli akaryakıt satışı → 201, pump_id + pump_label doğru")
         passed += 1
 
-        # 8) Liste endpoint'i pump_label döndürmeli
+        # 9) Liste endpoint'i pump_label döndürmeli
         res = await client.get("/api/transactions", headers=fx["cashier_headers"])
         assert res.status_code == 200
         items = res.json()
         fuel_items = [i for i in items if i["type"] == "fuel"]
         assert len(fuel_items) > 0, "Listede akaryakıt satışı bulunamadı"
         assert all("pump_label" in i for i in fuel_items), "Liste öğelerinde pump_label yok"
-        print("✅ 8. GET /api/transactions yanıtında pump_label alanı mevcut")
+        print("✅ 9. GET /api/transactions yanıtında pump_label alanı mevcut")
         passed += 1
 
     print("\n" + "=" * 60)
