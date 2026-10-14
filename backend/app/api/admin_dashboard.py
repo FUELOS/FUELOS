@@ -4,17 +4,18 @@ Tüm istasyonların anlık durumu, aktif vardiyalar, gelir özeti.
 """
 from datetime import datetime, timezone
 from typing import List
+from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_current_user, require_role
 from app.models.user import User
 from app.models.station import Station
 from app.models.shift import Shift
 from app.models.transaction import Transaction
-from app.models.base import ShiftStatus
+from app.models.base import ShiftStatus, UserRole
 
 router = APIRouter(prefix="/api/admin", tags=["SuperAdmin Dashboard"])
 
@@ -48,12 +49,17 @@ class AdminDashboardResponse(BaseModel):
 @router.get("/dashboard", response_model=AdminDashboardResponse)
 async def get_admin_dashboard(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role(UserRole.SUPER_ADMIN)),
 ):
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    tr_tz = ZoneInfo("Europe/Istanbul")
+    tr_now = datetime.now(tr_tz)
+    tr_start_dt = datetime(tr_now.year, tr_now.month, tr_now.day, 0, 0, 0, tzinfo=tr_tz)
+    today_start = tr_start_dt.astimezone(timezone.utc)
 
-    # Tüm istasyonları al
-    stations_result = await db.execute(select(Station))
+    # Şirkete ait tüm istasyonları al
+    stations_result = await db.execute(
+        select(Station).where(Station.company_id == current_user.company_id)
+    )
     stations = stations_result.scalars().all()
 
     station_summaries = []

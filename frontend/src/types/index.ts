@@ -103,6 +103,7 @@ export interface WorkerShiftStats {
   cash_sales: string | number;
   pos_sales: string | number;
   fast_sales: string | number;
+  veresiye_sales: string | number;
   total_sales: string | number;
 }
 
@@ -113,6 +114,7 @@ export interface ProductBreakdownItem {
   cash_sales: string | number;
   pos_sales: string | number;
   fast_sales: string | number;
+  veresiye_sales: string | number;
   total_sales: string | number;
   share_percent: number;
 }
@@ -127,10 +129,12 @@ export interface DashboardResponse {
   total_cash_sales: string | number;
   total_pos_sales: string | number;
   total_fast_sales: string | number;
+  total_veresiye_sales: string | number;
   total_dispensed_liters: string | number;
   total_sales_revenue: string | number;
   expected_cash: string | number;
   reconciliation_completed: boolean;
+  reconciliation_status: 'completed' | 'in_progress' | 'not_started';
   active_workers: WorkerShiftStats[];
   product_breakdown: ProductBreakdownItem[];
   total_stations: number;

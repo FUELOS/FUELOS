@@ -1,6 +1,6 @@
 """
 FuelOS — Pump API.
-İstasyona bağlı pompa yönetimi.
+İstasyona bağlı pompa yönetimi (Role & Multi-tenant korumalı).
 """
 from typing import List
 import uuid
@@ -13,6 +13,7 @@ from app.auth.dependencies import get_current_user
 from app.models.user import User
 from app.models.pump import Pump
 from app.models.station import Station
+from app.models.base import UserRole
 
 router = APIRouter(prefix="/api/pumps", tags=["Pompalar"])
 
@@ -42,6 +43,21 @@ async def get_pumps_by_station(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # İstasyon şirket kontrolü
+    st_res = await db.execute(
+        select(Station).where(
+            Station.id == uuid.UUID(station_id),
+            Station.company_id == current_user.company_id,
+        )
+    )
+    station = st_res.scalar_one_or_none()
+    if not station:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="İstasyon bulunamadı veya erişim yetkiniz yok")
+
+    if current_user.role in (UserRole.STATION_MANAGER, UserRole.CASHIER):
+        if str(current_user.station_id) != str(station_id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Yalnızca kendi istasyonunuzun pompalarını görebilirsiniz")
+
     result = await db.execute(
         select(Pump)
         .where(Pump.station_id == uuid.UUID(station_id), Pump.is_active == True)
@@ -67,6 +83,23 @@ async def create_pump(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Yalnızca SuperAdmin ve İstasyon Müdürü pompa oluşturabilir
+    if current_user.role not in (UserRole.SUPER_ADMIN, UserRole.STATION_MANAGER):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Pompa ekleme yetkiniz bulunmamaktadır")
+
+    st_res = await db.execute(
+        select(Station).where(
+            Station.id == uuid.UUID(data.station_id),
+            Station.company_id == current_user.company_id,
+        )
+    )
+    station = st_res.scalar_one_or_none()
+    if not station:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="İstasyon bulunamadı veya şirketinizle uyuşmuyor")
+
+    if current_user.role == UserRole.STATION_MANAGER and str(current_user.station_id) != str(data.station_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Yalnızca kendi istasyonunuza pompa ekleyebilirsiniz")
+
     pump = Pump(
         station_id=uuid.UUID(data.station_id),
         pump_number=data.pump_number,
@@ -92,10 +125,23 @@ async def delete_pump(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(Pump).where(Pump.id == uuid.UUID(pump_id)))
-    pump = result.scalar_one_or_none()
-    if not pump:
-        raise HTTPException(status_code=404, detail="Pompa bulunamadı")
+    # Yalnızca SuperAdmin ve İstasyon Müdürü pompa silebilir
+    if current_user.role not in (UserRole.SUPER_ADMIN, UserRole.STATION_MANAGER):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Pompa silme yetkiniz bulunmamaktadır")
+
+    result = await db.execute(
+        select(Pump, Station)
+        .join(Station, Pump.station_id == Station.id)
+        .where(Pump.id == uuid.UUID(pump_id), Station.company_id == current_user.company_id)
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pompa bulunamadı veya erişim yetkiniz yok")
+
+    pump, station = row
+    if current_user.role == UserRole.STATION_MANAGER and str(current_user.station_id) != str(station.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Yalnızca kendi istasyonunuzdaki pompayı silebilirsiniz")
+
     pump.is_active = False
     await db.commit()
     return {"message": "Pompa deaktif edildi"}

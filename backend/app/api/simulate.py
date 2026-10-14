@@ -16,9 +16,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.auth.dependencies import get_current_user
 from app.models.user import User
+from app.models.station import Station
 from app.models.shift import Shift
 from app.models.transaction import Transaction
-from app.models.base import ShiftStatus, TransactionType, PaymentMethod
+from app.models.base import ShiftStatus, TransactionType, PaymentMethod, UserRole
 
 router = APIRouter(prefix="/api/simulate", tags=["Simülatör"])
 
@@ -96,18 +97,27 @@ async def simulate_pos_payment(
     Sanal POS ödeme simülasyonu (pos-sim mantığı).
     Banka yetkilendirme kodu üretir → vardiyaya credit_card transaction ekler.
     """
-    # 1. Vardiyayı bul
+    # 1. Vardiyayı bul ve şirket/istasyon sahipliğini doğrula
     result = await db.execute(
-        select(Shift).where(
+        select(Shift, Station)
+        .join(Station, Shift.station_id == Station.id)
+        .where(
             Shift.id == uuid.UUID(req.shift_id),
             Shift.status == ShiftStatus.OPEN,
+            Station.company_id == current_user.company_id,
         )
     )
-    shift = result.scalar_one_or_none()
-    if not shift:
+    row = result.first()
+    if not row:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Açık vardiya bulunamadı veya vardiya zaten kapatılmış.",
+            detail="Açık vardiya bulunamadı, kapatılmış veya şirketinizle uyuşmuyor.",
+        )
+    shift, station = row
+    if current_user.role in (UserRole.STATION_MANAGER, UserRole.CASHIER) and str(current_user.station_id) != str(shift.station_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Yalnızca kendi istasyonunuzun açık vardiyasına satış simülasyonu yapabilirsiniz.",
         )
 
     # 2. Sanal banka simülasyonu — pos-sim mantığı
@@ -155,18 +165,27 @@ async def simulate_qr_fast_payment(
     Sanal QR/FAST ödeme simülasyonu (qris_simulator mantığı).
     QR kodu üretildi → webhook onayı simüle edilir → vardiyaya EFT transaction ekler.
     """
-    # 1. Vardiyayı bul
+    # 1. Vardiyayı bul ve şirket/istasyon sahipliğini doğrula
     result = await db.execute(
-        select(Shift).where(
+        select(Shift, Station)
+        .join(Station, Shift.station_id == Station.id)
+        .where(
             Shift.id == uuid.UUID(req.shift_id),
             Shift.status == ShiftStatus.OPEN,
+            Station.company_id == current_user.company_id,
         )
     )
-    shift = result.scalar_one_or_none()
-    if not shift:
+    row = result.first()
+    if not row:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Açık vardiya bulunamadı veya vardiya zaten kapatılmış.",
+            detail="Açık vardiya bulunamadı, kapatılmış veya şirketinizle uyuşmuyor.",
+        )
+    shift, station = row
+    if current_user.role in (UserRole.STATION_MANAGER, UserRole.CASHIER) and str(current_user.station_id) != str(shift.station_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Yalnızca kendi istasyonunuzun açık vardiyasına satış simülasyonu yapabilirsiniz.",
         )
 
     # 2. Sanal FAST/QR simülasyonu — qris_simulator mantığı

@@ -4,7 +4,7 @@ FuelOS — İstasyon Detay API.
 """
 from datetime import datetime, timezone
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,7 +15,7 @@ from app.models.user import User
 from app.models.station import Station
 from app.models.shift import Shift
 from app.models.transaction import Transaction
-from app.models.base import ShiftStatus
+from app.models.base import ShiftStatus, UserRole
 
 router = APIRouter(prefix="/api/station-detail", tags=["İstasyon Detay"])
 
@@ -55,13 +55,19 @@ async def get_station_detail(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # İstasyon
+    # İstasyon şirket kontrolü
     station_result = await db.execute(
-        select(Station).where(Station.id == uuid.UUID(station_id))
+        select(Station).where(
+            Station.id == uuid.UUID(station_id),
+            Station.company_id == current_user.company_id,
+        )
     )
     station = station_result.scalar_one_or_none()
     if not station:
-        raise HTTPException(status_code=404, detail="İstasyon bulunamadı")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="İstasyon bulunamadı veya şirketinizle uyuşmuyor")
+
+    if current_user.role in (UserRole.STATION_MANAGER, UserRole.CASHIER) and str(current_user.station_id) != str(station_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Yalnızca kendi istasyonunuzun detaylarını görebilirsiniz")
 
     # Bugün açık vardiyalar
     shifts_result = await db.execute(

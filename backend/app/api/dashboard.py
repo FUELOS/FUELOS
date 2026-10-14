@@ -9,6 +9,7 @@ Görsel 1 ve Görsel 2 Akıllı Vardiya Mutabakatı verilerini döndürür:
 import uuid
 from datetime import datetime, timezone, date
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, func, and_, cast, Date, case
@@ -48,6 +49,7 @@ class WorkerShiftStats(BaseModel):
     cash_sales: Decimal = Decimal("0.00")
     pos_sales: Decimal = Decimal("0.00")
     fast_sales: Decimal = Decimal("0.00")
+    veresiye_sales: Decimal = Decimal("0.00")
     total_sales: Decimal = Decimal("0.00")
 
     model_config = {"from_attributes": True}
@@ -60,6 +62,7 @@ class ProductBreakdownItem(BaseModel):
     cash_sales: Decimal = Decimal("0.00")
     pos_sales: Decimal = Decimal("0.00")
     fast_sales: Decimal = Decimal("0.00")
+    veresiye_sales: Decimal = Decimal("0.00")
     total_sales: Decimal = Decimal("0.00")
     share_percent: float = 0.0
 
@@ -77,12 +80,14 @@ class DashboardResponse(BaseModel):
     total_cash_sales: Decimal = Decimal("0.00")
     total_pos_sales: Decimal = Decimal("0.00")
     total_fast_sales: Decimal = Decimal("0.00")
+    total_veresiye_sales: Decimal = Decimal("0.00")
     total_dispensed_liters: Decimal = Decimal("0.00")
     total_sales_revenue: Decimal = Decimal("0.00")
 
     # Kasa Eşitleme
     expected_cash: Decimal = Decimal("0.00")
-    reconciliation_completed: bool = True
+    reconciliation_completed: bool = False
+    reconciliation_status: str = "not_started"  # 'completed', 'in_progress', 'not_started'
 
     # İşçi Bazlı Kartlar (Görsel 1)
     active_workers: list[WorkerShiftStats] = []
@@ -105,7 +110,11 @@ async def get_dashboard(
     FuelOS Akıllı Vardiya Mutabakatı verileri.
     İşçi kartları, toplam satışlar, ürün kırılımı ve kasa dengesi.
     """
-    today = datetime.now(timezone.utc).date()
+    # ── Türkiye Yerel Saati (Europe/Istanbul UTC+3) ──
+    tr_tz = ZoneInfo("Europe/Istanbul")
+    tr_now = datetime.now(tr_tz)
+    tr_start_dt = datetime(tr_now.year, tr_now.month, tr_now.day, 0, 0, 0, tzinfo=tr_tz)
+    today_start_utc = tr_start_dt.astimezone(timezone.utc)
 
     # ── İstasyon Filtresi ──
     if current_user.role == UserRole.SUPER_ADMIN:
@@ -166,6 +175,7 @@ async def get_dashboard(
             "cash_sales": Decimal("0.00"),
             "pos_sales": Decimal("0.00"),
             "fast_sales": Decimal("0.00"),
+            "veresiye_sales": Decimal("0.00"),
             "total_sales": Decimal("0.00"),
         }
 
@@ -185,6 +195,9 @@ async def get_dashboard(
                 func.coalesce(
                     func.sum(case((Transaction.payment_method == PaymentMethod.EFT, Transaction.amount), else_=0)), 0
                 ).label("fast"),
+                func.coalesce(
+                    func.sum(case((Transaction.payment_method == PaymentMethod.VERESIYE, Transaction.amount), else_=0)), 0
+                ).label("veresiye"),
             )
             .where(Transaction.shift_id.in_(active_shift_ids))
             .group_by(Transaction.shift_id)
@@ -197,6 +210,7 @@ async def get_dashboard(
                 worker_stats_map[tx_row.shift_id]["cash_sales"] = Decimal(str(tx_row.cash))
                 worker_stats_map[tx_row.shift_id]["pos_sales"] = Decimal(str(tx_row.pos))
                 worker_stats_map[tx_row.shift_id]["fast_sales"] = Decimal(str(tx_row.fast))
+                worker_stats_map[tx_row.shift_id]["veresiye_sales"] = Decimal(str(tx_row.veresiye))
 
     worker_list = [WorkerShiftStats(**data) for data in worker_stats_map.values()]
 
@@ -205,14 +219,15 @@ async def get_dashboard(
     total_cash_sales = sum((w.cash_sales for w in worker_list), Decimal("0.00"))
     total_pos_sales = sum((w.pos_sales for w in worker_list), Decimal("0.00"))
     total_fast_sales = sum((w.fast_sales for w in worker_list), Decimal("0.00"))
+    total_veresiye_sales = sum((w.veresiye_sales for w in worker_list), Decimal("0.00"))
     total_liters = sum((w.dispensed_liters for w in worker_list), Decimal("0.00"))
     total_revenue = sum((w.total_sales for w in worker_list), Decimal("0.00"))
 
-    # Eğer açık vardiya yoksa son 24 saatin/günün verisini özetle
+    # Eğer açık vardiya yoksa Türkiye gün başlangıcından itibaren veriyi özetle
     if not worker_list:
         today_filter = and_(
             Transaction.station_id.in_(station_ids_query),
-            cast(Transaction.transaction_time, Date) == today,
+            Transaction.transaction_time >= today_start_utc,
         )
         day_res = await db.execute(
             select(
@@ -227,6 +242,9 @@ async def get_dashboard(
                 func.coalesce(
                     func.sum(case((Transaction.payment_method == PaymentMethod.EFT, Transaction.amount), else_=0)), 0
                 ).label("fast"),
+                func.coalesce(
+                    func.sum(case((Transaction.payment_method == PaymentMethod.VERESIYE, Transaction.amount), else_=0)), 0
+                ).label("veresiye"),
             ).where(today_filter)
         )
         day_row = day_res.one()
@@ -235,6 +253,7 @@ async def get_dashboard(
         total_cash_sales = Decimal(str(day_row.cash))
         total_pos_sales = Decimal(str(day_row.pos))
         total_fast_sales = Decimal(str(day_row.fast))
+        total_veresiye_sales = Decimal(str(day_row.veresiye))
 
     # Beklenen Kasa = Açılış Kasası + Toplam Nakit Satış
     expected_cash = total_opening_cash + total_cash_sales
@@ -244,7 +263,7 @@ async def get_dashboard(
     if active_shift_ids:
         fuel_filter = and_(fuel_filter, Transaction.shift_id.in_(active_shift_ids))
     else:
-        fuel_filter = and_(fuel_filter, cast(Transaction.transaction_time, Date) == today)
+        fuel_filter = and_(fuel_filter, Transaction.transaction_time >= today_start_utc)
 
     prod_res = await db.execute(
         select(
@@ -260,6 +279,9 @@ async def get_dashboard(
             func.coalesce(
                 func.sum(case((Transaction.payment_method == PaymentMethod.EFT, Transaction.amount), else_=0)), 0
             ).label("fast"),
+            func.coalesce(
+                func.sum(case((Transaction.payment_method == PaymentMethod.VERESIYE, Transaction.amount), else_=0)), 0
+            ).label("veresiye"),
         )
         .where(fuel_filter)
         .group_by(Transaction.fuel_type)
@@ -285,6 +307,7 @@ async def get_dashboard(
                 "cash_sales": Decimal("0.00"),
                 "pos_sales": Decimal("0.00"),
                 "fast_sales": Decimal("0.00"),
+                "veresiye_sales": Decimal("0.00"),
                 "total_sales": Decimal("0.00"),
                 "share_percent": 0.0,
             }
@@ -292,6 +315,7 @@ async def get_dashboard(
         prod_map[key]["cash_sales"] += Decimal(str(r.cash))
         prod_map[key]["pos_sales"] += Decimal(str(r.pos))
         prod_map[key]["fast_sales"] += Decimal(str(r.fast))
+        prod_map[key]["veresiye_sales"] += Decimal(str(r.veresiye))
         prod_map[key]["total_sales"] += Decimal(str(r.total))
 
     # Eğer henüz satış yoksa standart kategorileri sıfır değerlerle başlat
@@ -303,6 +327,7 @@ async def get_dashboard(
                 "cash_sales": Decimal("0.00"),
                 "pos_sales": Decimal("0.00"),
                 "fast_sales": Decimal("0.00"),
+                "veresiye_sales": Decimal("0.00"),
                 "total_sales": Decimal("0.00"),
                 "share_percent": 0.0,
             }
@@ -321,8 +346,30 @@ async def get_dashboard(
         select(func.count(User.id)).where(User.company_id == current_user.company_id, User.is_active == True)
     )
 
-    now_utc = datetime.now(timezone.utc)
-    date_formatted = now_utc.strftime("%d %B %Y")
+    # ── 6. Dinamik Vardiya Mutabakat Durumu ──
+    if active_shift_rows:
+        reconciliation_status = "in_progress"
+        reconciliation_completed = False
+    else:
+        closed_today_count = await db.scalar(
+            select(func.count(Shift.id)).where(
+                Shift.station_id.in_(station_ids_query),
+                Shift.status == ShiftStatus.CLOSED,
+                Shift.end_time >= today_start_utc,
+            )
+        )
+        if closed_today_count and closed_today_count > 0:
+            reconciliation_status = "completed"
+            reconciliation_completed = True
+        else:
+            reconciliation_status = "not_started"
+            reconciliation_completed = False
+
+    TURKISH_MONTHS = [
+        "", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+        "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
+    ]
+    date_formatted = f"{tr_now.day} {TURKISH_MONTHS[tr_now.month]} {tr_now.year}"
 
     return DashboardResponse(
         active_station_name=active_st_name,
@@ -333,10 +380,12 @@ async def get_dashboard(
         total_cash_sales=total_cash_sales,
         total_pos_sales=total_pos_sales,
         total_fast_sales=total_fast_sales,
+        total_veresiye_sales=total_veresiye_sales,
         total_dispensed_liters=total_liters,
         total_sales_revenue=total_revenue,
         expected_cash=expected_cash,
-        reconciliation_completed=True,
+        reconciliation_completed=reconciliation_completed,
+        reconciliation_status=reconciliation_status,
         active_workers=worker_list,
         product_breakdown=product_breakdown,
         total_stations=st_count or 0,

@@ -455,6 +455,19 @@ export const Dashboard: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Toplam Veresiye */}
+              <div className="bg-amber-50/70 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-800/40 rounded-2xl p-3.5 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-600 flex items-center justify-center shrink-0">
+                  <Info size={18} />
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-amber-700 dark:text-amber-400">{language === "tr" ? "Veresiye" : "Credit"}</div>
+                  <div className="text-base font-black text-slate-900 dark:text-white mt-0.5">
+                    {formatCurrency(data.total_veresiye_sales)}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -482,24 +495,18 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* ── 3. GENEL TOPLAM & MUTABAKAT FORMÜL ŞERİDİ (Görsel 1) ── */}
+      {/* ── 3. TOPLAM SATIŞ CİROSU FORMÜLÜ ── */}
       <div className="bg-white dark:bg-[#111218] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-4">
         <div>
           <div className="text-base font-black text-slate-900 dark:text-white">{t("summary.general_total")}</div>
-          <div className="text-xs text-slate-400 font-medium">{t("summary.general_sub")}</div>
+          <div className="text-xs text-slate-400 font-medium">
+            {language === "tr" ? "Nakit + POS + FAST + Veresiye = Toplam Satış Cirosu" : "Cash + POS + FAST + Credit = Total Sales Revenue"}
+          </div>
         </div>
 
-        {/* Görsel 1: [Açılış] + [Nakit] + [POS] + [FAST] = [Toplam Satış Tutarı] */}
+        {/* Blok 1: [Nakit] + [POS] + [FAST] + [Veresiye] = [TOPLAM SATIŞ CİROSU] */}
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1">
-            {/* Açılış Kasası */}
-            <div className="bg-slate-50 dark:bg-slate-800/80 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700">
-              <div className="text-xs font-bold text-slate-500 dark:text-slate-400">{t("summary.opening_cash")}</div>
-              <div className="text-lg font-black text-slate-900 dark:text-white mt-1">
-                {formatCurrency(data?.opening_cash)}
-              </div>
-            </div>
-
             {/* Toplam Nakit Satış */}
             <div className="bg-emerald-50/80 dark:bg-emerald-950/20 rounded-2xl p-4 border border-emerald-100 dark:border-emerald-800/40">
               <div className="text-xs font-bold text-emerald-700 dark:text-emerald-400">{t("summary.cash_sales")}</div>
@@ -523,9 +530,19 @@ export const Dashboard: React.FC = () => {
                 {formatCurrency(data?.total_fast_sales)}
               </div>
             </div>
+
+            {/* Toplam Veresiye */}
+            <div className="bg-amber-50/80 dark:bg-amber-950/20 rounded-2xl p-4 border border-amber-100 dark:border-amber-800/40">
+              <div className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                {language === "tr" ? "Veresiye / Alacak" : "Credit Sales"}
+              </div>
+              <div className="text-lg font-black text-amber-600 dark:text-amber-400 mt-1">
+                {formatCurrency(data?.total_veresiye_sales)}
+              </div>
+            </div>
           </div>
 
-          {/* Eşittir ve Büyük Yeşil Toplam Satış Tutarı Kutusu (Görsel 1) */}
+          {/* Toplam Satış Cirosu Kutusu */}
           <div className="bg-emerald-800 dark:bg-emerald-900 text-white rounded-2xl p-5 flex flex-col justify-center min-w-[240px] shadow-lg shadow-emerald-800/20">
             <div className="flex items-center gap-2 text-xs font-bold text-emerald-200 uppercase tracking-wider">
               <BarChart2 size={16} />
@@ -537,6 +554,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
 
       {/* ── 4. KASA DENGE FORMÜLÜ + MUTABAKAT KARTI ── */}
       <div className="space-y-4">
@@ -567,7 +585,7 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Mutabakat Durumu Kartı */}
-        {data?.reconciliation_completed ? (
+        {data?.reconciliation_status === "completed" ? (
           <div className="bg-emerald-50/90 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-lg shadow-emerald-600/30">
@@ -594,7 +612,43 @@ export const Dashboard: React.FC = () => {
               </span>
             </div>
           </div>
-        ) : null}
+        ) : data?.reconciliation_status === "in_progress" ? (
+          <div className="bg-blue-50/90 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-lg shadow-blue-600/30">
+                <Loader2 size={26} className="animate-spin stroke-[2.5]" />
+              </div>
+              <div>
+                <div className="text-base font-black text-blue-900 dark:text-blue-200">
+                  {t("status.active_title")}
+                </div>
+                <p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
+                  {t("status.active_desc")}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+              <span className="text-xs font-bold text-blue-700 dark:text-blue-300">
+                {language === "tr" ? "Canlı" : "Live"}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-3xl p-5 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 flex items-center justify-center shrink-0">
+              <Clock size={26} />
+            </div>
+            <div>
+              <div className="text-base font-black text-slate-700 dark:text-slate-300">
+                {t("status.no_active")}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {t("status.no_active_sub")}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── 5. OPSİYONEL ÜRÜN BAZLI DETAY (Görsel 2: Benzin, Motorin, LPG & Donut Chart) ── */}

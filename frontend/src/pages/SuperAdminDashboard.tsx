@@ -208,7 +208,7 @@ export const SuperAdminDashboard: React.FC = () => {
     },
     {
       label: tr ? "Aylık Lisans Geliri (MRR)" : "Monthly Recurring (MRR)",
-      value: formatCurrency(data?.total_monthly_subscription || 14970),
+      value: formatCurrency(data?.total_monthly_subscription ?? 0),
       sub: tr ? "SaaS abonelik havuzu" : "Active SaaS licenses",
       icon: CreditCard,
       bg: "bg-amber-50/80 dark:bg-[#111218]",
