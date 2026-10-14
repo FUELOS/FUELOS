@@ -347,23 +347,28 @@ async def get_dashboard(
     )
 
     # ── 6. Dinamik Vardiya Mutabakat Durumu ──
-    if active_shift_rows:
-        reconciliation_status = "in_progress"
-        reconciliation_completed = False
-    else:
-        closed_today_count = await db.scalar(
-            select(func.count(Shift.id)).where(
-                Shift.station_id.in_(station_ids_query),
-                Shift.status == ShiftStatus.CLOSED,
-                Shift.end_time >= today_start_utc,
-            )
-        )
-        if closed_today_count and closed_today_count > 0:
-            reconciliation_status = "completed"
-            reconciliation_completed = True
-        else:
-            reconciliation_status = "not_started"
+    try:
+        if active_shift_rows:
+            reconciliation_status = "in_progress"
             reconciliation_completed = False
+        else:
+            closed_today_count = await db.scalar(
+                select(func.count(Shift.id)).where(
+                    Shift.station_id.in_(station_ids_query),
+                    Shift.status == ShiftStatus.CLOSED,
+                    cast(Shift.end_time, Date) == tr_now.date(),
+                )
+            )
+            if closed_today_count and closed_today_count > 0:
+                reconciliation_status = "completed"
+                reconciliation_completed = True
+            else:
+                reconciliation_status = "not_started"
+                reconciliation_completed = False
+    except Exception:
+        # Fallback: açık vardiya varsa in_progress, yoksa not_started
+        reconciliation_status = "in_progress" if active_shift_rows else "not_started"
+        reconciliation_completed = False
 
     TURKISH_MONTHS = [
         "", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
