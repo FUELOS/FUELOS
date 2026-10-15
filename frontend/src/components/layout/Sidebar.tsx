@@ -12,7 +12,6 @@ export const Sidebar: React.FC = () => {
   // SuperAdmin: SaaS platform & şube yönetimi odaklı menü
   const adminNavItems = [
     { to: "/", label: t("nav.system_panel"), icon: LayoutDashboard },
-    { to: "/shifts", label: t("nav.shift"), icon: Clock },
     { to: "/stations", label: t("nav.station"), icon: Building2 },
     { to: "/users", label: t("nav.users"), icon: Users },
     { to: "/settings", label: t("nav.settings"), icon: Settings },

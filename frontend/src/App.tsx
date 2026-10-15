@@ -26,6 +26,12 @@ const RoleBasedHome: React.FC = () => {
   return <Dashboard />;
 };
 
+const RoleBasedShifts: React.FC = () => {
+  const { user } = useAuth();
+  if (user?.role === "super_admin") return <Navigate to="/" replace />;
+  return <ShiftsPage />;
+};
+
 export const App: React.FC = () => {
   return (
     <BrowserRouter>
@@ -41,7 +47,7 @@ export const App: React.FC = () => {
                   <Route path="/" element={<RoleBasedHome />} />
 
                   {/* Vardiya listesi ve Midnight ZK işlemleri */}
-                  <Route path="/shifts" element={<ShiftsPage />} />
+                  <Route path="/shifts" element={<RoleBasedShifts />} />
 
                   {/* Diğer sayfalar */}
                   <Route path="/transactions" element={<TransactionsPage />} />

@@ -25,6 +25,16 @@ class Settings(BaseSettings):
     # App
     APP_NAME: str = "FuelOS"
     DEBUG: bool = False
+    FRONTEND_URL: str = "http://localhost:5173"
+
+    # Password recovery email (configure through the backend environment)
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_USE_TLS: bool = True
+    SMTP_USE_SSL: bool = False
 
     model_config = {
         "env_file": ".env",

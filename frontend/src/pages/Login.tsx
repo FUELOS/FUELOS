@@ -1,29 +1,69 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { Fuel, Lock, Mail, AlertCircle, Loader2, ArrowRight } from "lucide-react";
+import { apiClient } from "@/lib/api";
+import { Fuel, Lock, Mail, AlertCircle, Loader2, ArrowRight, ArrowLeft } from "lucide-react";
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { login } = useAuth();
+  const resetToken = searchParams.get("reset_token");
+  const [mode, setMode] = useState<"login" | "forgot" | "reset">(resetToken ? "reset" : "login");
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [confirmPassword, setConfirmPassword] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setLoading(true);
       setError(null);
-      await login(email, password);
-      navigate("/");
+      setNotice(null);
+
+      if (mode === "forgot") {
+        const response = await apiClient.post<{ message: string }>("/auth/forgot-password", { email });
+        setNotice(response.data.message);
+      } else if (mode === "reset") {
+        if (!resetToken) {
+          setError("Şifre sıfırlama bağlantısı geçersiz veya süresi dolmuş.");
+          return;
+        }
+        if (password !== confirmPassword) {
+          setError("Girdiğiniz şifreler eşleşmiyor.");
+          return;
+        }
+        const response = await apiClient.post<{ message: string }>("/auth/reset-password", {
+          token: resetToken,
+          password,
+        });
+        setNotice(response.data.message);
+        setMode("login");
+        setPassword("");
+        setConfirmPassword("");
+        setSearchParams({}, { replace: true });
+      } else {
+        await login(email, password);
+        navigate("/");
+      }
     } catch (err: any) {
-      const msg = err.response?.data?.detail || "Giriş başarısız. Lütfen bilgilerinizi kontrol edin.";
+      const msg = err.response?.data?.detail
+        || (mode === "login" ? "Giriş başarısız. Lütfen bilgilerinizi kontrol edin." : "İşlem tamamlanamadı. Lütfen tekrar deneyin.");
       setError(msg);
     } finally {
       setLoading(false);
     }
+  };
+
+  const changeMode = (nextMode: "login" | "forgot") => {
+    setMode(nextMode);
+    setError(null);
+    setNotice(null);
+    setPassword("");
+    setConfirmPassword("");
   };
 
   return (
@@ -106,45 +146,102 @@ export const Login: React.FC = () => {
               <span>{error}</span>
             </div>
           )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* E-posta */}
-            <div>
-              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
-                E-posta Adresi
-              </label>
-              <div className="relative">
-                <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder=""
-                  autoComplete="email"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/8 transition-colors"
-                />
-              </div>
+          {notice && (
+            <div className="mb-5 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-300 text-sm">
+              {notice}
             </div>
+          )}
 
-            {/* Şifre */}
-            <div>
-              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
-                Şifre
-              </label>
-              <div className="relative">
-                <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder=""
-                  autoComplete="current-password"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/8 transition-colors"
-                />
-              </div>
+          {mode !== "login" && (
+            <div className="mb-5">
+              <h2 className="text-lg font-bold text-white">
+                {mode === "forgot" ? "Şifremi Unuttum" : "Yeni Şifre Belirle"}
+              </h2>
+              <p className="text-sm text-zinc-400 mt-1">
+                {mode === "forgot"
+                  ? "Şifre sıfırlama bağlantısı için hesap e-posta adresinizi girin."
+                  : "Hesabınız için en az 8 karakterli yeni bir şifre belirleyin."}
+              </p>
             </div>
+          )}
+
+          <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
+            {mode !== "reset" && (
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
+                  E-posta Adresi
+                </label>
+                <div className="relative">
+                  <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    type="email"
+                    required
+                    name="login-email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder=""
+                    autoComplete="off"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/8 transition-colors"
+                  />
+                </div>
+              </div>
+            )}
+
+            {mode !== "forgot" && (
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
+                  {mode === "reset" ? "Yeni Şifre" : "Şifre"}
+                </label>
+                <div className="relative">
+                  <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    type="password"
+                    required
+                    minLength={mode === "reset" ? 8 : undefined}
+                    name={mode === "reset" ? "new-password" : "login-password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder=""
+                    autoComplete="new-password"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/8 transition-colors"
+                  />
+                </div>
+              </div>
+            )}
+
+            {mode === "reset" && (
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
+                  Yeni Şifre (Tekrar)
+                </label>
+                <div className="relative">
+                  <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    name="confirm-new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder=""
+                    autoComplete="new-password"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/8 transition-colors"
+                  />
+                </div>
+              </div>
+            )}
+
+            {mode === "login" && (
+              <div className="text-right -mt-1">
+                <button
+                  type="button"
+                  onClick={() => changeMode("forgot")}
+                  className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  Şifremi Unuttum
+                </button>
+              </div>
+            )}
 
             {/* Submit */}
             <button
@@ -156,11 +253,22 @@ export const Login: React.FC = () => {
                 <Loader2 size={18} className="animate-spin" />
               ) : (
                 <>
-                  <span>Giriş Yap</span>
-                  <ArrowRight size={16} />
+                  <span>{mode === "login" ? "Giriş Yap" : mode === "forgot" ? "Sıfırlama Bağlantısı Gönder" : "Şifreyi Güncelle"}</span>
+                  {mode === "login" ? <ArrowRight size={16} /> : <Mail size={16} />}
                 </>
               )}
             </button>
+
+            {mode === "forgot" && (
+              <button
+                type="button"
+                onClick={() => changeMode("login")}
+                className="w-full py-2 text-sm font-semibold text-zinc-400 hover:text-white flex items-center justify-center gap-2 transition-colors"
+              >
+                <ArrowLeft size={15} />
+                Giriş ekranına dön
+              </button>
+            )}
           </form>
         </div>
 

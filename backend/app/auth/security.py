@@ -4,6 +4,8 @@ FuelOS — Güvenlik modülü.
 """
 
 from datetime import datetime, timedelta, timezone
+import hashlib
+import hmac
 
 import bcrypt
 from jose import JWTError, jwt
@@ -79,3 +81,49 @@ def decode_access_token(token: str) -> dict | None:
         return payload
     except JWTError:
         return None
+
+
+def create_password_reset_token(user_id: str, hashed_password: str) -> str:
+    """Create a short-lived token invalidated automatically after a password change."""
+    password_version = hmac.new(
+        settings.SECRET_KEY.encode("utf-8"),
+        hashed_password.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    payload = {
+        "sub": user_id,
+        "purpose": "password_reset",
+        "password_version": password_version,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=30),
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def verify_password_reset_token(token: str, hashed_password: str) -> str | None:
+    """Return the user ID for a valid, unused password reset token."""
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+        )
+    except JWTError:
+        return None
+
+    if payload.get("purpose") != "password_reset":
+        return None
+
+    expected_version = hmac.new(
+        settings.SECRET_KEY.encode("utf-8"),
+        hashed_password.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    token_version = payload.get("password_version")
+    user_id = payload.get("sub")
+    if (
+        not isinstance(token_version, str)
+        or not hmac.compare_digest(token_version, expected_version)
+        or not isinstance(user_id, str)
+    ):
+        return None
+    return user_id

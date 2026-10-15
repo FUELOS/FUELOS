@@ -21,9 +21,9 @@ FuelOS; akaryakıt dağıtım şirketleri ve bayiler için fiziksel pompa, otoma
 
 ### 3. 🎭 Kusursuz Rol & Yetki Ayrımı (Strict RBAC)
 - **Süper Yönetici (SaaS Platform Sahibi):**  
-  Sahadaki pompacının vardiyasını veya iç kasa cirosunu görmez. Menüsünde yalnızca kurumsal modüller yer alır:
+  Sahadaki pompacının vardiyasını, iç kasa cirosunu veya istasyon pompa satış detaylarını görmez. Menüsünde yalnızca kurumsal modüller yer alır:
   * 🎛️ **Sistem Paneli** (MRR, Canlı Ağ, Lisans Havuzu)
-  * 🏢 **İstasyon Yönetimi** (Tüm Şubeler, Pompa Altyapısı, Yetkili Kadrosu)
+  * 🏢 **İstasyon Yönetimi** (Tüm Şubeler, Lisans Durumu, Yetkili Kadrosu)
   * 👥 **Kullanıcılar** (Müdürler, Kasiyerler)
   * ⚙️ **Ayarlar** (SaaS Lisans Otomasyonu, ZK Parametreleri, Multi-Tenant Güvenliği)
 - **İstasyon Müdürü (Saha Yöneticisi):**  
@@ -50,15 +50,9 @@ FuelOS; akaryakıt dağıtım şirketleri ve bayiler için fiziksel pompa, otoma
 
 ---
 
-## 🔑 Güncel Giriş Hesapları (Default Credentials)
+## 🔑 Geliştirme Ortamı Hesapları
 
-Sistem tohumlama (seed) ve test ortamında geçerli olan kullanıcı hesapları:
-
-| Rol (Role) | E-posta (Email) | Şifre (Password) | Açıklama & Yetki Kapsamı |
-|---|---|---|---|
-| **SuperAdmin** | `admin@fuelos.com` | `FuelOS2026!` | SaaS platform sahibi; tüm şubeleri, lisansları, kullanıcıları ve genel MRR havuzunu yönetir. |
-| **İstasyon Müdürü** | `mudur@fuelos.com` | `Mudur2026!` | Ankara Merkez İstasyonu yöneticisi; vardiya mutabakatı, kasa toleransı ve raporları yönetir. |
-| **Kasiyer / Ön Saha** | `kasiyer@fuelos.com` | `Kasiyer2026!` | Ön saha satışlarını kaydeder, vardiya açar ve kapanış kasası teslimi yapar. |
+Yerel geliştirme seed hesabı `backend/app/services/seed.py` içinde tanımlıdır. Seed parolalarını yalnızca yerel geliştirmede kullanın ve dağıtım öncesinde değiştirin; gerçek hesap parolalarını README'ye veya kaynak denetimine eklemeyin.
 
 ---
 
@@ -108,6 +102,22 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 * **API Adresi:** `http://127.0.0.1:8000`
 * **Swagger API Belgeleri:** `http://127.0.0.1:8000/docs`
 
+#### Şifre sıfırlama e-postası
+Şifre sıfırlama özelliğini etkinleştirmek için backend ortam değişkenlerini (veya `backend/.env` dosyasını) yapılandırın:
+
+```env
+FRONTEND_URL=http://localhost:5173
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USERNAME=your-gmail-address
+SMTP_PASSWORD=your-google-app-password
+SMTP_FROM_EMAIL=your-gmail-address
+SMTP_USE_TLS=false
+SMTP_USE_SSL=true
+```
+
+SMTP kimlik bilgilerini kaynak koduna veya Git'e eklemeyin. Gmail için normal hesap şifresi yerine Google Uygulama Şifresi kullanın. Başka sağlayıcılarda SMTP host/port ve TLS ayarlarını sağlayıcının verdiği değerlere göre değiştirin. Şifre sıfırlama bağlantıları 30 dakika geçerlidir.
+
 ### 3. Frontend Başlatma
 ```bash
 cd frontend
@@ -124,6 +134,8 @@ npm run dev
 | Kategori | Metot & Yol | Rol | Açıklama |
 |---|---|---|---|
 | **Kimlik** | `POST /api/auth/login` | Herkes | JWT token üretir |
+| **Kimlik** | `POST /api/auth/forgot-password` | Herkes | Kayıtlı e-postaya 30 dakika geçerli şifre sıfırlama bağlantısı gönderir |
+| **Kimlik** | `POST /api/auth/reset-password` | Herkes | Geçerli sıfırlama bağlantısıyla yeni şifre belirler |
 | **Kimlik** | `GET /api/auth/me` | Herkes | Oturum açan kullanıcının yetki ve şube profili |
 | **SaaS Panel** | `GET /api/admin/dashboard` | SuperAdmin | Tüm şubelerin konsolide lisans, MRR ve vardiya özeti |
 | **İstasyon** | `GET /api/stations` | Herkes | İstasyon listesi (Role göre yetkilendirilmiş) |

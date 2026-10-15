@@ -158,7 +158,7 @@ export const StationsPage: React.FC = () => {
       setLoadingDetail(true);
       setError(null);
       const [pumpsRes, usersRes] = await Promise.all([
-        apiClient.get<Pump[]>(`/pumps/station/${stationId}`),
+        isAdmin ? Promise.resolve({ data: [] as Pump[] }) : apiClient.get<Pump[]>(`/pumps/station/${stationId}`),
         apiClient.get<User[]>("/users").catch(() => ({ data: [] })),
       ]);
       setPumps(pumpsRes.data);
@@ -169,7 +169,7 @@ export const StationsPage: React.FC = () => {
     } finally {
       setLoadingDetail(false);
     }
-  }, [tr]);
+  }, [isAdmin, tr]);
 
   useEffect(() => {
     if (selectedStation) fetchDetail(selectedStation.id);
@@ -209,12 +209,12 @@ export const StationsPage: React.FC = () => {
   }, [t]);
 
   useEffect(() => {
-    if (selectedStation) fetchPumpSummary(selectedStation.id, salesDate);
+    if (!isAdmin && selectedStation) fetchPumpSummary(selectedStation.id, salesDate);
     return () => {
       // Bileşen kapandığında / bağımlılık değiştiğinde bekleyen isteği iptal et
       summaryAbort.current?.abort();
     };
-  }, [selectedStation, salesDate, fetchPumpSummary]);
+  }, [isAdmin, selectedStation, salesDate, fetchPumpSummary]);
 
   // Özet verisi pompa ID'sine göre eşlenmiş harita + günlük toplamlar
   const summaryByPump = new Map<string, PumpDailySummary>(
@@ -330,7 +330,9 @@ export const StationsPage: React.FC = () => {
                   </span>
                 </>
               ) : (
-                tr ? "İstasyon altyapısı, pompalar ve personel kadrosu" : "Station infrastructure, pumps and staff"
+                isAdmin
+                  ? (tr ? "İstasyon, lisans ve personel yönetimi" : "Station, license and staff management")
+                  : (tr ? "İstasyon altyapısı, pompalar ve personel kadrosu" : "Station infrastructure, pumps and staff")
               )}
             </p>
           </div>
@@ -338,7 +340,7 @@ export const StationsPage: React.FC = () => {
 
         {/* Aksiyon Butonları */}
         <div className="flex items-center gap-2.5 self-end md:self-auto">
-          {selectedStation && (
+          {selectedStation && !isAdmin && (
             <button
               onClick={() => fetchDetail(selectedStation.id)}
               disabled={refreshing || loadingDetail}
@@ -429,7 +431,7 @@ export const StationsPage: React.FC = () => {
 
           {/* ── 1. KURUMSAL ENENVANTER & LİSANS ROZETLERİ (CİRO DEĞİL!) ── */}
           {selectedStation && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className={`grid grid-cols-1 sm:grid-cols-2 ${isAdmin ? "lg:grid-cols-3" : "lg:grid-cols-4"} gap-4`}>
               {/* Şube Kodu ve Konum */}
               <div className="bg-white dark:bg-[#111218] border border-slate-100 dark:border-zinc-800 rounded-3xl p-4 sm:p-5 shadow-sm space-y-2">
                 <div className="flex items-center justify-between">
@@ -467,23 +469,25 @@ export const StationsPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Aktif Pompa Kapasitesi */}
-              <div className="bg-white dark:bg-[#111218] border border-slate-100 dark:border-zinc-800 rounded-3xl p-4 sm:p-5 shadow-sm space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    {tr ? "Pompa Altyapısı" : "Pump Units"}
-                  </span>
-                  <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center text-amber-600">
-                    <Fuel size={16} />
+              {!isAdmin && (
+                /* Aktif Pompa Kapasitesi */
+                <div className="bg-white dark:bg-[#111218] border border-slate-100 dark:border-zinc-800 rounded-3xl p-4 sm:p-5 shadow-sm space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      {tr ? "Pompa Altyapısı" : "Pump Units"}
+                    </span>
+                    <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center text-amber-600">
+                      <Fuel size={16} />
+                    </div>
+                  </div>
+                  <div className="text-lg font-black text-slate-900 dark:text-white">
+                    {pumps.length} {tr ? "Aktif Pompa" : "Active Pumps"}
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-zinc-400">
+                    {tr ? "Fiziksel yakıt dağıtım adası" : "Physical dispensing islands"}
                   </div>
                 </div>
-                <div className="text-lg font-black text-slate-900 dark:text-white">
-                  {pumps.length} {tr ? "Aktif Pompa" : "Active Pumps"}
-                </div>
-                <div className="text-xs text-slate-500 dark:text-zinc-400">
-                  {tr ? "Fiziksel yakıt dağıtım adası" : "Physical dispensing islands"}
-                </div>
-              </div>
+              )}
 
               {/* Atanmış Personel Kadrosu */}
               <div className="bg-white dark:bg-[#111218] border border-slate-100 dark:border-zinc-800 rounded-3xl p-4 sm:p-5 shadow-sm space-y-2">
@@ -506,8 +510,9 @@ export const StationsPage: React.FC = () => {
           )}
 
           {/* ── 2. YAN YANA İKİ ANA YÖNETİM PANELİ: POMPALAR (SOL) & PERSONEL (SAĞ) ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className={`grid grid-cols-1 ${isAdmin ? "" : "lg:grid-cols-12"} gap-6 items-start`}>
             {/* ══ SOL SÜTUN: İSTASYON POMPALARI (7 KOLON) ══ */}
+            {!isAdmin && (
             <div className="lg:col-span-7 bg-white dark:bg-[#111218] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-zinc-800 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -689,9 +694,10 @@ export const StationsPage: React.FC = () => {
                 </div>
               )}
             </div>
+            )}
 
             {/* ══ SAĞ SÜTUN: İSTASYONA ATANMIŞ PERSONELLER (5 KOLON) ══ */}
-            <div className="lg:col-span-5 bg-white dark:bg-[#111218] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-4">
+            <div className={`${isAdmin ? "" : "lg:col-span-5"} bg-white dark:bg-[#111218] rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-zinc-800 space-y-4`}>
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-900/30 text-purple-600 flex items-center justify-center">
@@ -928,7 +934,7 @@ export const StationsPage: React.FC = () => {
       )}
 
       {/* ── YENİ POMPA MODAL ── */}
-      {isPumpModalOpen && (
+      {!isAdmin && isPumpModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white dark:bg-[#111218] border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
