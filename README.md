@@ -6,7 +6,9 @@ FuelOS; akaryakıt dağıtım şirketleri ve bayiler için fiziksel pompa, otoma
 ---
 Giriş;
 Süper Admin: admin@fuelos.com — FuelOS2026!
+
 İstasyon Müdürü: mudur@fuelos.com — Mudur2026!
+
 Kasiyer: kasiyer@fuelos.com — Kasiyer2026!
 
 ## 🌟 Temel Yetenekler & Mimari Katmanlar (Core Architecture)
