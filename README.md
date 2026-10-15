@@ -4,6 +4,10 @@
 FuelOS; akaryakıt dağıtım şirketleri ve bayiler için fiziksel pompa, otomasyon ve yazar kasa altyapılarına doğrudan dokunmadan, onların üzerine kurulan yüksek güvenlikli çok kiracılı (multi-tenant) SaaS operasyon, kurumsal lisanslama ve **Midnight Zero-Knowledge (ZK)** kriptografik mutabakat katmanıdır.
 
 ---
+Giriş;
+Süper Admin: admin@fuelos.com — FuelOS2026!
+İstasyon Müdürü: mudur@fuelos.com — Mudur2026!
+Kasiyer: kasiyer@fuelos.com — Kasiyer2026!
 
 ## 🌟 Temel Yetenekler & Mimari Katmanlar (Core Architecture)
 
