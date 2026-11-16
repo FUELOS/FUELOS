@@ -41,6 +41,8 @@ class TransactionCreate(BaseModel):
         """Tutar pozitif olmalı."""
         if v <= 0:
             raise ValueError("Tutar sıfırdan büyük olmalıdır")
+        if v >= Decimal("10000000000"):
+            raise ValueError("Tutar izin verilen üst sınırı aşıyor")
         return v
 
 

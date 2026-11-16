@@ -50,7 +50,7 @@ from app.schemas.credit import (
     VerifyRequest,
     VerifyResponse,
 )
-from app.services import credit_access, credit_ledger, credit_verification, pii
+from app.services import credit_access, credit_ledger, credit_verification, pii, rate_limit
 
 router = APIRouter(prefix="/api/veresiye", tags=["Veresiye Hesaplar"])
 
@@ -85,6 +85,12 @@ def _safe_plate_search(term: str) -> str:
     return cleaned.translate(_SAFE_PLATE_MAP).upper()
 
 
+def _like(term: str) -> str:
+    """ILIKE için %, _ ve ters bölü karakterlerini kaçışlar (joker sayılmasın)."""
+    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
 def _driver_response(driver: CreditDriver) -> DriverResponse:
     """Sürücü kaydını yalnızca maskeli T.C. kimlik no ile şemaya çevirir."""
     return DriverResponse(
@@ -114,7 +120,7 @@ def _company_summary(
         phone=company.phone,
         is_authorized=company.is_authorized,
         authorization_ended_at=company.authorization_ended_at,
-        credit_limit=company.credit_limit,
+        credit_limit=company.credit_limit if balance is not None else None,
         payment_term_days=company.payment_term_days,
         vehicle_count=sum(1 for v in company.vehicles if v.is_active),
         driver_count=sum(1 for d in company.drivers if d.is_active),
@@ -142,7 +148,7 @@ def _company_detail(
         is_authorized=company.is_authorized,
         authorization_ended_at=company.authorization_ended_at,
         authorization_end_reason=company.authorization_end_reason,
-        credit_limit=company.credit_limit,
+        credit_limit=company.credit_limit if balance is not None else None,
         payment_term_days=company.payment_term_days,
         vehicle_count=sum(1 for v in company.vehicles if v.is_active),
         driver_count=sum(1 for d in company.drivers if d.is_active),
@@ -167,7 +173,7 @@ def _customer_summary(
         is_active=customer.is_active,
         has_id_photo=customer.has_id_photo,
         id_photo_document_id=customer.id_photo_document_id,
-        credit_limit=customer.credit_limit,
+        credit_limit=customer.credit_limit if balance is not None else None,
         balance=balance,
         created_at=customer.created_at,
     )
@@ -186,7 +192,7 @@ def _customer_detail(
         is_active=customer.is_active,
         has_id_photo=customer.has_id_photo,
         id_photo_document_id=customer.id_photo_document_id,
-        credit_limit=customer.credit_limit,
+        credit_limit=customer.credit_limit if balance is not None else None,
         notes=customer.notes,
         balance=balance,
         created_at=customer.created_at,
@@ -302,15 +308,15 @@ async def list_companies(
         term = search.strip()
         plate_term = _safe_plate_search(term)
         conditions = [
-            CreditCompany.name.ilike(f"%{term}%"),
-            CreditCompany.tax_number.ilike(f"%{term}%"),
+            CreditCompany.name.ilike(_like(term), escape="\\"),
+            CreditCompany.tax_number.ilike(_like(term), escape="\\"),
         ]
         if plate_term:
             conditions.append(
                 exists(
                     select(1).where(
                         CreditVehicle.credit_company_id == CreditCompany.id,
-                        CreditVehicle.plate.ilike(f"%{plate_term}%"),
+                        CreditVehicle.plate.ilike(_like(plate_term), escape="\\"),
                     )
                 )
             )
@@ -793,6 +799,7 @@ async def verify_corporate_sale(
     db: AsyncSession = Depends(get_db),
 ):
     """Plaka, şirket yetkisi ve sürücü T.C. kimlik eşleşmesini satış öncesi kontrol eder."""
+    rate_limit.ensure_allowed(current_user.id)
     station_id = await credit_access.resolve_station_id(db, current_user, body.station_id)
     res = await credit_verification.verify_corporate(
         db,
@@ -800,8 +807,12 @@ async def verify_corporate_sale(
         plate=body.plate,
         driver_id=body.driver_id,
         driver_tc=body.driver_tc,
-        amount=body.amount,
+        # Kasiyer kalan limiti ikili aramayla çıkaramasın: ön sorguda limit kontrolü
+        # yalnızca yöneticide yapılır; satış anında herkes için zorunludur.
+        amount=body.amount if credit_access.is_manager(current_user) else None,
     )
+    if body.driver_tc and {"driver_tc_mismatch", "driver_not_found"} & set(res.reasons):
+        rate_limit.record_failure(current_user.id)
     active_drivers = (
         [_driver_response(d) for d in sorted(res.company.drivers, key=lambda x: x.full_name.lower()) if d.is_active]
         if res.company is not None
@@ -854,11 +865,11 @@ async def list_customers(
         term = search.strip()
         plate_term = _safe_plate_search(term)
         conditions = [
-            CreditCustomer.full_name.ilike(f"%{term}%"),
-            CreditCustomer.phone.ilike(f"%{term}%"),
+            CreditCustomer.full_name.ilike(_like(term), escape="\\"),
+            CreditCustomer.phone.ilike(_like(term), escape="\\"),
         ]
         if plate_term:
-            conditions.append(CreditCustomer.plate.ilike(f"%{plate_term}%"))
+            conditions.append(CreditCustomer.plate.ilike(_like(plate_term), escape="\\"))
         query = query.where(or_(*conditions))
 
     query = query.order_by(CreditCustomer.full_name.asc())
@@ -892,6 +903,7 @@ async def lookup_customer_by_tc(
     db: AsyncSession = Depends(get_db),
 ):
     """T.C. kimlik numarası kör indeksiyle istasyonda bireysel müşteri arar."""
+    rate_limit.ensure_allowed(current_user.id)
     station_id = await credit_access.resolve_station_id(db, current_user, body.station_id)
     tc_hash = pii.tc_blind_index(body.tc_no)
     customer = await db.scalar(
@@ -901,6 +913,7 @@ async def lookup_customer_by_tc(
         )
     )
     if customer is None:
+        rate_limit.record_failure(current_user.id)
         return None
     bal = await _customer_balance(db, current_user, customer)
     return _customer_summary(customer, bal)
@@ -923,6 +936,7 @@ async def create_customer(
             detail="Kasiyer bireysel müşteri için kredi limiti belirleyemez",
         )
 
+    rate_limit.ensure_allowed(current_user.id)
     station_id = await credit_access.resolve_station_id(db, current_user, data.station_id)
     tc_hash = pii.tc_blind_index(data.tc_no)
 
@@ -933,6 +947,7 @@ async def create_customer(
         )
     )
     if dup is not None:
+        rate_limit.record_failure(current_user.id)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Bu T.C. kimlik numarasıyla kayıtlı bir müşteri zaten var",

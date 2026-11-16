@@ -6,7 +6,9 @@ Tüm router'ları bağlar, CORS'u yapılandırır, başlangıçta seed çalışt
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
@@ -78,6 +80,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    """
+    422 yanıtından `input` ve `ctx` alanlarını çıkarır: varsayılan FastAPI yanıtı
+    gönderilen gövdeyi (T.C. kimlik no dahil) aynen geri yansıtır.
+    """
+    errors = [
+        {"type": e.get("type"), "loc": e.get("loc"), "msg": e.get("msg")}
+        for e in exc.errors()
+    ]
+    return JSONResponse(status_code=422, content={"detail": errors})
+
 
 # ─── Router'ları bağla ───
 app.include_router(auth_router)

@@ -10,7 +10,7 @@ Satış/işlem kaydı CRUD + Dashboard özet verileri.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -84,6 +84,26 @@ async def create_transaction(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Sadece kendi istasyonunuzdaki vardiyalara satış ekleyebilirsiniz",
         )
+
+    if current_user.role == UserRole.SUPER_ADMIN:
+        owner_company = await db.scalar(select(Station.company_id).where(Station.id == shift.station_id))
+        if owner_company != current_user.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Vardiya bulunamadı",
+            )
+
+    # Sunucu saatinden 24 saatten fazla ileri tarihli satış kabul edilmez
+    # (otomasyon aktarımlarında gün içi saat farklarına tolerans).
+    if data.transaction_time is not None:
+        requested_time = data.transaction_time
+        if requested_time.tzinfo is None:
+            requested_time = requested_time.replace(tzinfo=timezone.utc)
+        if requested_time > datetime.now(timezone.utc) + timedelta(hours=24):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Satış zamanı gelecekte olamaz",
+            )
 
     # fuel türünde liters ve fuel_type zorunlu
     if data.type == TransactionType.FUEL:

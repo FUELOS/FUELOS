@@ -140,7 +140,7 @@ async def get_dashboard(
     # Seçili İstasyon İsmi
     active_st_name = "Tüm İstasyonlar"
     if station_id is not None:
-        st_res = await db.execute(select(Station.name).where(Station.id == station_id))
+        st_res = await db.execute(select(Station.name).where(station_filter))
         st_row = st_res.scalar_one_or_none()
         if st_row:
             active_st_name = st_row

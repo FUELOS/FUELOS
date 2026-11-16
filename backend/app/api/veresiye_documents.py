@@ -73,7 +73,7 @@ async def upload_customer_id_photo(
         is_active=customer.is_active,
         has_id_photo=customer.has_id_photo,
         id_photo_document_id=customer.id_photo_document_id,
-        credit_limit=customer.credit_limit,
+        credit_limit=customer.credit_limit if balance is not None else None,
         notes=customer.notes,
         balance=balance,
         created_at=customer.created_at,
@@ -161,6 +161,8 @@ async def download_document(
         headers={
             "Cache-Control": "no-store",
             "X-Content-Type-Options": "nosniff",
-            "Content-Disposition": "inline",
+            # PDF içindeki gömülü betikler API kökeninde çalışmasın.
+            "Content-Security-Policy": "sandbox; default-src 'none'; img-src 'self' data:",
+            "Content-Disposition": "attachment" if doc.content_type == "application/pdf" else "inline",
         },
     )

@@ -24,6 +24,7 @@ from app.schemas.credit import CreditSaleInput, CreditSaleLinkRequest
 from app.services import (
     credit_access,
     credit_commitment,
+    rate_limit,
     credit_verification,
 )
 
@@ -80,6 +81,7 @@ async def create_credit_sale(
     credit_company_id: uuid.UUID | None = None
     credit_customer_id: uuid.UUID | None = None
     identity_verified = False
+    rate_limit.ensure_allowed(user.id)
 
     if credit.account_type == CreditAccountType.CORPORATE:
         target_company_id = credit.credit_company_id
@@ -120,6 +122,8 @@ async def create_credit_sale(
             driver_tc=credit.driver_tc,
             amount=transaction.amount,
         )
+        if credit.driver_tc and {"driver_tc_mismatch", "driver_not_found"} & set(res.reasons):
+            rate_limit.record_failure(user.id)
         if res.reasons or (verify_identity and not res.identity_verified):
             detail = (
                 credit_verification.reason_message(res.reasons)
@@ -154,6 +158,8 @@ async def create_credit_sale(
             customer_tc=credit.customer_tc,
             amount=transaction.amount,
         )
+        if "customer_tc_mismatch" in res.reasons:
+            rate_limit.record_failure(user.id)
         if res.reasons:
             raise HTTPException(
                 status_code=_status_for_reasons(res.reasons),
