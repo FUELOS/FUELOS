@@ -7,3 +7,6 @@ venv/
 *.egg-info/
 dist/
 build/
+
+# Veresiye belgeleri (imzali fis / kimlik fotografi) - kisisel veri, asla commit edilmez
+uploads/

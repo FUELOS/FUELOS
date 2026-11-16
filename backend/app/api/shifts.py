@@ -18,8 +18,10 @@ from app.models.station import Station
 from app.models.company import Company
 from app.models.shift import Shift
 from app.models.transaction import Transaction
-from app.models.base import UserRole, ShiftStatus, PaymentMethod
+from app.models.credit import CreditSale
+from app.models.base import UserRole, ShiftStatus, PaymentMethod, CreditAccountType
 from app.auth.dependencies import get_current_user, require_role
+from app.schemas.credit import ShiftCreditBreakdown
 from app.schemas.shift import (
     ChannelBreakdown,
     ReconciliationInfo,
@@ -102,7 +104,70 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
                 ),
                 0,
             ).label("credit_sales"),
-        ).where(Transaction.shift_id == shift.id)
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            and_(
+                                Transaction.payment_method == PaymentMethod.VERESIYE,
+                                CreditSale.account_type == CreditAccountType.CORPORATE,
+                            ),
+                            Transaction.amount,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("corporate_veresiye"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            and_(
+                                Transaction.payment_method == PaymentMethod.VERESIYE,
+                                CreditSale.account_type == CreditAccountType.INDIVIDUAL,
+                            ),
+                            Transaction.amount,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("individual_veresiye"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            and_(
+                                Transaction.payment_method == PaymentMethod.VERESIYE,
+                                CreditSale.id.is_(None),
+                            ),
+                            Transaction.amount,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("unlinked_veresiye"),
+            func.coalesce(func.count(CreditSale.id), 0).label("veresiye_sale_count"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            and_(
+                                CreditSale.id.is_not(None),
+                                CreditSale.receipt_document_id.is_(None),
+                            ),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("veresiye_missing_receipt_count"),
+        )
+        .outerjoin(CreditSale, CreditSale.transaction_id == Transaction.id)
+        .where(Transaction.shift_id == shift.id)
     )
     row = tx_res.one()
     total_sales = Decimal(str(row.total_sales))
@@ -110,6 +175,13 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
     pos_sales = Decimal(str(row.pos_sales))
     eft_sales = Decimal(str(row.eft_sales))
     credit_sales = Decimal(str(row.credit_sales))
+    credit_breakdown = ShiftCreditBreakdown(
+        corporate=Decimal(str(getattr(row, "corporate_veresiye", 0) or 0)).quantize(KURUS),
+        individual=Decimal(str(getattr(row, "individual_veresiye", 0) or 0)).quantize(KURUS),
+        unlinked=Decimal(str(getattr(row, "unlinked_veresiye", 0) or 0)).quantize(KURUS),
+        sale_count=int(getattr(row, "veresiye_sale_count", 0) or 0),
+        missing_receipt_count=int(getattr(row, "veresiye_missing_receipt_count", 0) or 0),
+    )
     opening_cash = Decimal(str(shift.opening_cash))
     expected_cash = opening_cash + cash_sales
 
@@ -213,6 +285,7 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
         zk_proved_at=getattr(shift, "zk_proved_at", None),
         zk_verified_at=None,
         zk_proof_hash=getattr(shift, "zk_proof_hash", None),
+        credit_breakdown=credit_breakdown,
     )
 
 

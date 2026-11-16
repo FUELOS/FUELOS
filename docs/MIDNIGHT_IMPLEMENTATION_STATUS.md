@@ -68,3 +68,44 @@ pins Preview to Compact 0.31.1/runtime 0.16.0, Midnight.js 4.1.1, wallet SDK
 1.2.0, and proof server 8.1.3. Ledger-9 compiler 0.34/0.35 is incompatible
 with Preview at this date. See [verification boundary](../midnight/VERIFICATION.md)
 for the exact trust assumptions.
+
+
+## 2026-11-15: Veresiye ledger privacy layer
+
+### Implemented and tested
+- Added a deterministic, database-free commitment and RFC 6962 Merkle ledger
+  mirror in `midnight/src/credit-ledger.ts` using only `node:crypto` (matching
+  `backend/app/services/credit_commitment.py` byte-for-byte on canonical
+  ASCII-escaped JSON leaf payloads, salted SHA-256 commitments, ordered
+  `SaleLeaf` shift trees, and `statementDigest` values).
+- Added the offline inclusion/opening CLI verifier
+  `midnight/src/verify-credit-inclusion-cli.ts` (exposed via
+  `npm run verify:credit` in `midnight/package.json`), returning
+  `{inclusionValid, statementDigestValid, commitmentOpens?}` without echoing
+  nonces or disclosed fields.
+- Added shared cross-language test vectors in
+  `midnight/tests/vectors/credit-ledger.json` tested by both
+  `backend/tests/test_veresiye_commitment.py` and
+  `midnight/tests/credit-ledger.test.ts`.
+- Documented exact payload formats, three-layer data/integrity architecture,
+  and trust boundaries in [VERESIYE_PRIVACY.md](../midnight/VERESIYE_PRIVACY.md).
+- Kept `midnight/contracts/reconciliation.compact` (`reconcile-v4-financial-commitment`)
+  and verifier keys unchanged; combined corporate and individual veresiye totals
+  continue entering the existing circuit as the private `credit` witness.
+
+| Check | Result |
+| --- | --- |
+| `pytest tests/test_veresiye_commitment.py -q` (shared vectors + RFC 6962 + properties) | 7/7 passed |
+| `vitest run tests/credit-ledger.test.ts` (TS mirror + shared vectors + 1..17 leaf trees) | 6/6 passed |
+| Targeted `tsc --noEmit` (`credit-ledger.ts`, `verify-credit-inclusion-cli.ts`, `credit-ledger.test.ts`) | passed (exit 0) |
+| `npm run --silent verify:credit` smoke tests (disclosed, undisclosed, tampered amount) | passed (0 / 0 / exit 1) |
+
+### Scope and remaining work
+- Shift veresiye Merkle roots and `statement_digest` values remain
+  application-layer integrity commitments and are neither signed nor anchored on
+  Midnight.
+- Full `npm test` in `midnight/` still requires the Compact compiler toolchain
+  (not run on this Windows host).
+- Binding `statement_digest` into source attestations or adding a Compact circuit
+  proving `corporate + individual == credit` requires a future circuit version
+  and verifier-key rollout.

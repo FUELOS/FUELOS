@@ -44,6 +44,32 @@ class PaymentMethod(str, enum.Enum):
     VERESIYE = "veresiye"
 
 
+class CreditAccountType(str, enum.Enum):
+    """Veresiye (cari) hesap türleri."""
+    CORPORATE = "corporate"    # Anlaşmalı şirket (kurumsal veresiye)
+    INDIVIDUAL = "individual"  # Bireysel müşteri (kişisel veresiye)
+
+
+class CollectionMethod(str, enum.Enum):
+    """Tahsilat (veresiye borç ödemesi) yöntemleri."""
+    CASH = "cash"
+    CREDIT_CARD = "credit_card"
+    EFT = "eft"
+    OTHER = "other"
+
+
+class CreditEntryKind(str, enum.Enum):
+    """Cari hesabın alacak tarafına yazılan kayıt türleri."""
+    PAYMENT = "payment"        # Tahsilat — borcu azaltır, tutar > 0
+    ADJUSTMENT = "adjustment"  # Düzeltme — +/- olabilir, açıklama zorunlu
+
+
+class CreditDocumentKind(str, enum.Enum):
+    """Veresiye sistemine yüklenen belge türleri."""
+    RECEIPT = "receipt"    # T.C. no yazılmış, imzalı satış fişi fotoğrafı
+    ID_PHOTO = "id_photo"  # Bireysel müşterinin kimlik fotoğrafı
+
+
 # ─────────────────────────── MIXIN'LER ───────────────────────────
 
 

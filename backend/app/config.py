@@ -36,6 +36,17 @@ class Settings(BaseSettings):
     SMTP_USE_TLS: bool = True
     SMTP_USE_SSL: bool = False
 
+    # ── Veresiye / kişisel veri koruması ──
+    # T.C. kimlik no ve yüklenen belgeleri (imzalı fiş, kimlik fotoğrafı) şifreleyen
+    # ana anahtar. Boş bırakılırsa SECRET_KEY'den türetilir; production'da ayrı ve
+    # kalıcı bir değer tanımlayın — bu anahtar değişirse mevcut şifreli veriler
+    # okunamaz ve T.C. eşleştirmeleri bozulur.
+    PII_ENCRYPTION_KEY: str = ""
+    # Yüklenen belgelerin saklandığı dizin (göreli ise backend köküne göre).
+    UPLOAD_DIR: str = "uploads"
+    # Tek belge için azami boyut (bayt) — varsayılan 8 MB.
+    MAX_UPLOAD_BYTES: int = 8 * 1024 * 1024
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",

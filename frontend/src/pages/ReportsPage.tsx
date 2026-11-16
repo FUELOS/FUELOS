@@ -16,9 +16,15 @@ import {
   MapPin,
 } from "lucide-react";
 
+import { DailyReconciliationTab } from "@/components/reconciliation/DailyReconciliationTab";
+
 export const ReportsPage: React.FC = () => {
   const { t, language } = useLanguage();
   const { user: currentUser } = useAuth();
+  const canViewReconciliation =
+    currentUser?.role === "super_admin" || currentUser?.role === "station_manager";
+  const [activeTab, setActiveTab] = useState<"shifts" | "daily">("shifts");
+  const effectiveTab = canViewReconciliation ? activeTab : "shifts";
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [stations, setStations] = useState<Record<string, Station>>({});
   const [users, setUsers] = useState<Record<string, User>>({});
@@ -221,6 +227,37 @@ export const ReportsPage: React.FC = () => {
         </div>
       </div>
 
+      {canViewReconciliation && (
+        <div className="inline-flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
+          <button
+            type="button"
+            onClick={() => setActiveTab("shifts")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+              effectiveTab === "shifts"
+                ? "bg-white dark:bg-[#111218] text-slate-900 dark:text-white shadow-sm"
+                : "text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200"
+            }`}
+          >
+            {t("recon.tab_shifts")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("daily")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+              effectiveTab === "daily"
+                ? "bg-white dark:bg-[#111218] text-slate-900 dark:text-white shadow-sm"
+                : "text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200"
+            }`}
+          >
+            {t("recon.tab_daily")}
+          </button>
+        </div>
+      )}
+
+      {effectiveTab === "daily" ? (
+        <DailyReconciliationTab selectedStationId={selectedStationId} />
+      ) : (
+        <>
       {/* ── RAPOR LİSTESİ TABLOSU ── */}
       {loading ? (
         <div className="flex justify-center p-12 text-slate-400">
@@ -281,6 +318,8 @@ export const ReportsPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+      )}
+        </>
       )}
     </div>
   );

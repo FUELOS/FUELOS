@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState } from "react";
+import { veresiyeTranslations } from "@/i18n/veresiye";
+import { reconciliationTranslations } from "@/i18n/reconciliation";
 
 export type Language = "tr" | "en";
 
@@ -8,7 +10,7 @@ interface LanguageContextType {
   t: (key: string) => string;
 }
 
-const translations: Record<Language, Record<string, string>> = {
+const baseTranslations: Record<Language, Record<string, string>> = {
   tr: {
     // Nav
     "nav.shift": "Vardiya",
@@ -616,6 +618,12 @@ const translations: Record<Language, Record<string, string>> = {
     "common.loading": "Loading...",
     "common.logout": "Log Out",
   },
+};
+
+// Özellik bazlı sözlükler (src/i18n/*) ana sözlükle birleştirilir.
+const translations: Record<Language, Record<string, string>> = {
+  tr: { ...baseTranslations.tr, ...veresiyeTranslations.tr, ...reconciliationTranslations.tr },
+  en: { ...baseTranslations.en, ...veresiyeTranslations.en, ...reconciliationTranslations.en },
 };
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);

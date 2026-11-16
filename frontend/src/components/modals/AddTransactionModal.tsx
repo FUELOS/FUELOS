@@ -10,7 +10,11 @@
 import React, { useState, useEffect } from "react";
 import { apiClient } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
-import { PaymentMethod } from "@/types";
+import { apiErrorMessage } from "@/lib/veresiye";
+import { CreditAccountSection } from "@/components/sales/CreditAccountSection";
+import { ReceiptUploadStep } from "@/components/sales/ReceiptUploadStep";
+import { PaymentMethod, Transaction } from "@/types";
+import type { CreditAccountType, CreditSaleBrief, CreditSaleInput } from "@/types/veresiye";
 import {
   X,
   AlertCircle,
@@ -81,6 +85,14 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [plateNumber, setPlateNumber] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [creditAccountType, setCreditAccountType] = useState<CreditAccountType>("corporate");
+  const [creditInput, setCreditInput] = useState<CreditSaleInput | null>(null);
+  const [createdCreditSale, setCreatedCreditSale] = useState<{
+    creditSale: CreditSaleBrief;
+    fuelType: string;
+    liters: string;
+    amount: string;
+  } | null>(null);
 
   // Tüm pompalar seçiliyken, istasyondaki aktif pompaların yakıt seçeneklerini birleştir.
   const selectedPump = pumps.find((p) => p.id === selectedPumpId);
@@ -132,6 +144,13 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       setAmount("");
       setLiters("");
       setPlateNumber("");
+      setCreditAccountType("corporate");
+      setCreditInput(null);
+      setCreatedCreditSale(null);
+    } else {
+      setCreditAccountType("corporate");
+      setCreditInput(null);
+      setCreatedCreditSale(null);
     }
   }, [isOpen, defaultShiftId, activeShifts]);
 
@@ -184,8 +203,19 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       return;
     }
 
+    if (paymentMethod === "veresiye" && !creditInput) {
+      setError(
+        creditAccountType === "corporate"
+          ? t("creditsale.must_verify_before_save")
+          : t("creditsale.must_select_customer")
+      );
+      return;
+    }
+
     const descParts = [];
-    if (plateNumber.trim()) descParts.push(`${language === "tr" ? "Plaka" : "Plate"}: ${plateNumber.trim().toUpperCase()}`);
+    if (!(paymentMethod === "veresiye" && creditAccountType === "corporate") && plateNumber.trim()) {
+      descParts.push(`${language === "tr" ? "Plaka" : "Plate"}: ${plateNumber.trim().toUpperCase()}`);
+    }
 
     const payload = {
       shift_id: selectedShiftId,
@@ -196,20 +226,43 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       fuel_type: fuelType,
       pump_id: selectedPumpId === ALL_PUMPS ? null : selectedPumpId,
       description: descParts.length > 0 ? descParts.join(" - ") : null,
+      ...(paymentMethod === "veresiye" && creditInput ? { credit: creditInput } : {}),
     };
 
     try {
       setLoading(true);
       setError(null);
-      await apiClient.post("/transactions", payload);
+      const res = await apiClient.post<Transaction>("/transactions", payload);
+      if (paymentMethod === "veresiye" && res.data.credit_sale) {
+        setCreatedCreditSale({
+          creditSale: res.data.credit_sale,
+          fuelType,
+          liters,
+          amount,
+        });
+        return;
+      }
       onSuccess();
       onClose();
-    } catch (err: any) {
-      const msg = err.response?.data?.detail || (language === "tr" ? "Satış kaydı eklenirken bir hata oluştu" : "Failed to record sale");
-      setError(msg);
+    } catch (err: unknown) {
+      setError(
+        apiErrorMessage(
+          err,
+          language === "tr" ? "Satış kaydı eklenirken bir hata oluştu" : "Failed to record sale"
+        )
+      );
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleModalClose = () => {
+    if (createdCreditSale) {
+      onSuccess();
+    }
+    setCreatedCreditSale(null);
+    setCreditInput(null);
+    onClose();
   };
 
   return (
@@ -229,13 +282,35 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             </div>
           </div>
           <button
-            onClick={onClose}
+            type="button"
+            onClick={handleModalClose}
             className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white transition"
           >
             <X size={16} />
           </button>
         </div>
 
+        {createdCreditSale ? (
+          <div className="max-h-[82vh] overflow-y-auto">
+            <ReceiptUploadStep
+              creditSaleId={createdCreditSale.creditSale.id}
+              accountName={createdCreditSale.creditSale.account_name}
+              plate={createdCreditSale.creditSale.plate}
+              driverName={createdCreditSale.creditSale.driver_name}
+              fuelType={createdCreditSale.fuelType}
+              liters={createdCreditSale.liters}
+              amount={createdCreditSale.amount}
+              onSuccess={() => {
+                onSuccess();
+                onClose();
+              }}
+              onSkip={() => {
+                onSuccess();
+                onClose();
+              }}
+            />
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="p-5 space-y-4 max-h-[82vh] overflow-y-auto">
           {error && (
             <div className="p-3.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded-2xl text-red-600 dark:text-red-400 text-xs flex items-start gap-2.5">
@@ -411,7 +486,13 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   <button
                     key={pm.id}
                     type="button"
-                    onClick={() => setPaymentMethod(pm.id as PaymentMethod)}
+                    onClick={() => {
+                      const next = pm.id as PaymentMethod;
+                      setPaymentMethod(next);
+                      if (next !== "veresiye") {
+                        setCreditInput(null);
+                      }
+                    }}
                     className={`p-2.5 rounded-2xl border text-center transition flex flex-col items-center justify-center ${
                       isSelected
                         ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 shadow-sm"
@@ -427,32 +508,47 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             </div>
           </div>
 
-          {/* Plaka (Opsiyonel) */}
-          <div>
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-              {t("modal.plate_number")}
-            </label>
-            <input
-              type="text"
-              value={plateNumber}
-              onChange={(e) => setPlateNumber(e.target.value)}
-              placeholder="Örn: 06 ABC 123"
-              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 uppercase font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+          {paymentMethod === "veresiye" && (
+            <CreditAccountSection
+              stationId={activeShifts.find((s) => s.shift_id === selectedShiftId)?.station_id}
+              amount={amount}
+              accountType={creditAccountType}
+              onAccountTypeChange={(nextType) => {
+                setCreditAccountType(nextType);
+                setCreditInput(null);
+              }}
+              onCreditInputChange={setCreditInput}
             />
-          </div>
+          )}
+
+          {/* Plaka (Opsiyonel) */}
+          {!(paymentMethod === "veresiye" && creditAccountType === "corporate") && (
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                {t("modal.plate_number")}
+              </label>
+              <input
+                type="text"
+                value={plateNumber}
+                onChange={(e) => setPlateNumber(e.target.value)}
+                placeholder="Örn: 06 ABC 123"
+                className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 uppercase font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+              />
+            </div>
+          )}
 
           {/* İşlemi Kaydet Butonu */}
           <div className="pt-2 flex items-center justify-end gap-3">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleModalClose}
               className="px-4 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition"
             >
               {t("common.cancel")}
             </button>
             <button
               type="submit"
-              disabled={loading || activeShifts.length === 0}
+              disabled={loading || activeShifts.length === 0 || (paymentMethod === "veresiye" && !creditInput)}
               className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black text-sm flex items-center gap-2 shadow-lg shadow-emerald-600/30 transition active:scale-95"
             >
               {loading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
@@ -460,6 +556,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

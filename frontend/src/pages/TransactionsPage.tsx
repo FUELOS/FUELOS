@@ -5,6 +5,9 @@ import { formatCurrency, formatNumber, formatDateTime } from "@/lib/utils";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
 import { AddTransactionModal } from "@/components/modals/AddTransactionModal";
+import { LinkCreditSaleModal } from "@/components/sales/LinkCreditSaleModal";
+import { ReceiptUploadModal } from "@/components/veresiye/ReceiptUploadModal";
+import { formatPlate } from "@/lib/veresiye";
 import {
   Receipt,
   PlusCircle,
@@ -18,6 +21,10 @@ import {
   Building,
   ChevronRight,
   MapPin,
+  AlertTriangle,
+  CheckCircle2,
+  Link2,
+  Upload,
 } from "lucide-react";
 
 export const TransactionsPage: React.FC = () => {
@@ -25,6 +32,7 @@ export const TransactionsPage: React.FC = () => {
   const tr = language === "tr";
   const { user: currentUser } = useAuth();
   const isStationManager = currentUser?.role === "station_manager";
+  const isManager = isStationManager || currentUser?.role === "super_admin";
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [stations, setStations] = useState<Station[]>([]);
@@ -34,6 +42,14 @@ export const TransactionsPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
+  const [uploadReceiptTarget, setUploadReceiptTarget] = useState<{
+    saleId: string;
+    summaryText: string;
+  } | null>(null);
+  const [linkTarget, setLinkTarget] = useState<{
+    txId: string;
+    summaryText: string;
+  } | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -43,13 +59,22 @@ export const TransactionsPage: React.FC = () => {
         apiClient.get<Transaction[]>(`/transactions${params}`),
         apiClient.get(`/transactions/summary${params}`),
         apiClient.get<Station[]>("/stations").catch(() => ({ data: [] })),
-        apiClient.get("/dashboard").catch(() => ({ data: { active_shifts: [] } })),
+        apiClient.get(`/dashboard${params}`).catch(() => ({ data: { active_workers: [] } })),
       ]);
 
       setTransactions(txRes.data);
       setSummary(sumRes.data);
       setStations(stRes.data);
-      setActiveShifts(dashRes.data?.active_shifts || []);
+      setActiveShifts(
+        (dashRes.data?.active_workers || []).map((w: any) => ({
+          shift_id: w.shift_id,
+          station_id: w.station_id || selectedStationId || "",
+          station_name: w.station_name,
+          user_name: w.user_name || w.full_name || "",
+          worker_name: w.full_name || w.user_name,
+          pump_label: w.pump_label,
+        }))
+      );
     } catch (err) {
       console.error("İşlemler yüklenemedi", err);
     } finally {
@@ -238,7 +263,92 @@ export const TransactionsPage: React.FC = () => {
                   <td className="px-5 py-3.5 font-mono font-black text-slate-900 dark:text-white text-base">
                     {formatCurrency(tx.amount)}
                   </td>
-                  <td className="px-5 py-3.5">{getPaymentBadge(tx.payment_method)}</td>
+                  <td className="px-5 py-3.5">
+                    <div className="space-y-1.5">
+                      <div>{getPaymentBadge(tx.payment_method)}</div>
+                      {tx.payment_method === "veresiye" && tx.credit_sale && (
+                        <div className="space-y-1 text-[11px]">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span
+                              className={`px-1.5 py-0.5 rounded-md font-bold ${
+                                tx.credit_sale.account_type === "corporate"
+                                  ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
+                                  : "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300"
+                              }`}
+                            >
+                              {tx.credit_sale.account_type === "corporate"
+                                ? t("creditsale.corp_short")
+                                : t("creditsale.indiv_short")}
+                            </span>
+                            <span className="font-bold text-slate-700 dark:text-slate-200 truncate max-w-[170px]">
+                              {tx.credit_sale.account_name || "—"}
+                            </span>
+                          </div>
+                          {(tx.credit_sale.plate || tx.credit_sale.driver_name) && (
+                            <div className="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">
+                              {[
+                                tx.credit_sale.plate ? formatPlate(tx.credit_sale.plate) : null,
+                                tx.credit_sale.driver_name,
+                              ]
+                                .filter(Boolean)
+                                .join(" • ")}
+                            </div>
+                          )}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {tx.credit_sale.has_receipt ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-bold text-[10px] border border-emerald-200 dark:border-emerald-800/40">
+                                <CheckCircle2 size={11} />
+                                {t("creditsale.receipt_status_uploaded")}
+                              </span>
+                            ) : (
+                              <>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 font-bold text-[10px] border border-amber-200 dark:border-amber-800/40">
+                                  <AlertTriangle size={11} />
+                                  {t("creditsale.receipt_status_pending")}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setUploadReceiptTarget({
+                                      saleId: tx.credit_sale!.id,
+                                      summaryText: `${tx.credit_sale!.account_name || "—"} • ${formatCurrency(tx.amount)}`,
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] transition"
+                                >
+                                  <Upload size={10} />
+                                  {t("veresiye.upload_receipt_btn")}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {tx.payment_method === "veresiye" && !tx.credit_sale && (
+                        <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 font-bold text-[10px] border border-red-200 dark:border-red-800/40">
+                            <AlertTriangle size={11} />
+                            {t("creditsale.unlinked_badge")}
+                          </span>
+                          {isManager && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setLinkTarget({
+                                  txId: tx.id,
+                                  summaryText: `${formatCurrency(tx.amount)} • ${tx.fuel_type || "—"}`,
+                                })
+                              }
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] transition"
+                            >
+                              <Link2 size={10} />
+                              {t("creditsale.link_account_btn")}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-5 py-3.5 text-slate-500 dark:text-slate-400 text-xs truncate max-w-xs">
                     {tx.description || "—"}
                   </td>
@@ -254,6 +364,26 @@ export const TransactionsPage: React.FC = () => {
         activeShifts={activeShifts}
         onClose={() => setIsAddModalOpen(false)}
         onSuccess={fetchData}
+      />
+
+      <ReceiptUploadModal
+        saleId={uploadReceiptTarget?.saleId ?? null}
+        summaryText={uploadReceiptTarget?.summaryText}
+        onClose={() => setUploadReceiptTarget(null)}
+        onSuccess={() => {
+          setUploadReceiptTarget(null);
+          fetchData();
+        }}
+      />
+
+      <LinkCreditSaleModal
+        transactionId={linkTarget?.txId ?? null}
+        summaryText={linkTarget?.summaryText}
+        onClose={() => setLinkTarget(null)}
+        onSuccess={() => {
+          setLinkTarget(null);
+          fetchData();
+        }}
       />
     </div>
   );

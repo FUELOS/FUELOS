@@ -28,6 +28,10 @@ from app.api.admin_dashboard import router as admin_dashboard_router
 from app.api.station_detail import router as station_detail_router
 from app.api.settings import router as settings_router
 from app.api.zk_preview import router as zk_preview_router
+from app.api.veresiye_accounts import router as veresiye_accounts_router
+from app.api.veresiye_documents import router as veresiye_documents_router
+from app.api.veresiye_ledger import router as veresiye_ledger_router
+from app.api.veresiye_reconciliation import router as veresiye_reconciliation_router
 
 settings = get_settings()
 
@@ -90,6 +94,10 @@ app.include_router(admin_dashboard_router)
 app.include_router(station_detail_router)
 app.include_router(settings_router)
 app.include_router(zk_preview_router)
+app.include_router(veresiye_accounts_router)
+app.include_router(veresiye_documents_router)
+app.include_router(veresiye_ledger_router)
+app.include_router(veresiye_reconciliation_router)
 
 
 # ─── Health Check ───

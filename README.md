@@ -154,6 +154,14 @@ npm run dev
 | **Vardiya** | `POST /api/shifts/open` | Müdür/Kasiyer | Yeni vardiya açılışı (RFID & açılış nakdi) |
 | **Vardiya** | `POST /api/shifts/{id}/close` | Müdür/Kasiyer | Vardiya kapanışı & Midnight ZK mutabakat mühürleme |
 | **Ayarlar** | `GET/PUT /api/settings/tolerance` | Müdür | Kasa mutabakat bozuk para tolerans limiti (DEC-001) |
+| **Veresiye** | `GET/POST /api/veresiye/companies`, `.../vehicles`, `.../drivers`, `.../authorization` | Müdür (kasiyer: okuma) | Kurumsal şirket, araç, sürücü ve yakıt alım yetkisi |
+| **Veresiye** | `POST /api/veresiye/verify` | Herkes | Plaka + sürücü T.C. doğrulaması |
+| **Veresiye** | `GET/POST /api/veresiye/customers`, `.../id-photo` | Herkes | Bireysel müşteri kaydı ve kimlik fotoğrafı |
+| **Veresiye** | `POST /api/transactions` (`payment_method=veresiye` + `credit`) | Herkes | Veresiye satış — cari hesap zorunlu |
+| **Veresiye** | `POST /api/veresiye/sales/{id}/receipt` | Herkes | İmzalı fiş yükleme |
+| **Veresiye** | `GET .../companies/{id}/statement`, `POST /api/veresiye/payments` | Müdür | Ekstre, tahsilat, düzeltme |
+| **Veresiye** | `GET /api/veresiye/reconciliation/daily` | Müdür | Günlük çok kanallı mutabakat |
+| **Veresiye** | `GET /api/veresiye/proofs/shifts/{id}`, `.../proofs/sales/{id}` | Müdür | Merkle defter kökü ve dahil olma kanıtı |
 
 ---
 

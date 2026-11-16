@@ -1,3 +1,5 @@
+import type { CreditSaleBrief, ShiftCreditBreakdown } from "@/types/veresiye";
+
 export type UserRole = 'super_admin' | 'station_manager' | 'cashier';
 
 export type ShiftStatus = 'open' | 'closed';
@@ -71,6 +73,7 @@ export interface Shift {
   zk_proved_at?: string | null;
   zk_verified_at?: string | null;
   zk_proof_hash?: string | null;
+  credit_breakdown?: ShiftCreditBreakdown | null;
 }
 
 export interface Transaction {
@@ -87,6 +90,7 @@ export interface Transaction {
   description: string | null;
   transaction_time: string;
   created_at: string;
+  credit_sale?: CreditSaleBrief | null;
 }
 
 // Görsel 1: İşçi bazlı satış modeli
@@ -104,6 +108,8 @@ export interface WorkerShiftStats {
   pos_sales: string | number;
   fast_sales: string | number;
   veresiye_sales: string | number;
+  corporate_veresiye_sales?: string | number;
+  individual_veresiye_sales?: string | number;
   total_sales: string | number;
 }
 
@@ -130,6 +136,10 @@ export interface DashboardResponse {
   total_pos_sales: string | number;
   total_fast_sales: string | number;
   total_veresiye_sales: string | number;
+  total_corporate_veresiye_sales?: string | number;
+  total_individual_veresiye_sales?: string | number;
+  total_unlinked_veresiye_sales?: string | number;
+  veresiye_missing_receipt_count?: number;
   total_dispensed_liters: string | number;
   total_sales_revenue: string | number;
   expected_cash: string | number;
