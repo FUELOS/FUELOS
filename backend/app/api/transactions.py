@@ -10,8 +10,8 @@ Satış/işlem kaydı CRUD + Dashboard özet verileri.
 """
 
 import uuid
-from datetime import datetime, timezone
-from decimal import Decimal
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, func, and_, cast, Date
@@ -35,6 +35,7 @@ from app.schemas.transaction import (
     TransactionResponse,
     TransactionSummary,
 )
+from app.services import credit_sales
 
 router = APIRouter(prefix="/api/transactions", tags=["Transactions"])
 
@@ -83,6 +84,26 @@ async def create_transaction(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Sadece kendi istasyonunuzdaki vardiyalara satış ekleyebilirsiniz",
         )
+
+    if current_user.role == UserRole.SUPER_ADMIN:
+        owner_company = await db.scalar(select(Station.company_id).where(Station.id == shift.station_id))
+        if owner_company != current_user.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Vardiya bulunamadı",
+            )
+
+    # Sunucu saatinden 24 saatten fazla ileri tarihli satış kabul edilmez
+    # (otomasyon aktarımlarında gün içi saat farklarına tolerans).
+    if data.transaction_time is not None:
+        requested_time = data.transaction_time
+        if requested_time.tzinfo is None:
+            requested_time = requested_time.replace(tzinfo=timezone.utc)
+        if requested_time > datetime.now(timezone.utc) + timedelta(hours=24):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Satış zamanı gelecekte olamaz",
+            )
 
     # fuel türünde liters ve fuel_type zorunlu
     if data.type == TransactionType.FUEL:
@@ -165,21 +186,69 @@ async def create_transaction(
             detail="Pompa yalnızca akaryakıt satışlarında seçilebilir",
         )
 
+    if data.payment_method == PaymentMethod.VERESIYE and data.credit is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Veresiye satış için cari hesap seçimi zorunludur (kurumsal şirket veya bireysel müşteri)",
+        )
+    if data.payment_method != PaymentMethod.VERESIYE and data.credit is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Cari hesap bilgisi yalnızca veresiye satışlarda gönderilebilir",
+        )
+
+    persisted_amount = data.amount
+    persisted_liters = data.liters
+    if data.payment_method == PaymentMethod.VERESIYE:
+        try:
+            q_amount = data.amount.quantize(Decimal("0.01"))
+        except InvalidOperation:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Geçersiz tutar biçimi",
+            ) from None
+        if data.amount <= 0 or data.amount != q_amount:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Veresiye satış tutarı pozitif ve tam kuruş (en fazla 2 ondalık) olmalıdır",
+            )
+        persisted_amount = q_amount
+        if persisted_liters is not None:
+            persisted_liters = persisted_liters.quantize(
+                Decimal("0.001"), rounding=ROUND_HALF_UP
+            )
+
+    tx_time = data.transaction_time or datetime.now(timezone.utc)
+    if tx_time.tzinfo is None:
+        tx_time = tx_time.replace(tzinfo=timezone.utc)
+
     transaction = Transaction(
         shift_id=data.shift_id,
         station_id=shift.station_id,  # Shift'ten otomatik alınır
         pump_id=data.pump_id if data.type == TransactionType.FUEL else None,
         type=data.type,
         payment_method=data.payment_method,
-        amount=data.amount,
-        liters=data.liters,
+        amount=persisted_amount,
+        liters=persisted_liters,
         fuel_type=data.fuel_type.strip() if data.fuel_type else None,
         description=data.description,
-        transaction_time=data.transaction_time or datetime.now(timezone.utc),
+        transaction_time=tx_time,
     )
     db.add(transaction)
     await db.flush()
+
+    if data.payment_method == PaymentMethod.VERESIYE and data.credit is not None:
+        await credit_sales.create_credit_sale(
+            db,
+            user=current_user,
+            shift=shift,
+            transaction=transaction,
+            credit=data.credit,
+        )
+
     await db.refresh(transaction)
+    if data.payment_method == PaymentMethod.VERESIYE:
+        await db.refresh(transaction, attribute_names=["credit_sale"])
     return transaction
 
 

@@ -177,7 +177,22 @@ async def run_full_flow_test():
         })
         assert t3.status_code == 201, f"Tx3 failed: {t3.text}"
 
-        # İşlem 4: Otogaz LPG (Veresiye)
+        # İşlem 4: Otogaz LPG (Veresiye — bireysel cari hesap ile)
+        cust_res = await client.post("/api/veresiye/customers", headers=cashier_headers, json={
+            "full_name": "Çiftçi Kooperatifi Yetkilisi",
+            "tc_no": "10000000146",
+            "phone": "05320000000",
+        })
+        if cust_res.status_code == 409:
+            # Betik aynı istasyonla tekrar çalıştırıldığında müşteri zaten kayıtlıdır.
+            cust_res = await client.post(
+                "/api/veresiye/customers/lookup",
+                headers=cashier_headers,
+                json={"tc_no": "10000000146"},
+            )
+            assert cust_res.status_code == 200 and cust_res.json(), f"Customer lookup failed: {cust_res.text}"
+        else:
+            assert cust_res.status_code == 201, f"Customer failed: {cust_res.text}"
         t4 = await client.post("/api/transactions", headers=cashier_headers, json={
             "shift_id": shift_id,
             "type": "fuel",
@@ -186,7 +201,11 @@ async def run_full_flow_test():
             "liters": "40.000",
             "fuel_type": "Otogaz (LPG)",
             "pump_id": pump_id,
-            "description": "Çiftçi Kooperatifi cari hesabı"
+            "description": "Çiftçi Kooperatifi cari hesabı",
+            "credit": {
+                "account_type": "individual",
+                "credit_customer_id": cust_res.json()["id"],
+            },
         })
         assert t4.status_code == 201, f"Tx4 failed: {t4.text}"
 

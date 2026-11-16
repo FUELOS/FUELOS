@@ -139,9 +139,16 @@ async def run_tests() -> None:
         await add_tx(client, ch, fx, amount="1350.00", liters="30.000",
                      payment_method="credit_card", transaction_time=tr_time(TEST_DAY, 14, 30))
         # TR 18:00 (veresiye, motorin, 20Lt/900₺) — pompa 2
+        cust_res = await client.post(
+            "/api/veresiye/customers",
+            headers=ch,
+            json={"full_name": "Analiz Müşteri", "tc_no": "10000000146", "phone": "05320000001"},
+        )
+        assert cust_res.status_code == 201, f"Veresiye müşteri eklenemedi: {cust_res.text}"
         await add_tx(client, ch, fx, amount="900.00", liters="20.000",
                      payment_method="veresiye", pump_id=fx["pump2"]["id"],
-                     transaction_time=tr_time(TEST_DAY, 18, 0))
+                     transaction_time=tr_time(TEST_DAY, 18, 0),
+                     credit={"account_type": "individual", "credit_customer_id": cust_res.json()["id"]})
         # Pompa 1'e benzin (TR 09:00, 25Lt/1100₺)
         await add_tx(client, ch, fx, amount="1100.00", liters="25.000",
                      fuel_type="Benzin", transaction_time=tr_time(TEST_DAY, 9, 0))

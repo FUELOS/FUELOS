@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { apiClient } from "@/lib/api";
 import { DashboardResponse, Station, WorkerShiftStats } from "@/types";
 import { formatCurrency, formatNumber } from "@/lib/utils";
+import { toAmountNumber } from "@/lib/veresiye";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
 import { OpenShiftModal } from "@/components/modals/OpenShiftModal";
@@ -23,6 +24,7 @@ import {
   PlusCircle,
   Play,
   AlertCircle,
+  AlertTriangle,
   Loader2,
   Layers,
   Info,
@@ -461,11 +463,32 @@ export const Dashboard: React.FC = () => {
                 <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-600 flex items-center justify-center shrink-0">
                   <Info size={18} />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="text-[10px] uppercase font-bold text-amber-700 dark:text-amber-400">{language === "tr" ? "Veresiye" : "Credit"}</div>
                   <div className="text-base font-black text-slate-900 dark:text-white mt-0.5">
                     {formatCurrency(data.total_veresiye_sales)}
                   </div>
+                  {(data.total_corporate_veresiye_sales !== undefined || data.total_individual_veresiye_sales !== undefined) && (
+                    <div className="text-[10px] text-amber-800/80 dark:text-amber-300/80 font-semibold mt-0.5 truncate">
+                      {t("creditsale.corp_short")}: {formatCurrency(data.total_corporate_veresiye_sales ?? 0)} · {t("creditsale.indiv_short")}: {formatCurrency(data.total_individual_veresiye_sales ?? 0)}
+                    </div>
+                  )}
+                  {((data.veresiye_missing_receipt_count ?? 0) > 0 || toAmountNumber(data.total_unlinked_veresiye_sales) > 0) && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {(data.veresiye_missing_receipt_count ?? 0) > 0 && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 text-[10px] font-bold">
+                          <AlertTriangle size={10} />
+                          {t("creditsale.missing_receipt_chip").replace("{count}", String(data.veresiye_missing_receipt_count))}
+                        </span>
+                      )}
+                      {toAmountNumber(data.total_unlinked_veresiye_sales) > 0 && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 text-[10px] font-bold">
+                          <AlertTriangle size={10} />
+                          {t("creditsale.unlinked_chip").replace("{amount}", formatCurrency(data.total_unlinked_veresiye_sales))}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -539,6 +562,27 @@ export const Dashboard: React.FC = () => {
               <div className="text-lg font-black text-amber-600 dark:text-amber-400 mt-1">
                 {formatCurrency(data?.total_veresiye_sales)}
               </div>
+              {(data?.total_corporate_veresiye_sales !== undefined || data?.total_individual_veresiye_sales !== undefined) && (
+                <div className="text-[11px] text-amber-800/80 dark:text-amber-300/80 font-semibold mt-1">
+                  {t("creditsale.corp_short")}: {formatCurrency(data?.total_corporate_veresiye_sales ?? 0)} · {t("creditsale.indiv_short")}: {formatCurrency(data?.total_individual_veresiye_sales ?? 0)}
+                </div>
+              )}
+              {((data?.veresiye_missing_receipt_count ?? 0) > 0 || toAmountNumber(data?.total_unlinked_veresiye_sales) > 0) && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {(data?.veresiye_missing_receipt_count ?? 0) > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 text-[10px] font-bold">
+                      <AlertTriangle size={10} />
+                      {t("creditsale.missing_receipt_chip").replace("{count}", String(data?.veresiye_missing_receipt_count))}
+                    </span>
+                  )}
+                  {toAmountNumber(data?.total_unlinked_veresiye_sales) > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 text-[10px] font-bold">
+                      <AlertTriangle size={10} />
+                      {t("creditsale.unlinked_chip").replace("{amount}", formatCurrency(data?.total_unlinked_veresiye_sales))}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

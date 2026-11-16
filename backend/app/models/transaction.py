@@ -28,6 +28,7 @@ from app.models.base import (
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
+    from app.models.credit import CreditSale
     from app.models.pump import Pump
     from app.models.shift import Shift
     from app.models.station import Station
@@ -125,6 +126,13 @@ class Transaction(Base):
     )
     pump: Mapped[Optional["Pump"]] = relationship(
         "Pump",
+        lazy="selectin",
+    )
+    # Veresiye satışlarda cari defter kaydı (ödeme yöntemi veresiye değilse None).
+    credit_sale: Mapped[Optional["CreditSale"]] = relationship(
+        "CreditSale",
+        back_populates="transaction",
+        uselist=False,
         lazy="selectin",
     )
 

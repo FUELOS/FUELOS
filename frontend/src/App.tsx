@@ -14,6 +14,7 @@ import { ReportsPage } from "@/pages/ReportsPage";
 import { StationsPage } from "@/pages/StationsPage";
 import { UsersPage } from "@/pages/UsersPage";
 import { SettingsPage } from "@/pages/SettingsPage";
+import { VeresiyePage } from "@/pages/VeresiyePage";
 
 /**
  * Role-based home page:
@@ -30,6 +31,12 @@ const RoleBasedShifts: React.FC = () => {
   const { user } = useAuth();
   if (user?.role === "super_admin") return <Navigate to="/" replace />;
   return <ShiftsPage />;
+};
+
+const RoleBasedVeresiye: React.FC = () => {
+  const { user } = useAuth();
+  if (user?.role === "super_admin") return <Navigate to="/" replace />;
+  return <VeresiyePage />;
 };
 
 export const App: React.FC = () => {
@@ -51,6 +58,7 @@ export const App: React.FC = () => {
 
                   {/* Diğer sayfalar */}
                   <Route path="/transactions" element={<TransactionsPage />} />
+                  <Route path="/veresiye" element={<RoleBasedVeresiye />} />
                   <Route path="/reports" element={<ReportsPage />} />
                   <Route path="/stations" element={<StationsPage />} />
                   <Route path="/users" element={<UsersPage />} />

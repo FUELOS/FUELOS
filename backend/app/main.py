@@ -6,7 +6,9 @@ Tüm router'ları bağlar, CORS'u yapılandırır, başlangıçta seed çalışt
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
@@ -28,6 +30,10 @@ from app.api.admin_dashboard import router as admin_dashboard_router
 from app.api.station_detail import router as station_detail_router
 from app.api.settings import router as settings_router
 from app.api.zk_preview import router as zk_preview_router
+from app.api.veresiye_accounts import router as veresiye_accounts_router
+from app.api.veresiye_documents import router as veresiye_documents_router
+from app.api.veresiye_ledger import router as veresiye_ledger_router
+from app.api.veresiye_reconciliation import router as veresiye_reconciliation_router
 
 settings = get_settings()
 
@@ -75,6 +81,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    """
+    422 yanıtından `input` ve `ctx` alanlarını çıkarır: varsayılan FastAPI yanıtı
+    gönderilen gövdeyi (T.C. kimlik no dahil) aynen geri yansıtır.
+    """
+    errors = [
+        {"type": e.get("type"), "loc": e.get("loc"), "msg": e.get("msg")}
+        for e in exc.errors()
+    ]
+    return JSONResponse(status_code=422, content={"detail": errors})
+
+
 # ─── Router'ları bağla ───
 app.include_router(auth_router)
 app.include_router(companies_router)
@@ -90,6 +109,10 @@ app.include_router(admin_dashboard_router)
 app.include_router(station_detail_router)
 app.include_router(settings_router)
 app.include_router(zk_preview_router)
+app.include_router(veresiye_accounts_router)
+app.include_router(veresiye_documents_router)
+app.include_router(veresiye_ledger_router)
+app.include_router(veresiye_reconciliation_router)
 
 
 # ─── Health Check ───

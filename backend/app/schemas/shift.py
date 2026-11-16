@@ -10,6 +10,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.models.base import ShiftStatus
+from app.schemas.credit import ShiftCreditBreakdown
 
 
 class ShiftOpen(BaseModel):
@@ -99,6 +100,7 @@ class ShiftResponse(BaseModel):
     zk_proved_at: datetime | None = None
     zk_verified_at: datetime | None = None
     zk_proof_hash: str | None = None
+    credit_breakdown: ShiftCreditBreakdown | None = None
 
     model_config = {"from_attributes": True}
 

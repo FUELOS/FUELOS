@@ -6,7 +6,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import {
   LogOut, UserCircle2, ShieldCheck, Building2, Sun, Moon,
   Menu, X, Clock, Receipt, BarChart3, Settings, Fuel,
-  LayoutDashboard, Users,
+  LayoutDashboard, Users, NotebookText,
 } from "lucide-react";
 
 export const Navbar: React.FC = () => {
@@ -29,6 +29,7 @@ export const Navbar: React.FC = () => {
     { to: "/shifts", label: t("shifts.title"), icon: Clock },
     { to: "/stations", label: t("nav.station"), icon: Building2 },
     { to: "/transactions", label: t("nav.transactions"), icon: Receipt },
+    { to: "/veresiye", label: t("nav.veresiye"), icon: NotebookText },
     { to: "/reports", label: t("nav.reports"), icon: BarChart3 },
     { to: "/settings", label: t("nav.settings"), icon: Settings },
   ];

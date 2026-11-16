@@ -20,11 +20,13 @@ from app.models.user import User
 from app.models.station import Station
 from app.models.shift import Shift
 from app.models.transaction import Transaction
+from app.models.credit import CreditSale
 from app.models.base import (
     UserRole,
     ShiftStatus,
     PaymentMethod,
     TransactionType,
+    CreditAccountType,
 )
 from app.auth.dependencies import get_current_user
 
@@ -50,6 +52,8 @@ class WorkerShiftStats(BaseModel):
     pos_sales: Decimal = Decimal("0.00")
     fast_sales: Decimal = Decimal("0.00")
     veresiye_sales: Decimal = Decimal("0.00")
+    corporate_veresiye_sales: Decimal = Decimal("0.00")
+    individual_veresiye_sales: Decimal = Decimal("0.00")
     total_sales: Decimal = Decimal("0.00")
 
     model_config = {"from_attributes": True}
@@ -81,6 +85,10 @@ class DashboardResponse(BaseModel):
     total_pos_sales: Decimal = Decimal("0.00")
     total_fast_sales: Decimal = Decimal("0.00")
     total_veresiye_sales: Decimal = Decimal("0.00")
+    total_corporate_veresiye_sales: Decimal = Decimal("0.00")
+    total_individual_veresiye_sales: Decimal = Decimal("0.00")
+    total_unlinked_veresiye_sales: Decimal = Decimal("0.00")
+    veresiye_missing_receipt_count: int = 0
     total_dispensed_liters: Decimal = Decimal("0.00")
     total_sales_revenue: Decimal = Decimal("0.00")
 
@@ -132,7 +140,7 @@ async def get_dashboard(
     # Seçili İstasyon İsmi
     active_st_name = "Tüm İstasyonlar"
     if station_id is not None:
-        st_res = await db.execute(select(Station.name).where(Station.id == station_id))
+        st_res = await db.execute(select(Station.name).where(station_filter))
         st_row = st_res.scalar_one_or_none()
         if st_row:
             active_st_name = st_row
@@ -176,8 +184,15 @@ async def get_dashboard(
             "pos_sales": Decimal("0.00"),
             "fast_sales": Decimal("0.00"),
             "veresiye_sales": Decimal("0.00"),
+            "corporate_veresiye_sales": Decimal("0.00"),
+            "individual_veresiye_sales": Decimal("0.00"),
             "total_sales": Decimal("0.00"),
         }
+
+    total_corporate_veresiye_sales = Decimal("0.00")
+    total_individual_veresiye_sales = Decimal("0.00")
+    total_unlinked_veresiye_sales = Decimal("0.00")
+    veresiye_missing_receipt_count = 0
 
     if active_shift_ids:
         # Açık vardiyalardaki işlemleri hesapla
@@ -198,19 +213,92 @@ async def get_dashboard(
                 func.coalesce(
                     func.sum(case((Transaction.payment_method == PaymentMethod.VERESIYE, Transaction.amount), else_=0)), 0
                 ).label("veresiye"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                and_(
+                                    Transaction.payment_method == PaymentMethod.VERESIYE,
+                                    CreditSale.account_type == CreditAccountType.CORPORATE,
+                                ),
+                                Transaction.amount,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("corp_veresiye"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                and_(
+                                    Transaction.payment_method == PaymentMethod.VERESIYE,
+                                    CreditSale.account_type == CreditAccountType.INDIVIDUAL,
+                                ),
+                                Transaction.amount,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("ind_veresiye"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                and_(
+                                    Transaction.payment_method == PaymentMethod.VERESIYE,
+                                    CreditSale.id.is_(None),
+                                ),
+                                Transaction.amount,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("unlinked_veresiye"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                and_(
+                                    CreditSale.id.is_not(None),
+                                    CreditSale.receipt_document_id.is_(None),
+                                ),
+                                1,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("missing_receipts"),
             )
+            .outerjoin(CreditSale, CreditSale.transaction_id == Transaction.id)
             .where(Transaction.shift_id.in_(active_shift_ids))
             .group_by(Transaction.shift_id)
         )
         tx_res = await db.execute(tx_query)
         for tx_row in tx_res.all():
             if tx_row.shift_id in worker_stats_map:
+                corp_val = Decimal(str(tx_row.corp_veresiye))
+                ind_val = Decimal(str(tx_row.ind_veresiye))
+                unl_val = Decimal(str(tx_row.unlinked_veresiye))
+                miss_cnt = int(tx_row.missing_receipts or 0)
+
                 worker_stats_map[tx_row.shift_id]["dispensed_liters"] = Decimal(str(tx_row.liters))
                 worker_stats_map[tx_row.shift_id]["total_sales"] = Decimal(str(tx_row.total))
                 worker_stats_map[tx_row.shift_id]["cash_sales"] = Decimal(str(tx_row.cash))
                 worker_stats_map[tx_row.shift_id]["pos_sales"] = Decimal(str(tx_row.pos))
                 worker_stats_map[tx_row.shift_id]["fast_sales"] = Decimal(str(tx_row.fast))
                 worker_stats_map[tx_row.shift_id]["veresiye_sales"] = Decimal(str(tx_row.veresiye))
+                worker_stats_map[tx_row.shift_id]["corporate_veresiye_sales"] = corp_val
+                worker_stats_map[tx_row.shift_id]["individual_veresiye_sales"] = ind_val
+
+                total_corporate_veresiye_sales += corp_val
+                total_individual_veresiye_sales += ind_val
+                total_unlinked_veresiye_sales += unl_val
+                veresiye_missing_receipt_count += miss_cnt
 
     worker_list = [WorkerShiftStats(**data) for data in worker_stats_map.values()]
 
@@ -245,7 +333,69 @@ async def get_dashboard(
                 func.coalesce(
                     func.sum(case((Transaction.payment_method == PaymentMethod.VERESIYE, Transaction.amount), else_=0)), 0
                 ).label("veresiye"),
-            ).where(today_filter)
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                and_(
+                                    Transaction.payment_method == PaymentMethod.VERESIYE,
+                                    CreditSale.account_type == CreditAccountType.CORPORATE,
+                                ),
+                                Transaction.amount,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("corp_veresiye"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                and_(
+                                    Transaction.payment_method == PaymentMethod.VERESIYE,
+                                    CreditSale.account_type == CreditAccountType.INDIVIDUAL,
+                                ),
+                                Transaction.amount,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("ind_veresiye"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                and_(
+                                    Transaction.payment_method == PaymentMethod.VERESIYE,
+                                    CreditSale.id.is_(None),
+                                ),
+                                Transaction.amount,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("unlinked_veresiye"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                and_(
+                                    CreditSale.id.is_not(None),
+                                    CreditSale.receipt_document_id.is_(None),
+                                ),
+                                1,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("missing_receipts"),
+            )
+            .outerjoin(CreditSale, CreditSale.transaction_id == Transaction.id)
+            .where(today_filter)
         )
         day_row = day_res.one()
         total_liters = Decimal(str(day_row.liters))
@@ -254,6 +404,10 @@ async def get_dashboard(
         total_pos_sales = Decimal(str(day_row.pos))
         total_fast_sales = Decimal(str(day_row.fast))
         total_veresiye_sales = Decimal(str(day_row.veresiye))
+        total_corporate_veresiye_sales = Decimal(str(day_row.corp_veresiye))
+        total_individual_veresiye_sales = Decimal(str(day_row.ind_veresiye))
+        total_unlinked_veresiye_sales = Decimal(str(day_row.unlinked_veresiye))
+        veresiye_missing_receipt_count = int(day_row.missing_receipts or 0)
 
     # Beklenen Kasa = Açılış Kasası + Toplam Nakit Satış
     expected_cash = total_opening_cash + total_cash_sales
@@ -386,6 +540,10 @@ async def get_dashboard(
         total_pos_sales=total_pos_sales,
         total_fast_sales=total_fast_sales,
         total_veresiye_sales=total_veresiye_sales,
+        total_corporate_veresiye_sales=total_corporate_veresiye_sales,
+        total_individual_veresiye_sales=total_individual_veresiye_sales,
+        total_unlinked_veresiye_sales=total_unlinked_veresiye_sales,
+        veresiye_missing_receipt_count=veresiye_missing_receipt_count,
         total_dispensed_liters=total_liters,
         total_sales_revenue=total_revenue,
         expected_cash=expected_cash,

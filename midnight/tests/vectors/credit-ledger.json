@@ -1,0 +1,563 @@
+{
+  "leaves": [
+    {
+      "label": "corporate-turkish-fuel",
+      "leaf": {
+        "saleId": "00000009-1111-4111-8111-000000000009",
+        "transactionId": "0000006d-1111-4111-8111-00000000006d",
+        "shiftId": "000001f4-1111-4111-8111-0000000001f4",
+        "stationId": "00000384-1111-4111-8111-000000000384",
+        "accountType": "corporate",
+        "accountId": "000003e9-1111-4111-8111-0000000003e9",
+        "plate": "06ABC123",
+        "driverId": "000007d1-1111-4111-8111-0000000007d1",
+        "fuelType": "Kurşunsuz 95 (Benzin)",
+        "litersMl": 45500,
+        "amountKurus": 214550,
+        "saleTime": "2026-11-15T08:15:30Z"
+      },
+      "nonce": "1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+      "canonicalPayload": "{\"accountId\":\"000003e9-1111-4111-8111-0000000003e9\",\"accountType\":\"corporate\",\"amountKurus\":\"214550\",\"domain\":\"FUELOS_VERESIYE_SALE_V1\",\"driverId\":\"000007d1-1111-4111-8111-0000000007d1\",\"fuelType\":\"Kur\\u015funsuz 95 (Benzin)\",\"litersMl\":\"45500\",\"nonce\":\"1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a\",\"plate\":\"06ABC123\",\"saleId\":\"00000009-1111-4111-8111-000000000009\",\"saleTime\":\"2026-11-15T08:15:30Z\",\"shiftId\":\"000001f4-1111-4111-8111-0000000001f4\",\"stationId\":\"00000384-1111-4111-8111-000000000384\",\"transactionId\":\"0000006d-1111-4111-8111-00000000006d\"}",
+      "commitment": "073f7ce3deff1ac4b4e473dae2d45f63e5aa57c49faefe4b7d124d79ca669945"
+    },
+    {
+      "label": "individual-all-nulls",
+      "leaf": {
+        "saleId": "00000003-1111-4111-8111-000000000003",
+        "transactionId": "00000067-1111-4111-8111-000000000067",
+        "shiftId": "000001f4-1111-4111-8111-0000000001f4",
+        "stationId": "00000384-1111-4111-8111-000000000384",
+        "accountType": "individual",
+        "accountId": "00000bb9-1111-4111-8111-000000000bb9",
+        "plate": null,
+        "driverId": null,
+        "fuelType": null,
+        "litersMl": null,
+        "amountKurus": 10000,
+        "saleTime": "2026-11-15T09:00:00Z"
+      },
+      "nonce": "2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+      "canonicalPayload": "{\"accountId\":\"00000bb9-1111-4111-8111-000000000bb9\",\"accountType\":\"individual\",\"amountKurus\":\"10000\",\"domain\":\"FUELOS_VERESIYE_SALE_V1\",\"driverId\":null,\"fuelType\":null,\"litersMl\":null,\"nonce\":\"2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b\",\"plate\":null,\"saleId\":\"00000003-1111-4111-8111-000000000003\",\"saleTime\":\"2026-11-15T09:00:00Z\",\"shiftId\":\"000001f4-1111-4111-8111-0000000001f4\",\"stationId\":\"00000384-1111-4111-8111-000000000384\",\"transactionId\":\"00000067-1111-4111-8111-000000000067\"}",
+      "commitment": "e7d9e8f42cea8321ba848dfbfa138804ae761211d5a0687c8f9f2dd2d6b7e022"
+    },
+    {
+      "label": "individual-all-nulls-different-nonce",
+      "leaf": {
+        "saleId": "00000007-1111-4111-8111-000000000007",
+        "transactionId": "00000067-1111-4111-8111-000000000067",
+        "shiftId": "000001f4-1111-4111-8111-0000000001f4",
+        "stationId": "00000384-1111-4111-8111-000000000384",
+        "accountType": "individual",
+        "accountId": "00000bb9-1111-4111-8111-000000000bb9",
+        "plate": null,
+        "driverId": null,
+        "fuelType": null,
+        "litersMl": null,
+        "amountKurus": 10000,
+        "saleTime": "2026-11-15T09:00:00Z"
+      },
+      "nonce": "3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c",
+      "canonicalPayload": "{\"accountId\":\"00000bb9-1111-4111-8111-000000000bb9\",\"accountType\":\"individual\",\"amountKurus\":\"10000\",\"domain\":\"FUELOS_VERESIYE_SALE_V1\",\"driverId\":null,\"fuelType\":null,\"litersMl\":null,\"nonce\":\"3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c\",\"plate\":null,\"saleId\":\"00000007-1111-4111-8111-000000000007\",\"saleTime\":\"2026-11-15T09:00:00Z\",\"shiftId\":\"000001f4-1111-4111-8111-0000000001f4\",\"stationId\":\"00000384-1111-4111-8111-000000000384\",\"transactionId\":\"00000067-1111-4111-8111-000000000067\"}",
+      "commitment": "2470b131af8263c1ee3f5cd3aaa5f0299814930a24ecfabc41ac4c9325c643c9"
+    },
+    {
+      "label": "uppercase-uuids-unicode-extended",
+      "leaf": {
+        "saleId": "00000002-1111-4111-8111-000000000002",
+        "transactionId": "00000066-1111-4111-8111-000000000066",
+        "shiftId": "000001F4-1111-4111-8111-0000000001F4",
+        "stationId": "00000384-1111-4111-8111-000000000384",
+        "accountType": "corporate",
+        "accountId": "000003EA-1111-4111-8111-0000000003EA",
+        "plate": "34XYZ99",
+        "driverId": "000007D2-1111-4111-8111-0000000007D2",
+        "fuelType": "Motorin İş/Ağır Özel Çekici",
+        "litersMl": 120000,
+        "amountKurus": 540000,
+        "saleTime": "2026-11-15T10:30:05Z"
+      },
+      "nonce": "4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d",
+      "canonicalPayload": "{\"accountId\":\"000003ea-1111-4111-8111-0000000003ea\",\"accountType\":\"corporate\",\"amountKurus\":\"540000\",\"domain\":\"FUELOS_VERESIYE_SALE_V1\",\"driverId\":\"000007d2-1111-4111-8111-0000000007d2\",\"fuelType\":\"Motorin \\u0130\\u015f/A\\u011f\\u0131r \\u00d6zel \\u00c7ekici\",\"litersMl\":\"120000\",\"nonce\":\"4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d\",\"plate\":\"34XYZ99\",\"saleId\":\"00000002-1111-4111-8111-000000000002\",\"saleTime\":\"2026-11-15T10:30:05Z\",\"shiftId\":\"000001f4-1111-4111-8111-0000000001f4\",\"stationId\":\"00000384-1111-4111-8111-000000000384\",\"transactionId\":\"00000066-1111-4111-8111-000000000066\"}",
+      "commitment": "86085e2b15e01e004af4a67202b724ff93c653ac4763f549251e82e657aef920"
+    },
+    {
+      "label": "corporate-no-driver-lpg",
+      "leaf": {
+        "saleId": "00000005-1111-4111-8111-000000000005",
+        "transactionId": "00000069-1111-4111-8111-000000000069",
+        "shiftId": "000001f4-1111-4111-8111-0000000001f4",
+        "stationId": "00000384-1111-4111-8111-000000000384",
+        "accountType": "corporate",
+        "accountId": "000003eb-1111-4111-8111-0000000003eb",
+        "plate": "35IZM01",
+        "driverId": "",
+        "fuelType": "Otogaz (LPG)",
+        "litersMl": 32125,
+        "amountKurus": 79995,
+        "saleTime": "2026-11-15T11:45:00Z"
+      },
+      "nonce": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+      "canonicalPayload": "{\"accountId\":\"000003eb-1111-4111-8111-0000000003eb\",\"accountType\":\"corporate\",\"amountKurus\":\"79995\",\"domain\":\"FUELOS_VERESIYE_SALE_V1\",\"driverId\":null,\"fuelType\":\"Otogaz (LPG)\",\"litersMl\":\"32125\",\"nonce\":\"5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e\",\"plate\":\"35IZM01\",\"saleId\":\"00000005-1111-4111-8111-000000000005\",\"saleTime\":\"2026-11-15T11:45:00Z\",\"shiftId\":\"000001f4-1111-4111-8111-0000000001f4\",\"stationId\":\"00000384-1111-4111-8111-000000000384\",\"transactionId\":\"00000069-1111-4111-8111-000000000069\"}",
+      "commitment": "6a33a757256965be5b595667a0ba6db46dc35acf9e253a0638dee0bc65485128"
+    },
+    {
+      "label": "individual-with-plate",
+      "leaf": {
+        "saleId": "00000001-1111-4111-8111-000000000001",
+        "transactionId": "00000065-1111-4111-8111-000000000065",
+        "shiftId": "000001f4-1111-4111-8111-0000000001f4",
+        "stationId": "00000384-1111-4111-8111-000000000384",
+        "accountType": "individual",
+        "accountId": "00000bba-1111-4111-8111-000000000bba",
+        "plate": "01ADN44",
+        "driverId": null,
+        "fuelType": "Euro Diesel",
+        "litersMl": 18000,
+        "amountKurus": 82800,
+        "saleTime": "2026-11-15T12:10:00Z"
+      },
+      "nonce": "6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f",
+      "canonicalPayload": "{\"accountId\":\"00000bba-1111-4111-8111-000000000bba\",\"accountType\":\"individual\",\"amountKurus\":\"82800\",\"domain\":\"FUELOS_VERESIYE_SALE_V1\",\"driverId\":null,\"fuelType\":\"Euro Diesel\",\"litersMl\":\"18000\",\"nonce\":\"6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f\",\"plate\":\"01ADN44\",\"saleId\":\"00000001-1111-4111-8111-000000000001\",\"saleTime\":\"2026-11-15T12:10:00Z\",\"shiftId\":\"000001f4-1111-4111-8111-0000000001f4\",\"stationId\":\"00000384-1111-4111-8111-000000000384\",\"transactionId\":\"00000065-1111-4111-8111-000000000065\"}",
+      "commitment": "88df51597d57ce79fd35717c61abb7b4c81cf649446a773e0bd6af3388143b5d"
+    },
+    {
+      "label": "corporate-small-amount",
+      "leaf": {
+        "saleId": "00000008-1111-4111-8111-000000000008",
+        "transactionId": "0000006c-1111-4111-8111-00000000006c",
+        "shiftId": "000001f4-1111-4111-8111-0000000001f4",
+        "stationId": "00000384-1111-4111-8111-000000000384",
+        "accountType": "corporate",
+        "accountId": "000003ec-1111-4111-8111-0000000003ec",
+        "plate": "16BRS77",
+        "driverId": "000007d4-1111-4111-8111-0000000007d4",
+        "fuelType": "Benzin 95",
+        "litersMl": 1000,
+        "amountKurus": 4500,
+        "saleTime": "2026-11-15T13:00:00Z"
+      },
+      "nonce": "7070707070707070707070707070707070707070707070707070707070707070",
+      "canonicalPayload": "{\"accountId\":\"000003ec-1111-4111-8111-0000000003ec\",\"accountType\":\"corporate\",\"amountKurus\":\"4500\",\"domain\":\"FUELOS_VERESIYE_SALE_V1\",\"driverId\":\"000007d4-1111-4111-8111-0000000007d4\",\"fuelType\":\"Benzin 95\",\"litersMl\":\"1000\",\"nonce\":\"7070707070707070707070707070707070707070707070707070707070707070\",\"plate\":\"16BRS77\",\"saleId\":\"00000008-1111-4111-8111-000000000008\",\"saleTime\":\"2026-11-15T13:00:00Z\",\"shiftId\":\"000001f4-1111-4111-8111-0000000001f4\",\"stationId\":\"00000384-1111-4111-8111-000000000384\",\"transactionId\":\"0000006c-1111-4111-8111-00000000006c\"}",
+      "commitment": "265d5b74f5c40fab68db2bb95cf09eee835c8fe3c276cac46e0ad98c76877e6d"
+    },
+    {
+      "label": "individual-large-amount",
+      "leaf": {
+        "saleId": "00000004-1111-4111-8111-000000000004",
+        "transactionId": "00000068-1111-4111-8111-000000000068",
+        "shiftId": "000001f4-1111-4111-8111-0000000001f4",
+        "stationId": "00000384-1111-4111-8111-000000000384",
+        "accountType": "individual",
+        "accountId": "00000bbb-1111-4111-8111-000000000bbb",
+        "plate": "07ANT07",
+        "driverId": null,
+        "fuelType": "Ultra Motorin",
+        "litersMl": 95500,
+        "amountKurus": 439300,
+        "saleTime": "2026-11-15T14:22:19Z"
+      },
+      "nonce": "8181818181818181818181818181818181818181818181818181818181818181",
+      "canonicalPayload": "{\"accountId\":\"00000bbb-1111-4111-8111-000000000bbb\",\"accountType\":\"individual\",\"amountKurus\":\"439300\",\"domain\":\"FUELOS_VERESIYE_SALE_V1\",\"driverId\":null,\"fuelType\":\"Ultra Motorin\",\"litersMl\":\"95500\",\"nonce\":\"8181818181818181818181818181818181818181818181818181818181818181\",\"plate\":\"07ANT07\",\"saleId\":\"00000004-1111-4111-8111-000000000004\",\"saleTime\":\"2026-11-15T14:22:19Z\",\"shiftId\":\"000001f4-1111-4111-8111-0000000001f4\",\"stationId\":\"00000384-1111-4111-8111-000000000384\",\"transactionId\":\"00000068-1111-4111-8111-000000000068\"}",
+      "commitment": "0f69ec075a7776b4014e935b04fe47076ec955029a2dfb156692b41dc53178fe"
+    }
+  ],
+  "merkleCases": [
+    {
+      "count": 0,
+      "shiftId": "000001F4-1111-4111-8111-0000000001F4",
+      "inputSales": [],
+      "orderedSaleIds": [],
+      "orderedCommitments": [],
+      "merkleRoot": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "statementDigest": "d1f0505efaffc74265e6f2f332639e0dab5704f43729e16f96e5ef8d5994a109",
+      "inclusionPaths": []
+    },
+    {
+      "count": 1,
+      "shiftId": "000001F4-1111-4111-8111-0000000001F4",
+      "inputSales": [
+        [
+          "00000009-1111-4111-8111-000000000009",
+          "073f7ce3deff1ac4b4e473dae2d45f63e5aa57c49faefe4b7d124d79ca669945"
+        ]
+      ],
+      "orderedSaleIds": [
+        "00000009-1111-4111-8111-000000000009"
+      ],
+      "orderedCommitments": [
+        "073f7ce3deff1ac4b4e473dae2d45f63e5aa57c49faefe4b7d124d79ca669945"
+      ],
+      "merkleRoot": "5f677d947c04486570df8d76cfc04cc16c62e4d01162667d479bd86775f9db6a",
+      "statementDigest": "ce14776a560e2eb4037c61c4c3a9859dfe63d053b11284b6c2188ce179a11d42",
+      "inclusionPaths": [
+        {
+          "index": 0,
+          "commitment": "073f7ce3deff1ac4b4e473dae2d45f63e5aa57c49faefe4b7d124d79ca669945",
+          "path": []
+        }
+      ]
+    },
+    {
+      "count": 2,
+      "shiftId": "000001F4-1111-4111-8111-0000000001F4",
+      "inputSales": [
+        [
+          "00000009-1111-4111-8111-000000000009",
+          "073f7ce3deff1ac4b4e473dae2d45f63e5aa57c49faefe4b7d124d79ca669945"
+        ],
+        [
+          "00000003-1111-4111-8111-000000000003",
+          "e7d9e8f42cea8321ba848dfbfa138804ae761211d5a0687c8f9f2dd2d6b7e022"
+        ]
+      ],
+      "orderedSaleIds": [
+        "00000003-1111-4111-8111-000000000003",
+        "00000009-1111-4111-8111-000000000009"
+      ],
+      "orderedCommitments": [
+        "e7d9e8f42cea8321ba848dfbfa138804ae761211d5a0687c8f9f2dd2d6b7e022",
+        "073f7ce3deff1ac4b4e473dae2d45f63e5aa57c49faefe4b7d124d79ca669945"
+      ],
+      "merkleRoot": "4b21c0eaff56b35f52b63cabb47817f251163f50771363717d39db4f06aff70d",
+      "statementDigest": "9e62506bc0fc01ede6585c63795630804b0757b59e96f53cdcb3c077b365cf30",
+      "inclusionPaths": [
+        {
+          "index": 0,
+          "commitment": "e7d9e8f42cea8321ba848dfbfa138804ae761211d5a0687c8f9f2dd2d6b7e022",
+          "path": [
+            "5f677d947c04486570df8d76cfc04cc16c62e4d01162667d479bd86775f9db6a"
+          ]
+        },
+        {
+          "index": 1,
+          "commitment": "073f7ce3deff1ac4b4e473dae2d45f63e5aa57c49faefe4b7d124d79ca669945",
+          "path": [
+            "74648c16283b608122ac807f2e1f7cd6bb5ca932df4ac734667cc1ed97095331"
+          ]
+        }
+      ]
+    },
+    {
+      "count": 3,
+      "shiftId": "000001F4-1111-4111-8111-0000000001F4",
+      "inputSales": [
+        [
+          "00000009-1111-4111-8111-000000000009",
+          "073f7ce3deff1ac4b4e473dae2d45f63e5aa57c49faefe4b7d124d79ca669945"
+        ],
+        [
+          "00000003-1111-4111-8111-000000000003",
+          "e7d9e8f42cea8321ba848dfbfa138804ae761211d5a0687c8f9f2dd2d6b7e022"
+        ],
+        [
+          "00000007-1111-4111-8111-000000000007",
+          "2470b131af8263c1ee3f5cd3aaa5f0299814930a24ecfabc41ac4c9325c643c9"
+        ]
+      ],
+      "orderedSaleIds": [
+        "00000003-1111-4111-8111-000000000003",
+        "00000007-1111-4111-8111-000000000007",
+        "00000009-1111-4111-8111-000000000009"
+      ],
+      "orderedCommitments": [
+        "e7d9e8f42cea8321ba848dfbfa138804ae761211d5a0687c8f9f2dd2d6b7e022",
+        "2470b131af8263c1ee3f5cd3aaa5f0299814930a24ecfabc41ac4c9325c643c9",
+        "073f7ce3deff1ac4b4e473dae2d45f63e5aa57c49faefe4b7d124d79ca669945"
+      ],
+      "merkleRoot": "6c99039f1e8cedce9317a31f6de51436a7f29bb578e3004283c1b789376f5509",
+      "statementDigest": "a660c3992d427c9199b3726232acd06f2c68b87856875aa8808c3bf95a05c883",
+      "inclusionPaths": [
+        {
+          "index": 0,
+          "commitment": "e7d9e8f42cea8321ba848dfbfa138804ae761211d5a0687c8f9f2dd2d6b7e022",
+          "path": [
+            "eb80697e0a70202b9dff8635e60754b0e2f990dde824dd771a4027f24e65a3ba",
+            "5f677d947c04486570df8d76cfc04cc16c62e4d01162667d479bd86775f9db6a"
+          ]
+        },
+        {
+          "index": 1,
+          "commitment": "2470b131af8263c1ee3f5cd3aaa5f0299814930a24ecfabc41ac4c9325c643c9",
+          "path": [
+            "74648c16283b608122ac807f2e1f7cd6bb5ca932df4ac734667cc1ed97095331",
+            "5f677d947c04486570df8d76cfc04cc16c62e4d01162667d479bd86775f9db6a"
+          ]
+        },
+        {
+          "index": 2,
+          "commitment": "073f7ce3deff1ac4b4e473dae2d45f63e5aa57c49faefe4b7d124d79ca669945",
+          "path": [
+            "e627f59d659ab3d93b58d82bbc39760ff571391b08b79161dbba74c86631b306"
+          ]
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "shiftId": "000001F4-1111-4111-8111-0000000001F4",
+      "inputSales": [
+        [
+          "00000009-1111-4111-8111-000000000009",
+          "073f7ce3deff1ac4b4e473dae2d45f63e5aa57c49faefe4b7d124d79ca669945"
+        ],
+        [
+          "00000003-1111-4111-8111-000000000003",
+          "e7d9e8f42cea8321ba848dfbfa138804ae761211d5a0687c8f9f2dd2d6b7e022"
+        ],
+        [
+          "00000007-1111-4111-8111-000000000007",
+          "2470b131af8263c1ee3f5cd3aaa5f0299814930a24ecfabc41ac4c9325c643c9"
+        ],
+        [
+          "00000002-1111-4111-8111-000000000002",
+          "86085e2b15e01e004af4a67202b724ff93c653ac4763f549251e82e657aef920"
+        ],
+        [
+          "00000005-1111-4111-8111-000000000005",
+          "6a33a757256965be5b595667a0ba6db46dc35acf9e253a0638dee0bc65485128"
+        ]
+      ],
+      "orderedSaleIds": [
+        "00000002-1111-4111-8111-000000000002",
+        "00000003-1111-4111-8111-000000000003",
+        "00000005-1111-4111-8111-000000000005",
+        "00000007-1111-4111-8111-000000000007",
+        "00000009-1111-4111-8111-000000000009"
+      ],
+      "orderedCommitments": [
+        "86085e2b15e01e004af4a67202b724ff93c653ac4763f549251e82e657aef920",
+        "e7d9e8f42cea8321ba848dfbfa138804ae761211d5a0687c8f9f2dd2d6b7e022",
+        "6a33a757256965be5b595667a0ba6db46dc35acf9e253a0638dee0bc65485128",
+        "2470b131af8263c1ee3f5cd3aaa5f0299814930a24ecfabc41ac4c9325c643c9",
+        "073f7ce3deff1ac4b4e473dae2d45f63e5aa57c49faefe4b7d124d79ca669945"
+      ],
+      "merkleRoot": "585b51f74aac43293212e3dda1fa58b40ee36af13be4834be1bf6f8b989d3b36",
+      "statementDigest": "25d53a2a4ce0e4c362fa002fa6f2fb108a2c624a41211532338dcba796f69b62",
+      "inclusionPaths": [
+        {
+          "index": 0,
+          "commitment": "86085e2b15e01e004af4a67202b724ff93c653ac4763f549251e82e657aef920",
+          "path": [
+            "74648c16283b608122ac807f2e1f7cd6bb5ca932df4ac734667cc1ed97095331",
+            "29f2f8f692a2ed8b012f4bfbcca567402ccd34c9708980dd3e85f8c7de3423d0",
+            "5f677d947c04486570df8d76cfc04cc16c62e4d01162667d479bd86775f9db6a"
+          ]
+        },
+        {
+          "index": 1,
+          "commitment": "e7d9e8f42cea8321ba848dfbfa138804ae761211d5a0687c8f9f2dd2d6b7e022",
+          "path": [
+            "0ef8c2e939c2e21fccb8fa00408336d80b5b48e2f4b6eb2f5d35813ffb637a14",
+            "29f2f8f692a2ed8b012f4bfbcca567402ccd34c9708980dd3e85f8c7de3423d0",
+            "5f677d947c04486570df8d76cfc04cc16c62e4d01162667d479bd86775f9db6a"
+          ]
+        },
+        {
+          "index": 2,
+          "commitment": "6a33a757256965be5b595667a0ba6db46dc35acf9e253a0638dee0bc65485128",
+          "path": [
+            "eb80697e0a70202b9dff8635e60754b0e2f990dde824dd771a4027f24e65a3ba",
+            "fd7e00a6414f41b78a540f3ced1245a88aa74ba27bd3d819759828df2af7e44d",
+            "5f677d947c04486570df8d76cfc04cc16c62e4d01162667d479bd86775f9db6a"
+          ]
+        },
+        {
+          "index": 3,
+          "commitment": "2470b131af8263c1ee3f5cd3aaa5f0299814930a24ecfabc41ac4c9325c643c9",
+          "path": [
+            "314ad1d789e5818705bf8ce8f95aebfe5fccb30cc31eb51c2f9579b30feeceab",
+            "fd7e00a6414f41b78a540f3ced1245a88aa74ba27bd3d819759828df2af7e44d",
+            "5f677d947c04486570df8d76cfc04cc16c62e4d01162667d479bd86775f9db6a"
+          ]
+        },
+        {
+          "index": 4,
+          "commitment": "073f7ce3deff1ac4b4e473dae2d45f63e5aa57c49faefe4b7d124d79ca669945",
+          "path": [
+            "a61c9930cf06e5fab7dca28499322a935f48a639f1e6b7a7eff52210fc5300da"
+          ]
+        }
+      ]
+    },
+    {
+      "count": 8,
+      "shiftId": "000001F4-1111-4111-8111-0000000001F4",
+      "inputSales": [
+        [
+          "00000009-1111-4111-8111-000000000009",
+          "073f7ce3deff1ac4b4e473dae2d45f63e5aa57c49faefe4b7d124d79ca669945"
+        ],
+        [
+          "00000003-1111-4111-8111-000000000003",
+          "e7d9e8f42cea8321ba848dfbfa138804ae761211d5a0687c8f9f2dd2d6b7e022"
+        ],
+        [
+          "00000007-1111-4111-8111-000000000007",
+          "2470b131af8263c1ee3f5cd3aaa5f0299814930a24ecfabc41ac4c9325c643c9"
+        ],
+        [
+          "00000002-1111-4111-8111-000000000002",
+          "86085e2b15e01e004af4a67202b724ff93c653ac4763f549251e82e657aef920"
+        ],
+        [
+          "00000005-1111-4111-8111-000000000005",
+          "6a33a757256965be5b595667a0ba6db46dc35acf9e253a0638dee0bc65485128"
+        ],
+        [
+          "00000001-1111-4111-8111-000000000001",
+          "88df51597d57ce79fd35717c61abb7b4c81cf649446a773e0bd6af3388143b5d"
+        ],
+        [
+          "00000008-1111-4111-8111-000000000008",
+          "265d5b74f5c40fab68db2bb95cf09eee835c8fe3c276cac46e0ad98c76877e6d"
+        ],
+        [
+          "00000004-1111-4111-8111-000000000004",
+          "0f69ec075a7776b4014e935b04fe47076ec955029a2dfb156692b41dc53178fe"
+        ]
+      ],
+      "orderedSaleIds": [
+        "00000001-1111-4111-8111-000000000001",
+        "00000002-1111-4111-8111-000000000002",
+        "00000003-1111-4111-8111-000000000003",
+        "00000004-1111-4111-8111-000000000004",
+        "00000005-1111-4111-8111-000000000005",
+        "00000007-1111-4111-8111-000000000007",
+        "00000008-1111-4111-8111-000000000008",
+        "00000009-1111-4111-8111-000000000009"
+      ],
+      "orderedCommitments": [
+        "88df51597d57ce79fd35717c61abb7b4c81cf649446a773e0bd6af3388143b5d",
+        "86085e2b15e01e004af4a67202b724ff93c653ac4763f549251e82e657aef920",
+        "e7d9e8f42cea8321ba848dfbfa138804ae761211d5a0687c8f9f2dd2d6b7e022",
+        "0f69ec075a7776b4014e935b04fe47076ec955029a2dfb156692b41dc53178fe",
+        "6a33a757256965be5b595667a0ba6db46dc35acf9e253a0638dee0bc65485128",
+        "2470b131af8263c1ee3f5cd3aaa5f0299814930a24ecfabc41ac4c9325c643c9",
+        "265d5b74f5c40fab68db2bb95cf09eee835c8fe3c276cac46e0ad98c76877e6d",
+        "073f7ce3deff1ac4b4e473dae2d45f63e5aa57c49faefe4b7d124d79ca669945"
+      ],
+      "merkleRoot": "23c717d7f8bc23905030a3436254498a66581790ebc0e8a2285db16b63a3f6e7",
+      "statementDigest": "5d027e38b1366f58ec61d6428b2308ed4094f8b97bcdb699112761ec43996ee8",
+      "inclusionPaths": [
+        {
+          "index": 0,
+          "commitment": "88df51597d57ce79fd35717c61abb7b4c81cf649446a773e0bd6af3388143b5d",
+          "path": [
+            "0ef8c2e939c2e21fccb8fa00408336d80b5b48e2f4b6eb2f5d35813ffb637a14",
+            "921b1ac3e8d6561063a4e292b3f6b77f5a01bc2d323b4fc520938d01ad97891b",
+            "bb2bd4748361ac89d3c871c4e51a59fc17fc06a07804c98d5994b24236a7c83f"
+          ]
+        },
+        {
+          "index": 1,
+          "commitment": "86085e2b15e01e004af4a67202b724ff93c653ac4763f549251e82e657aef920",
+          "path": [
+            "89b101cc7a9cc7886416d83d3d938bb10ee07a0bd165025c164f7861b13f873b",
+            "921b1ac3e8d6561063a4e292b3f6b77f5a01bc2d323b4fc520938d01ad97891b",
+            "bb2bd4748361ac89d3c871c4e51a59fc17fc06a07804c98d5994b24236a7c83f"
+          ]
+        },
+        {
+          "index": 2,
+          "commitment": "e7d9e8f42cea8321ba848dfbfa138804ae761211d5a0687c8f9f2dd2d6b7e022",
+          "path": [
+            "2f4a6a7ae2a6d2fea67066d0c0f9c39a2a27fe4f4467090c6c804cc3af165a35",
+            "715ef8fbe053054e2819cd9b31efc0ebd2e46c981b289a180c84f524cd12bd94",
+            "bb2bd4748361ac89d3c871c4e51a59fc17fc06a07804c98d5994b24236a7c83f"
+          ]
+        },
+        {
+          "index": 3,
+          "commitment": "0f69ec075a7776b4014e935b04fe47076ec955029a2dfb156692b41dc53178fe",
+          "path": [
+            "74648c16283b608122ac807f2e1f7cd6bb5ca932df4ac734667cc1ed97095331",
+            "715ef8fbe053054e2819cd9b31efc0ebd2e46c981b289a180c84f524cd12bd94",
+            "bb2bd4748361ac89d3c871c4e51a59fc17fc06a07804c98d5994b24236a7c83f"
+          ]
+        },
+        {
+          "index": 4,
+          "commitment": "6a33a757256965be5b595667a0ba6db46dc35acf9e253a0638dee0bc65485128",
+          "path": [
+            "eb80697e0a70202b9dff8635e60754b0e2f990dde824dd771a4027f24e65a3ba",
+            "8bb2de2d66b00adc3f11b1ca9694fc47826ed1ee74a6f40469fe20e2893229dc",
+            "4866d054f6aeb8c8f043af321d1968aedfd0527cad648a7cf040521b15afaabc"
+          ]
+        },
+        {
+          "index": 5,
+          "commitment": "2470b131af8263c1ee3f5cd3aaa5f0299814930a24ecfabc41ac4c9325c643c9",
+          "path": [
+            "314ad1d789e5818705bf8ce8f95aebfe5fccb30cc31eb51c2f9579b30feeceab",
+            "8bb2de2d66b00adc3f11b1ca9694fc47826ed1ee74a6f40469fe20e2893229dc",
+            "4866d054f6aeb8c8f043af321d1968aedfd0527cad648a7cf040521b15afaabc"
+          ]
+        },
+        {
+          "index": 6,
+          "commitment": "265d5b74f5c40fab68db2bb95cf09eee835c8fe3c276cac46e0ad98c76877e6d",
+          "path": [
+            "5f677d947c04486570df8d76cfc04cc16c62e4d01162667d479bd86775f9db6a",
+            "29f2f8f692a2ed8b012f4bfbcca567402ccd34c9708980dd3e85f8c7de3423d0",
+            "4866d054f6aeb8c8f043af321d1968aedfd0527cad648a7cf040521b15afaabc"
+          ]
+        },
+        {
+          "index": 7,
+          "commitment": "073f7ce3deff1ac4b4e473dae2d45f63e5aa57c49faefe4b7d124d79ca669945",
+          "path": [
+            "7a59998d7e694013bde188b228360c1b6c493e1d71944dff95e40847582c3e03",
+            "29f2f8f692a2ed8b012f4bfbcca567402ccd34c9708980dd3e85f8c7de3423d0",
+            "4866d054f6aeb8c8f043af321d1968aedfd0527cad648a7cf040521b15afaabc"
+          ]
+        }
+      ]
+    }
+  ],
+  "sampleProofs": {
+    "disclosedValid": {
+      "credit_sale_id": "00000009-1111-4111-8111-000000000009",
+      "shift_id": "000001f4-1111-4111-8111-0000000001f4",
+      "leaf_index": 7,
+      "leaf_count": 8,
+      "commitment": "073f7ce3deff1ac4b4e473dae2d45f63e5aa57c49faefe4b7d124d79ca669945",
+      "merkle_path": [
+        "7a59998d7e694013bde188b228360c1b6c493e1d71944dff95e40847582c3e03",
+        "29f2f8f692a2ed8b012f4bfbcca567402ccd34c9708980dd3e85f8c7de3423d0",
+        "4866d054f6aeb8c8f043af321d1968aedfd0527cad648a7cf040521b15afaabc"
+      ],
+      "merkle_root": "23c717d7f8bc23905030a3436254498a66581790ebc0e8a2285db16b63a3f6e7",
+      "statement_digest": "5d027e38b1366f58ec61d6428b2308ed4094f8b97bcdb699112761ec43996ee8",
+      "disclosure": {
+        "sale_id": "00000009-1111-4111-8111-000000000009",
+        "transaction_id": "0000006d-1111-4111-8111-00000000006d",
+        "shift_id": "000001f4-1111-4111-8111-0000000001f4",
+        "station_id": "00000384-1111-4111-8111-000000000384",
+        "account_type": "corporate",
+        "account_id": "000003e9-1111-4111-8111-0000000003e9",
+        "plate": "06ABC123",
+        "driver_id": "000007d1-1111-4111-8111-0000000007d1",
+        "fuel_type": "Kurşunsuz 95 (Benzin)",
+        "liters_ml": 45500,
+        "amount_kurus": 214550,
+        "sale_time": "2026-11-15T08:15:30Z",
+        "nonce": "1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
+      }
+    },
+    "undisclosedValid": {
+      "credit_sale_id": "00000009-1111-4111-8111-000000000009",
+      "shift_id": "000001f4-1111-4111-8111-0000000001f4",
+      "leaf_index": 7,
+      "leaf_count": 8,
+      "commitment": "073f7ce3deff1ac4b4e473dae2d45f63e5aa57c49faefe4b7d124d79ca669945",
+      "merkle_path": [
+        "7a59998d7e694013bde188b228360c1b6c493e1d71944dff95e40847582c3e03",
+        "29f2f8f692a2ed8b012f4bfbcca567402ccd34c9708980dd3e85f8c7de3423d0",
+        "4866d054f6aeb8c8f043af321d1968aedfd0527cad648a7cf040521b15afaabc"
+      ],
+      "merkle_root": "23c717d7f8bc23905030a3436254498a66581790ebc0e8a2285db16b63a3f6e7",
+      "statement_digest": "5d027e38b1366f58ec61d6428b2308ed4094f8b97bcdb699112761ec43996ee8",
+      "disclosure": null
+    }
+  }
+}

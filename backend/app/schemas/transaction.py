@@ -9,6 +9,7 @@ from decimal import Decimal
 from pydantic import BaseModel, field_validator
 
 from app.models.base import PaymentMethod, TransactionType
+from app.schemas.credit import CreditSaleBrief, CreditSaleInput
 
 
 class TransactionCreate(BaseModel):
@@ -22,6 +23,7 @@ class TransactionCreate(BaseModel):
     pump_id: uuid.UUID | None = None  # None ise satış tüm aktif pompalar kapsamında kaydedilir
     description: str | None = None
     transaction_time: datetime | None = None  # None ise sunucu zamanı kullanılır
+    credit: CreditSaleInput | None = None
 
     @field_validator("liters")
     @classmethod
@@ -39,6 +41,8 @@ class TransactionCreate(BaseModel):
         """Tutar pozitif olmalı."""
         if v <= 0:
             raise ValueError("Tutar sıfırdan büyük olmalıdır")
+        if v >= Decimal("10000000000"):
+            raise ValueError("Tutar izin verilen üst sınırı aşıyor")
         return v
 
 
@@ -57,6 +61,7 @@ class TransactionResponse(BaseModel):
     description: str | None = None
     transaction_time: datetime
     created_at: datetime
+    credit_sale: CreditSaleBrief | None = None
 
     model_config = {"from_attributes": True}
 

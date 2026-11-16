@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
-import { X, Square, AlertCircle, Loader2, Wallet, Building2, UserCircle2 } from "lucide-react";
+import { X, Square, AlertCircle, AlertTriangle, Loader2, Wallet, Building2, UserCircle2 } from "lucide-react";
+import type { CreditSale } from "@/types/veresiye";
 
 interface CloseShiftModalProps {
   isOpen: boolean;
@@ -25,6 +26,23 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
   const [notes, setNotes] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [missingReceiptCount, setMissingReceiptCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (!isOpen || !shiftId) return;
+    let active = true;
+    apiClient
+      .get<CreditSale[]>(`/veresiye/sales?shift_id=${shiftId}&missing_receipt=true`)
+      .then((res) => {
+        if (active) setMissingReceiptCount(res.data.length);
+      })
+      .catch(() => {
+        if (active) setMissingReceiptCount(0);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen, shiftId]);
 
   if (!isOpen || !shiftId) return null;
 
@@ -92,6 +110,13 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
             <div className="p-3.5 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-xs flex items-start gap-2.5">
               <AlertCircle size={16} className="shrink-0 mt-0.5" />
               <span>{error}</span>
+            </div>
+          )}
+
+          {missingReceiptCount > 0 && (
+            <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-300 text-xs flex items-start gap-2.5 leading-relaxed">
+              <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-400" />
+              <span>{t("creditsale.close_missing_receipt_warn").replace("{count}", String(missingReceiptCount))}</span>
             </div>
           )}
 

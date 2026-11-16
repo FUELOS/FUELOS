@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { Clock, Receipt, BarChart3, Building2, Settings, Fuel, LayoutDashboard, Users } from "lucide-react";
+import { Clock, Receipt, BarChart3, Building2, Settings, Fuel, LayoutDashboard, Users, NotebookText } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
 
@@ -23,6 +23,7 @@ export const Sidebar: React.FC = () => {
     { to: "/shifts", label: t("shifts.title"), icon: Clock },
     { to: "/stations", label: t("nav.station"), icon: Building2 },
     { to: "/transactions", label: t("nav.transactions"), icon: Receipt },
+    { to: "/veresiye", label: t("nav.veresiye"), icon: NotebookText },
     { to: "/reports", label: t("nav.reports"), icon: BarChart3 },
     { to: "/settings", label: t("nav.settings"), icon: Settings },
   ];
