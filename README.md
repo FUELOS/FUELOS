@@ -54,6 +54,17 @@ Kasiyer: kasiyer@fuelos.com — Kasiyer2026!
 - **Sanal POS Cihazı:** Gerçekçi banka POS cihazı arayüzü, tuş takımı, temassız kart okutma ve banka onay slip dekontu üretimi.
 - **Dinamik FAST / QR Transfer:** Dinamik QR kodu üretimi, 120 saniyelik geçerlilik sayacı ve banka dekontu simülasyonu.
 
+### 7. 📒 Dijital Veresiye ve Borç Takip Sistemi
+- **Kurumsal veresiye:** Anlaşmalı şirket kaydı (limit/vade opsiyonel), yetkili araç plakaları ve sürücüler; yakıt alım yetkisi tek tıkla sonlandırılabilir.
+- **Yakıt alımı doğrulaması:** Plaka sorgulanır, sürücünün T.C. kimlik no'su kayıtla eşleştirilir; doğrulanmadan kurumsal veresiye satışı kaydedilemez (sunucu tarafında zorunlu).
+- **Bireysel veresiye:** Ad soyad, T.C. kimlik no, kimlik fotoğrafı, cep telefonu ve plaka ile müşteri kaydı; her müşterinin ayrı dijital veresiye defteri.
+- **İmzalı fiş:** Satıştan sonra T.C. no yazılı, imzalı fişin fotoğrafı/PDF'i yüklenir; eksik fişler mutabakatta uyarı olarak görünür.
+- **Borç takibi:** Ekstre (borç/alacak/bakiye), araç bazlı yakıt kırılımı, günlük/aylık harcama, tahsilat ve düzeltme (iptal edilebilir), vadesi geçen tutar.
+- **Günlük mutabakat:** Nakit, kart, FAST/EFT, kurumsal ve bireysel veresiye birlikte değerlendirilir; satış/otomasyon kayıtları cari defterle karşılaştırılır, eksik/eşleşmeyen işlemler listelenir.
+- **Mahremiyet:** T.C. no şifreli (Fernet) + HMAC kör indeksle saklanır, yanıtlarda yalnız maskeli döner; belgeler diskte şifrelidir. Vardiya veresiye defteri için RFC 6962 Merkle kökü ve seçici açıklama kanıtı üretilir — ayrıntı ve güven sınırları: [midnight/VERESIYE_PRIVACY.md](midnight/VERESIYE_PRIVACY.md).
+
+Production'da `backend/.env` içinde ayrı ve kalıcı bir `PII_ENCRYPTION_KEY` tanımlayın (değişirse şifreli T.C. verileri okunamaz). Yüklenen belgeler `backend/uploads/` altında tutulur (git'e girmez).
+
 ---
 
 ## 🔑 Geliştirme Ortamı Hesapları
