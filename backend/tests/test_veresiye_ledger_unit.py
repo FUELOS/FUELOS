@@ -78,7 +78,8 @@ def test_running_balance_opening_window_and_negative_adjustment():
 
     assert stmt.opening_balance == Decimal("600.00")
     assert stmt.period_sales == Decimal("500.00")
-    assert stmt.period_payments == Decimal("-150.00")
+    assert stmt.period_payments == Decimal("0.00")
+    assert stmt.period_adjustments == Decimal("-150.00")
     assert stmt.closing_balance == Decimal("1250.00")
 
     assert len(stmt.entries) == 2

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Banknote, Loader2, X } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
-import { apiErrorMessage } from "@/lib/veresiye";
+import { apiErrorMessage, financialRequestHeaders } from "@/lib/veresiye";
 import type {
   CollectionMethod,
   CreditAccountType,
@@ -45,9 +45,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const amountRef = useRef<HTMLInputElement>(null);
+  const attempt = useRef({ signature: "", key: "" });
+  const submitting = useRef(false);
 
   useEffect(() => {
     if (!open) return;
+    attempt.current = { signature: "", key: "" };
     setKind(initialMode);
     setAmount("");
     setMethod("cash");
@@ -71,6 +74,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting.current) return;
     const numeric = Number(amount.replace(",", "."));
     if (!Number.isFinite(numeric) || (kind === "payment" ? numeric <= 0 : numeric === 0)) {
       setError(t("veresiye.error_save"));
@@ -81,6 +85,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       return;
     }
 
+    submitting.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -96,12 +101,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         reference: reference.trim() || undefined,
         note: note.trim() || undefined,
       };
-      await apiClient.post("/veresiye/payments", payload);
+      await apiClient.post("/veresiye/payments", payload, {
+        headers: financialRequestHeaders(attempt.current, payload),
+      });
       onSuccess();
       onClose();
     } catch (err) {
       setError(apiErrorMessage(err, t("veresiye.error_save")));
     } finally {
+      submitting.current = false;
       setSaving(false);
     }
   };

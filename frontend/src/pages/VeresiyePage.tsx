@@ -20,7 +20,7 @@ import { CreateCompanyModal } from "@/components/veresiye/CreateCompanyModal";
 import { CreateCustomerModal } from "@/components/veresiye/CreateCustomerModal";
 import { CustomerDetailModal } from "@/components/veresiye/CustomerDetailModal";
 import { PendingReceiptsPanel } from "@/components/veresiye/PendingReceiptsPanel";
-import type { CreditCompanySummary, CreditCustomerSummary, CreditSale } from "@/types/veresiye";
+import type { CreditCompanySummary, CreditCustomerSummary, CreditSale, CreditOverview } from "@/types/veresiye";
 
 export const VeresiyePage: React.FC = () => {
   const { user } = useAuth();
@@ -38,6 +38,8 @@ export const VeresiyePage: React.FC = () => {
   const [companies, setCompanies] = useState<CreditCompanySummary[]>([]);
   const [customers, setCustomers] = useState<CreditCustomerSummary[]>([]);
   const [missingReceipts, setMissingReceipts] = useState<CreditSale[]>([]);
+  const [missingTotal, setMissingTotal] = useState(0);
+  const [overview, setOverview] = useState<CreditOverview | null>(null);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
   const [loadingCustomers, setLoadingCustomers] = useState(true);
   const [loadingMissing, setLoadingMissing] = useState(true);
@@ -88,20 +90,34 @@ export const VeresiyePage: React.FC = () => {
     }
   }, [debouncedCustomerSearch, isSuperAdmin, t]);
 
-  const fetchMissingReceipts = useCallback(async () => {
+  const fetchMissingReceipts = useCallback(async (offset = 0) => {
     if (isSuperAdmin) return;
     setLoadingMissing(true);
     try {
       const res = await apiClient.get<CreditSale[]>("/veresiye/sales", {
-        params: { missing_receipt: true },
+        params: { missing_receipt: true, offset },
       });
-      setMissingReceipts(res.data);
+      setMissingReceipts((previous) => offset ? [...previous, ...res.data] : res.data);
+      setMissingTotal(Number(res.headers["x-total-count"] ?? res.data.length));
     } catch (err) {
       setError(apiErrorMessage(err, t("veresiye.error_load")));
     } finally {
       setLoadingMissing(false);
     }
   }, [isSuperAdmin, t]);
+
+  const fetchOverview = useCallback(async () => {
+    if (!isManager) return;
+    try {
+      const res = await apiClient.get<CreditOverview>("/veresiye/summary");
+      setOverview(res.data);
+    } catch (err) {
+      setOverview(null);
+      setError(apiErrorMessage(err, t("veresiye.error_load")));
+    }
+  }, [isManager, t]);
+
+  useEffect(() => { fetchOverview(); }, [fetchOverview]);
 
   useEffect(() => {
     fetchCompanies();
@@ -120,16 +136,11 @@ export const VeresiyePage: React.FC = () => {
     fetchCompanies();
     fetchCustomers();
     fetchMissingReceipts();
+    fetchOverview();
   };
 
-  const corporateTotal = companies.reduce(
-    (sum, c) => sum + (c.balance ? toAmountNumber(c.balance.balance) : 0),
-    0,
-  );
-  const individualTotal = customers.reduce(
-    (sum, c) => sum + (c.balance ? toAmountNumber(c.balance.balance) : 0),
-    0,
-  );
+  const corporateTotal = overview ? toAmountNumber(overview.corporate_receivable) : 0;
+  const individualTotal = overview ? toAmountNumber(overview.individual_receivable) : 0;
   const totalReceivable = corporateTotal + individualTotal;
 
   if (isSuperAdmin) {
@@ -181,7 +192,7 @@ export const VeresiyePage: React.FC = () => {
               <Wallet size={18} className="text-blue-600" />
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-white mt-2">
-              {formatCurrency(totalReceivable)}
+              {overview ? formatCurrency(totalReceivable) : "-"}
             </div>
           </div>
 
@@ -193,10 +204,10 @@ export const VeresiyePage: React.FC = () => {
               <Building2 size={18} className="text-indigo-600" />
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-white mt-2">
-              {formatCurrency(corporateTotal)}
+              {overview ? formatCurrency(corporateTotal) : "-"}
             </div>
             <div className="text-[11px] font-medium text-slate-400 mt-1">
-              {t("veresiye.kpi_corporate_sub").replace("{count}", String(companies.length))}
+              {t("veresiye.kpi_corporate_sub").replace("{count}", String(overview?.company_count ?? "-"))}
             </div>
           </div>
 
@@ -208,10 +219,10 @@ export const VeresiyePage: React.FC = () => {
               <UserCircle2 size={18} className="text-emerald-600" />
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-white mt-2">
-              {formatCurrency(individualTotal)}
+              {overview ? formatCurrency(individualTotal) : "-"}
             </div>
             <div className="text-[11px] font-medium text-slate-400 mt-1">
-              {t("veresiye.kpi_individual_sub").replace("{count}", String(customers.length))}
+              {t("veresiye.kpi_individual_sub").replace("{count}", String(overview?.customer_count ?? "-"))}
             </div>
           </div>
 
@@ -223,7 +234,7 @@ export const VeresiyePage: React.FC = () => {
               <AlertTriangle size={18} className="text-amber-500" />
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-white mt-2">
-              {missingReceipts.length}
+              {missingTotal}
             </div>
             <div className="text-[11px] font-medium text-slate-400 mt-1">
               {t("veresiye.kpi_missing_sub")}
@@ -234,11 +245,20 @@ export const VeresiyePage: React.FC = () => {
 
       {/* Cashier Pending Receipts Panel */}
       {isCashier && (
+        <>
         <PendingReceiptsPanel
           sales={missingReceipts}
           loading={loadingMissing}
           onUploaded={refreshAll}
         />
+        <p className="text-xs text-slate-500">{missingReceipts.length} / {missingTotal}</p>
+        {missingReceipts.length < missingTotal && (
+          <button type="button" disabled={loadingMissing} onClick={() => fetchMissingReceipts(missingReceipts.length)}
+            className="text-sm font-semibold text-blue-600 disabled:opacity-50">
+            {t("veresiye.load_more")}
+          </button>
+        )}
+        </>
       )}
 
       {/* Tabs Container */}
@@ -509,6 +529,7 @@ export const VeresiyePage: React.FC = () => {
       />
 
       <CompanyDetailModal
+        key={selectedCompanyId}
         companyId={selectedCompanyId}
         isManager={isManager}
         onClose={() => setSelectedCompanyId(null)}
@@ -516,6 +537,7 @@ export const VeresiyePage: React.FC = () => {
       />
 
       <CustomerDetailModal
+        key={selectedCustomerId}
         customerId={selectedCustomerId}
         isManager={isManager}
         onClose={() => setSelectedCustomerId(null)}

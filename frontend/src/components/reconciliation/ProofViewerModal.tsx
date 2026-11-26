@@ -12,7 +12,7 @@ import {
 import { apiClient } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
-import { apiErrorMessage, formatPlate } from "@/lib/veresiye";
+import { apiErrorMessage, formatPlate, getShiftCreditSales } from "@/lib/veresiye";
 import type {
   CreditSale,
   SaleInclusionProof,
@@ -60,12 +60,12 @@ export const ProofViewerModal: React.FC<ProofViewerModalProps> = ({
 
     Promise.all([
       apiClient.get<ShiftLedgerProof>(`/veresiye/proofs/shifts/${shiftId}`),
-      apiClient.get<CreditSale[]>(`/veresiye/sales?shift_id=${shiftId}`),
+      getShiftCreditSales(shiftId),
     ])
       .then(([proofRes, salesRes]) => {
         if (!active) return;
         setProof(proofRes.data);
-        setSales(salesRes.data);
+        setSales(salesRes);
       })
       .catch((err) => {
         if (!active) return;

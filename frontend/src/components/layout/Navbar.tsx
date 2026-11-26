@@ -121,7 +121,7 @@ export const Navbar: React.FC = () => {
                 <div className="text-xs font-bold text-slate-700 dark:text-zinc-200">{user.full_name}</div>
                 <div className="text-[11px] text-slate-500 dark:text-zinc-400">{user.email}</div>
               </div>
-              {getRoleBadge(user.role)}
+              <div className="hidden sm:block">{getRoleBadge(user.role)}</div>
               <button
                 onClick={logout}
                 className="p-2 rounded-xl text-slate-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-white dark:hover:bg-[#181820] transition shadow-sm border border-slate-200/60 dark:border-zinc-800"

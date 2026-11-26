@@ -61,10 +61,18 @@ class _ORM(BaseModel):
 # ─────────────────────────── BAKİYE ───────────────────────────
 
 
+class CreditOverview(BaseModel):
+    corporate_receivable: Money
+    individual_receivable: Money
+    company_count: int
+    customer_count: int
+
+
 class AccountBalance(BaseModel):
     """Cari hesap özeti. `balance` > 0 → müşterinin istasyona borcu."""
     total_sales: Money = Decimal("0.00")
     total_payments: Money = Decimal("0.00")
+    total_adjustments: Money = Decimal("0.00")
     balance: Money = Decimal("0.00")
     sale_count: int = 0
     total_liters: Decimal = Decimal("0.000")
@@ -612,7 +620,8 @@ class AccountStatement(BaseModel):
     date_to: date | None = None
     opening_balance: Money          # date_from öncesi devreden bakiye
     period_sales: Money             # dönem içi toplam alım
-    period_payments: Money          # dönem içi toplam tahsilat + düzeltme
+    period_payments: Money          # realized collections in the period
+    period_adjustments: Money = Decimal("0.00")
     closing_balance: Money          # dönem sonu bakiye
     balance: AccountBalance         # hesabın güncel (tüm zamanlar) özeti
     entries: list[StatementEntry] = Field(default_factory=list)

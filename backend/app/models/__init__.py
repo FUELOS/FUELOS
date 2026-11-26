@@ -20,6 +20,7 @@ from app.models.user import User
 from app.models.shift import Shift
 from app.models.transaction import Transaction
 from app.models.pump import Pump
+from app.models.financial_request import FinancialRequest
 from app.models.zk_preview_handoff import ZKPreviewHandoff
 from app.models.credit import (
     CreditCompany,

@@ -1,5 +1,28 @@
 import { apiClient } from "@/lib/api";
-import type { Money } from "@/types/veresiye";
+import type { CreditSale, Money } from "@/types/veresiye";
+
+export function financialRequestHeaders(attempt: { signature: string; key: string }, payload: unknown) {
+  const signature = JSON.stringify(payload);
+  if (attempt.signature !== signature || !attempt.key) {
+    attempt.signature = signature;
+    attempt.key = crypto.randomUUID();
+  }
+  return { "Idempotency-Key": attempt.key };
+}
+
+export async function getShiftCreditSales(shiftId: string): Promise<CreditSale[]> {
+  const sales: CreditSale[] = [];
+  let total = 0;
+  do {
+    const res = await apiClient.get<CreditSale[]>("/veresiye/sales", {
+      params: { shift_id: shiftId, offset: sales.length, limit: 200 },
+    });
+    total = Number(res.headers["x-total-count"] ?? res.data.length);
+    sales.push(...res.data);
+    if (res.data.length === 0) break;
+  } while (sales.length < total);
+  return sales;
+}
 
 const TR_CHAR_MAP: Record<string, string> = {
   "ı": "I",

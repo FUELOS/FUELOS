@@ -21,6 +21,7 @@ export type CreditDocumentKind = "receipt" | "id_photo";
 export interface AccountBalance {
   total_sales: Money;
   total_payments: Money;
+  total_adjustments: Money;
   /** > 0 → müşterinin istasyona borcu */
   balance: Money;
   sale_count: number;
@@ -31,6 +32,13 @@ export interface AccountBalance {
   overdue_amount: Money | null;
   /** Yalnızca limit tanımlıysa dolu (limit − bakiye) */
   credit_limit_remaining: Money | null;
+}
+
+export interface CreditOverview {
+  corporate_receivable: Money;
+  individual_receivable: Money;
+  company_count: number;
+  customer_count: number;
 }
 
 // ─────────────────────────── Kurumsal: araç & sürücü ───────────────────────────
@@ -378,6 +386,7 @@ export interface AccountStatement {
   opening_balance: Money;
   period_sales: Money;
   period_payments: Money;
+  period_adjustments: Money;
   closing_balance: Money;
   balance: AccountBalance;
   entries: StatementEntry[];

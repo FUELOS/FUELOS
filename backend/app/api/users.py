@@ -180,7 +180,26 @@ async def update_user(
 
     # Kendini deaktif edemez
     update_data = data.model_dump(exclude_unset=True)
-    if "is_active" in update_data and user.id == current_user.id:
+    if current_user.role == UserRole.STATION_MANAGER:
+        if ('role' in update_data and update_data['role'] != UserRole.CASHIER) or (
+            'station_id' in update_data and update_data['station_id'] != current_user.station_id
+        ):
+            raise HTTPException(status_code=403, detail="Yalnızca kendi istasyonunuzdaki kasiyerleri yönetebilirsiniz")
+    role = update_data.get('role', user.role)
+    station_id = update_data.get('station_id', user.station_id)
+    if role is None:
+        raise HTTPException(status_code=422, detail="Kullanıcı rolü boş olamaz")
+    if role == UserRole.SUPER_ADMIN:
+        update_data['station_id'] = None
+    else:
+        if station_id is None:
+            raise HTTPException(status_code=422, detail="Bu rol için istasyon zorunludur")
+        station = await db.scalar(select(Station).where(
+            Station.id == station_id, Station.company_id == current_user.company_id,
+        ))
+        if station is None:
+            raise HTTPException(status_code=404, detail="İstasyon bulunamadı")
+    if update_data.get("is_active") is False and user.id == current_user.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Kendi hesabınızı deaktif edemezsiniz",

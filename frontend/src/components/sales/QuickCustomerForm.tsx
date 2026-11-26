@@ -23,6 +23,7 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
   const [plate, setPlate] = useState("");
   const [idPhotoFile, setIdPhotoFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [createdCustomer, setCreatedCustomer] = useState<CreditCustomerSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,6 +42,8 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
     }
     setSaving(true);
     try {
+      let created = createdCustomer;
+      if (!created) {
       const res = await apiClient.post<CreditCustomerDetail>("/veresiye/customers", {
         ...(stationId ? { station_id: stationId } : {}),
         full_name: fullName.trim(),
@@ -48,19 +51,22 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
         phone: phone.trim(),
         plate: plate.trim() ? normalizePlate(plate) : undefined,
       });
-      let created: CreditCustomerSummary = res.data;
+      created = res.data;
+      setCreatedCustomer(created);
+      }
       if (idPhotoFile) {
         try {
           const fd = new FormData();
           fd.append("file", idPhotoFile);
           const photoRes = await apiClient.post<CreditCustomerDetail>(
-            `/veresiye/customers/${res.data.id}/id-photo`,
+            `/veresiye/customers/${created.id}/id-photo`,
             fd,
             { headers: { "Content-Type": "multipart/form-data" } },
           );
           created = photoRes.data;
-        } catch {
-          // Müşteri kaydı oluştu; fotoğraf daha sonra eklenebilir
+        } catch (err) {
+          setError(t("veresiye.customer_created_photo_failed") + " " + apiErrorMessage(err, t("veresiye.error_upload")));
+          return;
         }
       }
       setTcNo("");
@@ -92,6 +98,7 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
         <input
           type="text"
           aria-label={t("creditsale.quick_name")}
+          disabled={saving || Boolean(createdCustomer)}
           placeholder={t("creditsale.quick_name")}
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
@@ -103,6 +110,7 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
             inputMode="numeric"
             maxLength={11}
             aria-label={t("creditsale.quick_tc")}
+            disabled={saving || Boolean(createdCustomer)}
             placeholder={t("creditsale.quick_tc")}
             value={tcNo}
             onChange={(e) => setTcNo(e.target.value.replace(/\D/g, "").slice(0, 11))}
@@ -117,6 +125,7 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
         <input
           type="text"
           aria-label={t("creditsale.quick_phone")}
+          disabled={saving || Boolean(createdCustomer)}
           placeholder={t("creditsale.quick_phone")}
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
@@ -125,6 +134,7 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
         <input
           type="text"
           aria-label={t("creditsale.quick_plate")}
+          disabled={saving || Boolean(createdCustomer)}
           placeholder={t("creditsale.quick_plate")}
           value={plate}
           onChange={(e) => setPlate(e.target.value.toUpperCase())}
@@ -138,6 +148,7 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
         </label>
         <input
           type="file"
+          disabled={saving}
           accept="image/*"
           capture="environment"
           onChange={(e) => setIdPhotoFile(e.target.files?.[0] ?? null)}
@@ -152,6 +163,8 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
       )}
 
       <div className="flex justify-end">
+        {createdCustomer && <button type="button" disabled={saving} onClick={() => onCreated(createdCustomer)}
+          className="text-xs font-semibold text-slate-600 mr-3">{t("veresiye.continue_without_photo")}</button>}
         <button
           type="button"
           disabled={saving || !fullName.trim() || !phone.trim() || !isValidTc(tcNo)}
@@ -159,7 +172,7 @@ export const QuickCustomerForm: React.FC<QuickCustomerFormProps> = ({
           className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold"
         >
           {saving && <Loader2 size={13} className="animate-spin" />}
-          <span>{t("creditsale.quick_save_customer")}</span>
+          <span>{t(createdCustomer ? "veresiye.retry_photo" : "creditsale.quick_save_customer")}</span>
         </button>
       </div>
     </div>

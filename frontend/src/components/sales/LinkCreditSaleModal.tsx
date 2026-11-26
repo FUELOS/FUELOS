@@ -70,6 +70,9 @@ export const LinkCreditSaleModal: React.FC<LinkCreditSaleModalProps> = ({
   }, [transactionId, t]);
 
   useEffect(() => {
+    setCompanyDetail(null);
+    setSelectedVehicleId("");
+    setSelectedDriverId("");
     if (!selectedCompanyId) {
       setCompanyDetail(null);
       setSelectedVehicleId("");
@@ -102,7 +105,7 @@ export const LinkCreditSaleModal: React.FC<LinkCreditSaleModalProps> = ({
   if (!transactionId) return null;
 
   const canSubmit =
-    accountType === "corporate" ? Boolean(selectedCompanyId) : Boolean(selectedCustomerId);
+    accountType === "corporate" ? companyDetail?.id === selectedCompanyId : Boolean(selectedCustomerId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

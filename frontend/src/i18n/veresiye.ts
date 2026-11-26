@@ -7,6 +7,14 @@ import type { Language } from "@/context/LanguageContext";
 
 export const veresiyeTranslations: Record<Language, Record<string, string>> = {
   tr: {
+    "veresiye.load_more": "Daha fazla yükle",
+    "veresiye.previous_page": "Önceki",
+    "veresiye.next_page": "Sonraki",
+    "veresiye.customer_created_photo_failed": "Müşteri kaydedildi; fotoğraf yüklenemedi.",
+    "veresiye.continue_without_photo": "Fotoğrafsız devam et",
+    "veresiye.retry_photo": "Fotoğrafı tekrar yükle",
+    "veresiye.total_adjustments": "Net bakiye düzeltmesi",
+    "veresiye.upload_receipt_btn": "Fiş yükle",
     "nav.veresiye": "Veresiye",
 
     "veresiye.title": "Dijital Veresiye Defteri",
@@ -181,6 +189,14 @@ export const veresiyeTranslations: Record<Language, Record<string, string>> = {
     "veresiye.error_upload": "Belge yüklenemedi.",
   },
   en: {
+    "veresiye.load_more": "Load more",
+    "veresiye.previous_page": "Previous",
+    "veresiye.next_page": "Next",
+    "veresiye.customer_created_photo_failed": "Customer saved; photo upload failed.",
+    "veresiye.continue_without_photo": "Continue without photo",
+    "veresiye.retry_photo": "Retry photo upload",
+    "veresiye.total_adjustments": "Net balance adjustments",
+    "veresiye.upload_receipt_btn": "Upload receipt",
     "nav.veresiye": "Credit Accounts",
 
     "veresiye.title": "Digital Credit Ledger",

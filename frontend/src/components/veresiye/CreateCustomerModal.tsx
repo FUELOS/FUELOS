@@ -28,10 +28,12 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
   const [idPhotoFile, setIdPhotoFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [createdCustomer, setCreatedCustomer] = useState<CreditCustomerDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
   const resetForm = () => {
+    setCreatedCustomer(null);
     setFullName("");
     setTcNo("");
     setPhone("");
@@ -85,6 +87,8 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
 
     setSaving(true);
     try {
+      let customer = createdCustomer;
+      if (!customer) {
       const res = await apiClient.post<CreditCustomerDetail>("/veresiye/customers", {
         full_name: fullName.trim(),
         tc_no: tcNo.trim(),
@@ -96,7 +100,9 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
         notes: notes.trim() || undefined,
       });
 
-      let customer = res.data;
+      customer = res.data;
+      setCreatedCustomer(customer);
+      }
       if (idPhotoFile) {
         try {
           const fd = new FormData();
@@ -107,8 +113,9 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
             { headers: { "Content-Type": "multipart/form-data" } },
           );
           customer = photoRes.data;
-        } catch {
-          // Customer was created successfully; notify parent so it reloads with photo missing badge
+        } catch (err) {
+          setError(t("veresiye.customer_created_photo_failed") + " " + apiErrorMessage(err, t("veresiye.error_upload")));
+          return;
         }
       }
 
@@ -163,6 +170,7 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
             <input
               ref={nameRef}
               id="cust-name"
+              disabled={saving || Boolean(createdCustomer)}
               type="text"
               required
               value={fullName}
@@ -177,6 +185,7 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
             </label>
             <input
               id="cust-tc"
+              disabled={saving || Boolean(createdCustomer)}
               type="text"
               inputMode="numeric"
               maxLength={11}
@@ -203,6 +212,7 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
               </label>
               <input
                 id="cust-phone"
+                disabled={saving || Boolean(createdCustomer)}
                 type="text"
                 required
                 value={phone}
@@ -217,6 +227,7 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
               </label>
               <input
                 id="cust-plate"
+                disabled={saving || Boolean(createdCustomer)}
                 type="text"
                 value={plate}
                 onChange={(e) => setPlate(e.target.value.toUpperCase())}
@@ -233,6 +244,7 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
               </label>
               <input
                 id="cust-limit"
+                disabled={saving || Boolean(createdCustomer)}
                 type="number"
                 min="0"
                 step="0.01"
@@ -249,6 +261,7 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
             </label>
             <input
               id="cust-id-photo"
+              disabled={saving}
               type="file"
               accept="image/*"
               capture="environment"
@@ -271,6 +284,7 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
             </label>
             <textarea
               id="cust-notes"
+              disabled={saving || Boolean(createdCustomer)}
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -286,6 +300,8 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
         </div>
 
         <div className="px-6 py-4 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-end gap-2.5">
+          {createdCustomer && <button type="button" disabled={saving} onClick={() => { onCreated(createdCustomer); onClose(); }}
+            className="text-xs font-semibold text-slate-600">{t("veresiye.continue_without_photo")}</button>}
           <button
             type="button"
             onClick={onClose}
@@ -299,7 +315,7 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
             className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold shadow-md shadow-blue-600/20 transition"
           >
             {saving && <Loader2 size={14} className="animate-spin" />}
-            <span>{saving ? t("veresiye.saving") : t("veresiye.save")}</span>
+            <span>{saving ? t("veresiye.saving") : t(createdCustomer ? "veresiye.retry_photo" : "veresiye.save")}</span>
           </button>
         </div>
       </form>

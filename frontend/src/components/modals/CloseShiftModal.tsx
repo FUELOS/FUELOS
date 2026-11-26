@@ -34,7 +34,7 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
     apiClient
       .get<CreditSale[]>(`/veresiye/sales?shift_id=${shiftId}&missing_receipt=true`)
       .then((res) => {
-        if (active) setMissingReceiptCount(res.data.length);
+        if (active) setMissingReceiptCount(Number(res.headers["x-total-count"] ?? res.data.length));
       })
       .catch(() => {
         if (active) setMissingReceiptCount(0);

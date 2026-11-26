@@ -7,10 +7,10 @@
  * - Ödeme Yöntemi (Varsayılan: Nakit - Kart çekilmediyse otomatik nakit sayılır)
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { apiClient } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
-import { apiErrorMessage } from "@/lib/veresiye";
+import { apiErrorMessage, financialRequestHeaders, normalizePlate } from "@/lib/veresiye";
 import { CreditAccountSection } from "@/components/sales/CreditAccountSection";
 import { ReceiptUploadStep } from "@/components/sales/ReceiptUploadStep";
 import { PaymentMethod, Transaction } from "@/types";
@@ -57,9 +57,9 @@ interface AddTransactionModalProps {
 }
 
 const FUEL_TYPES = [
-  { name: "Kurşunsuz 95 (Benzin)", priceApprox: 44.5, matches: ["Benzin", "Kurşunsuz 95", "Benzin 95"] },
-  { name: "Motorin (Dizel)", priceApprox: 45.2, matches: ["Motorin"] },
-  { name: "Otogaz (LPG)", priceApprox: 25.8, matches: ["LPG", "Otogaz"] },
+  { name: "Kurşunsuz 95 (Benzin)", matches: ["Benzin", "Kurşunsuz 95", "Benzin 95"] },
+  { name: "Motorin (Dizel)", matches: ["Motorin"] },
+  { name: "Otogaz (LPG)", matches: ["LPG", "Otogaz"] },
 ];
 const ALL_PUMPS = "all";
 
@@ -75,6 +75,9 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   onSuccess,
 }) => {
   const { t, language } = useLanguage();
+  const attempt = useRef({ signature: "", key: "" });
+  const submitting = useRef(false);
+  const initialized = useRef(false);
   const [selectedShiftId, setSelectedShiftId] = useState<string>("");
   const [pumps, setPumps] = useState<PumpOption[]>([]);
   const [selectedPumpId, setSelectedPumpId] = useState<string>("");
@@ -104,8 +107,11 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     .filter((fuel): fuel is NonNullable<typeof fuel> => Boolean(fuel));
 
   // Seçili vardiyanın istasyonunun aktif pompalarını çek
+  const stationId = activeShifts.find((s) => s.shift_id === selectedShiftId)?.station_id;
   useEffect(() => {
-    const stationId = activeShifts.find((s) => s.shift_id === selectedShiftId)?.station_id;
+    let cancelled = false;
+    setPumps([]);
+    setSelectedPumpId("");
     if (!stationId) {
       setPumps([]);
       setSelectedPumpId("");
@@ -114,14 +120,17 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     apiClient
       .get<PumpOption[]>(`/pumps/station/${stationId}`)
       .then((res) => {
+        if (cancelled) return;
         setPumps(res.data);
         setSelectedPumpId(res.data.length > 0 ? ALL_PUMPS : "");
       })
       .catch(() => {
+        if (cancelled) return;
         setPumps([]);
         setSelectedPumpId("");
       });
-  }, [selectedShiftId, activeShifts]);
+    return () => { cancelled = true; };
+  }, [stationId]);
 
   // Pompa kapsamı değişince yakıt türü güncel kapsamın satabildiği yakıtlarla sınırlanır.
   useEffect(() => {
@@ -134,6 +143,9 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   // Modal açıldığında varsayılan atamalar
   useEffect(() => {
     if (isOpen) {
+      if (initialized.current) return;
+      initialized.current = true;
+      attempt.current = { signature: "", key: "" };
       setError(null);
       if (defaultShiftId) {
         setSelectedShiftId(defaultShiftId);
@@ -148,38 +160,25 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       setCreditInput(null);
       setCreatedCreditSale(null);
     } else {
+      initialized.current = false;
+      setSelectedShiftId("");
       setCreditAccountType("corporate");
       setCreditInput(null);
       setCreatedCreditSale(null);
     }
   }, [isOpen, defaultShiftId, activeShifts]);
 
+  useEffect(() => {
+    if (isOpen && !selectedShiftId && activeShifts.length > 0) {
+      setSelectedShiftId(defaultShiftId || activeShifts[0].shift_id);
+    }
+  }, [isOpen, selectedShiftId, defaultShiftId, activeShifts]);
+
   if (!isOpen) return null;
-
-  // Tutar girildiğinde yaklaşık litreyi otomatik hesaplama desteği
-  const handleAmountChange = (val: string) => {
-    setAmount(val);
-    const parsed = parseFloat(val);
-    const selectedFuel = FUEL_TYPES.find((f) => f.name === fuelType);
-    if (!isNaN(parsed) && parsed > 0 && selectedFuel) {
-      const autoLiters = (parsed / selectedFuel.priceApprox).toFixed(2);
-      setLiters(autoLiters);
-    }
-  };
-
-  // Litre girildiğinde tutarı otomatik hesaplama desteği
-  const handleLitersChange = (val: string) => {
-    setLiters(val);
-    const parsed = parseFloat(val);
-    const selectedFuel = FUEL_TYPES.find((f) => f.name === fuelType);
-    if (!isNaN(parsed) && parsed > 0 && selectedFuel) {
-      const autoAmount = (parsed * selectedFuel.priceApprox).toFixed(2);
-      setAmount(autoAmount);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting.current) return;
     if (!selectedShiftId) {
       setError(language === "tr" ? "İşlem eklemek için açık bir personel vardiyası seçilmelidir" : "An active staff shift must be selected");
       return;
@@ -226,13 +225,20 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       fuel_type: fuelType,
       pump_id: selectedPumpId === ALL_PUMPS ? null : selectedPumpId,
       description: descParts.length > 0 ? descParts.join(" - ") : null,
-      ...(paymentMethod === "veresiye" && creditInput ? { credit: creditInput } : {}),
+      ...(paymentMethod === "veresiye" && creditInput ? { credit: {
+        ...creditInput,
+        ...(creditInput.account_type === "individual" && plateNumber.trim()
+          ? { plate: normalizePlate(plateNumber) } : {}),
+      } } : {}),
     };
 
     try {
+      submitting.current = true;
       setLoading(true);
       setError(null);
-      const res = await apiClient.post<Transaction>("/transactions", payload);
+      const res = await apiClient.post<Transaction>("/transactions", payload, {
+        headers: financialRequestHeaders(attempt.current, payload),
+      });
       if (paymentMethod === "veresiye" && res.data.credit_sale) {
         setCreatedCreditSale({
           creditSale: res.data.credit_sale,
@@ -252,6 +258,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         )
       );
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   };
@@ -406,10 +413,6 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   type="button"
                   onClick={() => {
                     setFuelType(f.name);
-                    if (amount) {
-                      const autoLiters = (parseFloat(amount) / f.priceApprox).toFixed(2);
-                      setLiters(autoLiters);
-                    }
                   }}
                   className={`p-2.5 rounded-2xl border text-left transition ${
                     fuelType === f.name
@@ -418,7 +421,6 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   }`}
                 >
                   <div className="text-[11px] font-black leading-tight">{f.name.split(" ")[0]}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5 font-mono">~{f.priceApprox} ₺/L</div>
                 </button>
               ))}
             </div>
@@ -437,7 +439,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   min="0.01"
                   required
                   value={amount}
-                  onChange={(e) => handleAmountChange(e.target.value)}
+                  onChange={(e) => setAmount(e.target.value)}
                   placeholder="850.00"
                   className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition pr-8"
                 />
@@ -456,7 +458,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   min="0.01"
                   required
                   value={liters}
-                  onChange={(e) => handleLitersChange(e.target.value)}
+                  onChange={(e) => setLiters(e.target.value)}
                   placeholder="18.80"
                   className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition pr-8"
                 />

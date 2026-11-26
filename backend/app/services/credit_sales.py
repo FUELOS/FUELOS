@@ -166,7 +166,7 @@ async def create_credit_sale(
                 detail=credit_verification.reason_message(res.reasons),
             )
         credit_customer_id = customer.id
-        plate_snap = customer.plate
+        plate_snap = credit.plate if credit.plate is not None else customer.plate
         identity_verified = bool(res.identity_verified)
 
     sale_id = uuid.uuid4()

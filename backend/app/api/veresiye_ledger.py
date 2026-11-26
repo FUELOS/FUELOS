@@ -5,16 +5,18 @@ FuelOS — Veresiye Cari Defter (Satışlar, Tahsilatlar, Ekstreler ve Geçmiş 
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from typing import Annotated
+from datetime import date, datetime, timezone
+from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import exists, select
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
+from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user, require_role
 from app.database import get_db
 from app.models.base import CreditAccountType, PaymentMethod, UserRole
-from app.models.credit import CreditPayment, CreditSale
+from app.models.credit import CreditCompany, CreditCustomer, CreditPayment, CreditSale
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.credit import (
@@ -24,11 +26,31 @@ from app.schemas.credit import (
     CreditPaymentVoid,
     CreditSaleLinkRequest,
     CreditSaleResponse,
+    CreditOverview,
 )
 from app.schemas.transaction import TransactionResponse
 from app.services import credit_access, credit_ledger, credit_sales
+from app.services.financial_requests import begin_request, finish_request
 
 router = APIRouter(prefix="/api/veresiye", tags=["Veresiye Cari Defter"])
+
+
+@router.get('/summary', response_model=CreditOverview)
+async def credit_overview(
+    current_user: User = Depends(require_role(*credit_access.MANAGER_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """All accessible accounts, independent of the account list search."""
+    station_ids = credit_access.accessible_station_ids(current_user)
+    companies = (await db.scalars(select(CreditCompany.id).where(CreditCompany.station_id.in_(station_ids)))).all()
+    customers = (await db.scalars(select(CreditCustomer.id).where(CreditCustomer.station_id.in_(station_ids)))).all()
+    corporate = await credit_ledger.account_totals(db, CreditAccountType.CORPORATE, companies)
+    individual = await credit_ledger.account_totals(db, CreditAccountType.INDIVIDUAL, customers)
+    return CreditOverview(
+        corporate_receivable=sum((t.balance for t in corporate.values()), Decimal('0.00')),
+        individual_receivable=sum((t.balance for t in individual.values()), Decimal('0.00')),
+        company_count=len(companies), customer_count=len(customers),
+    )
 
 
 # ════════════════════════════════════════════════════════════════
@@ -38,6 +60,7 @@ router = APIRouter(prefix="/api/veresiye", tags=["Veresiye Cari Defter"])
 
 @router.get("/sales", response_model=list[CreditSaleResponse])
 async def list_credit_sales(
+    response: Response,
     station_id: uuid.UUID | None = Query(None),
     shift_id: uuid.UUID | None = Query(None),
     account_type: CreditAccountType | None = Query(None),
@@ -47,6 +70,7 @@ async def list_credit_sales(
     date_to: date | None = Query(None),
     missing_receipt: bool | None = Query(None),
     limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -78,17 +102,20 @@ async def list_credit_sales(
     if end_utc is not None:
         query = query.where(CreditSale.sale_time < end_utc)
 
-    query = query.order_by(CreditSale.sale_time.desc(), CreditSale.created_at.desc()).limit(limit)
+    response.headers['X-Total-Count'] = str(await db.scalar(select(func.count()).select_from(query.subquery())))
+    query = query.order_by(CreditSale.sale_time.desc(), CreditSale.created_at.desc(), CreditSale.id.desc()).offset(offset).limit(limit)
     sales = (await db.execute(query)).scalars().all()
     return [CreditSaleResponse.model_validate(s) for s in sales]
 
 
 @router.get("/unlinked-transactions", response_model=list[TransactionResponse])
 async def list_unlinked_veresiye_transactions(
+    response: Response,
     station_id: uuid.UUID | None = Query(None),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     current_user: User = Depends(require_role(*credit_access.MANAGER_ROLES)),
     db: AsyncSession = Depends(get_db),
 ):
@@ -108,7 +135,8 @@ async def list_unlinked_veresiye_transactions(
     if end_utc is not None:
         query = query.where(Transaction.transaction_time < end_utc)
 
-    query = query.order_by(Transaction.transaction_time.desc(), Transaction.created_at.desc()).limit(limit)
+    response.headers['X-Total-Count'] = str(await db.scalar(select(func.count()).select_from(query.subquery())))
+    query = query.order_by(Transaction.transaction_time.desc(), Transaction.created_at.desc(), Transaction.id.desc()).offset(offset).limit(limit)
     rows = (await db.execute(query)).scalars().all()
     return rows
 
@@ -153,8 +181,18 @@ async def create_credit_payment(
     data: CreditPaymentCreate,
     current_user: User = Depends(require_role(*credit_access.MANAGER_ROLES)),
     db: AsyncSession = Depends(get_db),
+    idempotency_key: Annotated[uuid.UUID | None, Header()] = None,
 ):
     """Cari hesap için tahsilat veya bakiye düzeltme kaydı oluşturur."""
+    pending, existing_id = await begin_request(db, current_user.id, 'payment', idempotency_key, data)
+    if existing_id is not None:
+        existing = await db.scalar(select(CreditPayment).where(
+            CreditPayment.id == existing_id,
+            CreditPayment.station_id.in_(credit_access.accessible_station_ids(current_user)),
+        ))
+        if existing is None:
+            raise HTTPException(status_code=404, detail="Tahsilat kaydı bulunamadı")
+        return existing
     if data.account_type == CreditAccountType.CORPORATE:
         assert data.credit_company_id is not None
         account = await credit_access.get_credit_company(
@@ -172,10 +210,10 @@ async def create_credit_payment(
         if data.payment_date is not None
         else now_utc
     )
-    if payment_dt > now_utc + timedelta(days=1):
+    if payment_dt > now_utc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Tahsilat tarihi gelecekte 1 günden daha ileri olamaz",
+            detail="Tahsilat tarihi gelecekte olamaz",
         )
 
     payment = CreditPayment(
@@ -193,6 +231,7 @@ async def create_credit_payment(
     )
     db.add(payment)
     await db.flush()
+    finish_request(db, pending, payment.id)
 
     reloaded = (
         await db.execute(
@@ -206,6 +245,7 @@ async def create_credit_payment(
 
 @router.get("/payments", response_model=list[CreditPaymentResponse])
 async def list_credit_payments(
+    response: Response,
     station_id: uuid.UUID | None = Query(None),
     account_type: CreditAccountType | None = Query(None),
     credit_company_id: uuid.UUID | None = Query(None),
@@ -214,6 +254,7 @@ async def list_credit_payments(
     date_to: date | None = Query(None),
     include_void: bool = Query(False),
     limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     current_user: User = Depends(require_role(*credit_access.MANAGER_ROLES)),
     db: AsyncSession = Depends(get_db),
 ):
@@ -239,7 +280,8 @@ async def list_credit_payments(
     if end_utc is not None:
         query = query.where(CreditPayment.payment_date < end_utc)
 
-    query = query.order_by(CreditPayment.payment_date.desc(), CreditPayment.created_at.desc()).limit(limit)
+    response.headers['X-Total-Count'] = str(await db.scalar(select(func.count()).select_from(query.subquery())))
+    query = query.order_by(CreditPayment.payment_date.desc(), CreditPayment.created_at.desc(), CreditPayment.id.desc()).offset(offset).limit(limit)
     rows = (await db.execute(query)).scalars().all()
     return [CreditPaymentResponse.model_validate(p) for p in rows]
 

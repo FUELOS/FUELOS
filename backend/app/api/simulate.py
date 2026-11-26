@@ -105,7 +105,7 @@ async def simulate_pos_payment(
             Shift.id == uuid.UUID(req.shift_id),
             Shift.status == ShiftStatus.OPEN,
             Station.company_id == current_user.company_id,
-        )
+        ).with_for_update(of=Shift)
     )
     row = result.first()
     if not row:
@@ -114,6 +114,8 @@ async def simulate_pos_payment(
             detail="Açık vardiya bulunamadı, kapatılmış veya şirketinizle uyuşmuyor.",
         )
     shift, station = row
+    if current_user.role == UserRole.CASHIER and shift.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Sadece kendi vardiyanıza satış ekleyebilirsiniz")
     if current_user.role in (UserRole.STATION_MANAGER, UserRole.CASHIER) and str(current_user.station_id) != str(shift.station_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -173,7 +175,7 @@ async def simulate_qr_fast_payment(
             Shift.id == uuid.UUID(req.shift_id),
             Shift.status == ShiftStatus.OPEN,
             Station.company_id == current_user.company_id,
-        )
+        ).with_for_update(of=Shift)
     )
     row = result.first()
     if not row:
@@ -182,6 +184,8 @@ async def simulate_qr_fast_payment(
             detail="Açık vardiya bulunamadı, kapatılmış veya şirketinizle uyuşmuyor.",
         )
     shift, station = row
+    if current_user.role == UserRole.CASHIER and shift.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Sadece kendi vardiyanıza satış ekleyebilirsiniz")
     if current_user.role in (UserRole.STATION_MANAGER, UserRole.CASHIER) and str(current_user.station_id) != str(shift.station_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

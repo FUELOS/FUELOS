@@ -17,7 +17,7 @@ from decimal import Decimal
 from typing import Any, Iterable, Sequence
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.base import CollectionMethod, CreditAccountType, CreditEntryKind
@@ -35,7 +35,8 @@ class AccountTotals:
     """Bir cari hesabın özet toplamları."""
 
     total_sales: Decimal = ZERO      # toplam veresiye alım (borç)
-    total_payments: Decimal = ZERO   # toplam tahsilat + düzeltme (alacak)
+    total_payments: Decimal = ZERO   # realized collections only
+    total_adjustments: Decimal = ZERO
     sale_count: int = 0
     total_liters: Decimal = Decimal("0.000")
     last_sale_at: datetime | None = None
@@ -43,7 +44,7 @@ class AccountTotals:
 
     @property
     def balance(self) -> Decimal:
-        return (self.total_sales - self.total_payments).quantize(KURUS)
+        return (self.total_sales - self.total_payments - self.total_adjustments).quantize(KURUS)
 
 
 def _account_columns(account_type: CreditAccountType | str):
@@ -57,6 +58,8 @@ async def account_totals(
     db: AsyncSession,
     account_type: CreditAccountType | str,
     account_ids: Iterable[uuid.UUID],
+    *,
+    now: datetime | None = None,
 ) -> dict[uuid.UUID, AccountTotals]:
     """
     Verilen hesapların toplamlarını iki toplu sorguyla getirir (N+1 yok).
@@ -66,6 +69,7 @@ async def account_totals(
     if not ids:
         return {}
     sale_col, payment_col = _account_columns(account_type)
+    as_of = ensure_utc(now or datetime.now(timezone.utc))
 
     sale_rows = await db.execute(
         select(
@@ -75,16 +79,17 @@ async def account_totals(
             func.count(CreditSale.id).label("count"),
             func.max(CreditSale.sale_time).label("last_at"),
         )
-        .where(sale_col.in_(ids))
+        .where(sale_col.in_(ids), CreditSale.sale_time <= as_of)
         .group_by(sale_col)
     )
     payment_rows = await db.execute(
         select(
             payment_col.label("account_id"),
-            func.coalesce(func.sum(CreditPayment.amount), 0).label("total"),
-            func.max(CreditPayment.payment_date).label("last_at"),
+            func.coalesce(func.sum(case((CreditPayment.kind == CreditEntryKind.PAYMENT, CreditPayment.amount), else_=0)), 0).label("total"),
+            func.coalesce(func.sum(case((CreditPayment.kind == CreditEntryKind.ADJUSTMENT, CreditPayment.amount), else_=0)), 0).label("adjustments"),
+            func.max(case((CreditPayment.kind == CreditEntryKind.PAYMENT, CreditPayment.payment_date), else_=None)).label("last_at"),
         )
-        .where(payment_col.in_(ids), CreditPayment.voided_at.is_(None))
+        .where(payment_col.in_(ids), CreditPayment.voided_at.is_(None), CreditPayment.payment_date <= as_of)
         .group_by(payment_col)
     )
 
@@ -98,6 +103,7 @@ async def account_totals(
         result[account_id] = AccountTotals(
             total_sales=Decimal(str(sale.total)).quantize(KURUS) if sale else ZERO,
             total_payments=Decimal(str(payment.total)).quantize(KURUS) if payment else ZERO,
+            total_adjustments=Decimal(str(payment.adjustments)).quantize(KURUS) if payment else ZERO,
             sale_count=int(sale.count) if sale else 0,
             total_liters=Decimal(str(sale.liters)) if sale else Decimal("0.000"),
             last_sale_at=sale.last_at if sale else None,
@@ -121,6 +127,7 @@ def to_balance_schema(
     return AccountBalance(
         total_sales=totals.total_sales,
         total_payments=totals.total_payments,
+        total_adjustments=totals.total_adjustments,
         balance=totals.balance,
         sale_count=totals.sale_count,
         total_liters=totals.total_liters,
@@ -244,10 +251,12 @@ def compute_overdue_amount(
         return None
 
     ref_now = ensure_utc(now or datetime.now(timezone.utc))
-    active_payments = [p for p in payments if getattr(p, "voided_at", None) is None]
+    active_payments = [p for p in payments if getattr(p, "voided_at", None) is None and ensure_utc(p.payment_date) <= ref_now]
 
     debits: list[tuple[datetime, str, Decimal]] = []
     for s in sales:
+        if ensure_utc(s.sale_time) > ref_now:
+            continue
         amt = Decimal(str(s.amount)).quantize(KURUS)
         if amt > ZERO:
             debits.append((ensure_utc(s.sale_time), f"0:{s.id}", amt))
@@ -302,7 +311,9 @@ def build_statement(
     )
 
     acc_type = CreditAccountType(str(getattr(account_type, "value", account_type)))
-    active_payments = [p for p in payments if getattr(p, "voided_at", None) is None]
+    ref_now = ensure_utc(now or datetime.now(timezone.utc))
+    sales = [s for s in sales if ensure_utc(s.sale_time) <= ref_now]
+    active_payments = [p for p in payments if getattr(p, "voided_at", None) is None and ensure_utc(p.payment_date) <= ref_now]
     start_utc, end_utc = istanbul_day_bounds(date_from, date_to)
 
     # Tüm zamanlar özeti (AccountBalance)
@@ -318,8 +329,12 @@ def build_statement(
             last_sale_at = st
 
     all_payments_total = ZERO
+    all_adjustments_total = ZERO
     last_payment_at: datetime | None = None
     for p in active_payments:
+        if _kind_value(p.kind) == CreditEntryKind.ADJUSTMENT.value:
+            all_adjustments_total += Decimal(str(p.amount)).quantize(KURUS)
+            continue
         all_payments_total = (all_payments_total + Decimal(str(p.amount)).quantize(KURUS)).quantize(KURUS)
         pt = ensure_utc(p.payment_date)
         if last_payment_at is None or pt > last_payment_at:
@@ -328,6 +343,7 @@ def build_statement(
     all_totals = AccountTotals(
         total_sales=all_sales_total,
         total_payments=all_payments_total,
+        total_adjustments=all_adjustments_total,
         sale_count=len(sales),
         total_liters=all_liters_total,
         last_sale_at=last_sale_at,
@@ -368,13 +384,17 @@ def build_statement(
     opening_balance = (pre_sales - pre_payments).quantize(KURUS)
     period_sales = ZERO
     period_payments = ZERO
+    period_adjustments = ZERO
 
     raw_items: list[tuple[datetime, int, str, Any]] = []
     for s in window_sales:
         period_sales = (period_sales + Decimal(str(s.amount)).quantize(KURUS)).quantize(KURUS)
         raw_items.append((ensure_utc(s.sale_time), 0, str(s.id), s))
     for p in window_payments:
-        period_payments = (period_payments + Decimal(str(p.amount)).quantize(KURUS)).quantize(KURUS)
+        if _kind_value(p.kind) == CreditEntryKind.ADJUSTMENT.value:
+            period_adjustments += Decimal(str(p.amount)).quantize(KURUS)
+        else:
+            period_payments += Decimal(str(p.amount)).quantize(KURUS)
         raw_items.append((ensure_utc(p.payment_date), 1, str(p.id), p))
 
     raw_items.sort(key=lambda row: (row[0], row[1], row[2]))
@@ -435,7 +455,7 @@ def build_statement(
                 )
             )
 
-    closing_balance = (opening_balance + period_sales - period_payments).quantize(KURUS)
+    closing_balance = (opening_balance + period_sales - period_payments - period_adjustments).quantize(KURUS)
 
     by_plate: dict[str, dict[str, Any]] = {}
     daily_map: dict[str, dict[str, Any]] = {}
@@ -503,6 +523,7 @@ def build_statement(
         opening_balance=opening_balance,
         period_sales=period_sales,
         period_payments=period_payments,
+        period_adjustments=period_adjustments,
         closing_balance=closing_balance,
         balance=balance_schema,
         entries=entries,

@@ -10,10 +10,11 @@ Satış/işlem kaydı CRUD + Dashboard özet verileri.
 """
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from typing import Annotated
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy import select, func, and_, cast, Date
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,7 +36,8 @@ from app.schemas.transaction import (
     TransactionResponse,
     TransactionSummary,
 )
-from app.services import credit_sales
+from app.services import credit_access, credit_sales
+from app.services.financial_requests import begin_request, finish_request
 
 router = APIRouter(prefix="/api/transactions", tags=["Transactions"])
 
@@ -45,6 +47,7 @@ async def create_transaction(
     data: TransactionCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    idempotency_key: Annotated[uuid.UUID | None, Header()] = None,
 ):
     """
     Yeni satış/işlem kaydı oluşturur.
@@ -55,6 +58,19 @@ async def create_transaction(
     3. StationManager kendi istasyonundaki açık vardiyalara ekleyebilir.
     4. fuel türünde liters ve fuel_type zorunlu.
     """
+    pending, existing_id = await begin_request(db, current_user.id, 'sale', idempotency_key, data)
+    if existing_id is not None:
+        query = select(Transaction).where(
+            Transaction.id == existing_id,
+            Transaction.station_id.in_(credit_access.accessible_station_ids(current_user)),
+        )
+        if current_user.role == UserRole.CASHIER:
+            query = query.join(Shift).where(Shift.user_id == current_user.id)
+        existing = await db.scalar(query)
+        if existing is None:
+            raise HTTPException(status_code=404, detail="Satış işlemi bulunamadı")
+        await db.refresh(existing, attribute_names=['credit_sale'])
+        return existing
     # Vardiyayı getir
     result = await db.execute(select(Shift).where(Shift.id == data.shift_id).with_for_update())
     shift = result.scalar_one_or_none()
@@ -93,16 +109,18 @@ async def create_transaction(
                 detail="Vardiya bulunamadı",
             )
 
-    # Sunucu saatinden 24 saatten fazla ileri tarihli satış kabul edilmez
-    # (otomasyon aktarımlarında gün içi saat farklarına tolerans).
+    # Realized sales must belong to the selected open shift's time window.
     if data.transaction_time is not None:
         requested_time = data.transaction_time
         if requested_time.tzinfo is None:
             requested_time = requested_time.replace(tzinfo=timezone.utc)
-        if requested_time > datetime.now(timezone.utc) + timedelta(hours=24):
+        started_at = shift.start_time
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=timezone.utc)
+        if requested_time < started_at or requested_time > datetime.now(timezone.utc):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Satış zamanı gelecekte olamaz",
+                detail="Satış zamanı vardiya başlangıcından önce veya gelecekte olamaz",
             )
 
     # fuel türünde liters ve fuel_type zorunlu
@@ -249,6 +267,7 @@ async def create_transaction(
     await db.refresh(transaction)
     if data.payment_method == PaymentMethod.VERESIYE:
         await db.refresh(transaction, attribute_names=["credit_sale"])
+    finish_request(db, pending, transaction.id)
     return transaction
 
 

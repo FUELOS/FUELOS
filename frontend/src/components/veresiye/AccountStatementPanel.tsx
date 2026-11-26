@@ -43,6 +43,8 @@ export const AccountStatementPanel: React.FC<AccountStatementPanelProps> = ({
   const [dateTo, setDateTo] = useState("");
   const [statement, setStatement] = useState<AccountStatement | null>(null);
   const [payments, setPayments] = useState<CreditPayment[]>([]);
+  const [paymentOffset, setPaymentOffset] = useState(0);
+  const [paymentTotal, setPaymentTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [spendingMode, setSpendingMode] = useState<"daily" | "monthly">("daily");
@@ -68,8 +70,10 @@ export const AccountStatementPanel: React.FC<AccountStatementPanelProps> = ({
       if (dateFrom) stmtParams.date_from = dateFrom;
       if (dateTo) stmtParams.date_to = dateTo;
 
-      const payParams: Record<string, string | boolean> = {
+      const payParams: Record<string, string | boolean | number> = {
         include_void: true,
+        limit: 50,
+        offset: paymentOffset,
         ...(accountType === "corporate"
           ? { credit_company_id: accountId }
           : { credit_customer_id: accountId }),
@@ -81,12 +85,13 @@ export const AccountStatementPanel: React.FC<AccountStatementPanelProps> = ({
       ]);
       setStatement(stmtRes.data);
       setPayments(payRes.data);
+      setPaymentTotal(Number(payRes.headers["x-total-count"] ?? payRes.data.length));
     } catch (err) {
       setError(apiErrorMessage(err, t("veresiye.error_load")));
     } finally {
       setLoading(false);
     }
-  }, [accountId, accountType, dateFrom, dateTo, t]);
+  }, [accountId, accountType, dateFrom, dateTo, paymentOffset, t]);
 
   useEffect(() => {
     loadData();
@@ -240,6 +245,10 @@ export const AccountStatementPanel: React.FC<AccountStatementPanelProps> = ({
               <div className="text-base font-black text-blue-900 dark:text-blue-100 mt-1">
                 {formatCurrency(statement.balance.balance)}
               </div>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-900/70 border border-slate-200/70 dark:border-zinc-800">
+              <div className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">{t("veresiye.total_adjustments")}</div>
+              <div className="text-base font-black text-slate-900 dark:text-white mt-1">{formatCurrency(statement.balance.total_adjustments)}</div>
             </div>
             {statement.balance.overdue_amount !== null && (
               <div className="p-3.5 rounded-2xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/50">
@@ -481,6 +490,13 @@ export const AccountStatementPanel: React.FC<AccountStatementPanelProps> = ({
             <h4 className="text-xs font-black text-slate-800 dark:text-zinc-200 uppercase tracking-wider mb-3">
               {t("veresiye.payments_history_title")}
             </h4>
+            <div className="flex items-center gap-3 mb-3 text-xs">
+              <button type="button" disabled={loading || paymentOffset === 0} onClick={() => setPaymentOffset(Math.max(0, paymentOffset - 50))}
+                className="text-blue-600 disabled:opacity-40">{t("veresiye.previous_page")}</button>
+              <span>{paymentTotal ? paymentOffset + 1 : 0}–{Math.min(paymentOffset + payments.length, paymentTotal)} / {paymentTotal}</span>
+              <button type="button" disabled={loading || paymentOffset + payments.length >= paymentTotal} onClick={() => setPaymentOffset(paymentOffset + 50)}
+                className="text-blue-600 disabled:opacity-40">{t("veresiye.next_page")}</button>
+            </div>
             {payments.length === 0 ? (
               <p className="text-xs text-slate-500 dark:text-zinc-400">
                 {t("veresiye.payments_empty")}

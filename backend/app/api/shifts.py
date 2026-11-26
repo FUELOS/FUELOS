@@ -17,6 +17,7 @@ from app.models.user import User
 from app.models.station import Station
 from app.models.company import Company
 from app.models.shift import Shift
+from app.models.pump import Pump
 from app.models.transaction import Transaction
 from app.models.credit import CreditSale
 from app.models.base import UserRole, ShiftStatus, PaymentMethod, CreditAccountType
@@ -194,6 +195,9 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
         cash_diff = closing_cash - expected_cash
 
         net_cash = closing_cash - opening_cash
+        # Freeze the closing policy; legacy rows retain the 1 TL default.
+        saved_tolerance = getattr(shift, "reconciliation_tolerance", None)
+        tolerance_val = Decimal(str(saved_tolerance)) if saved_tolerance is not None else DEFAULT_TOLERANCE
         if net_cash >= 0:
             # ── K-001: kanal ilanı modeli (DEC-002) ──
             declared = {
@@ -208,11 +212,6 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
                 "eft": eft_sales,
                 "credit": credit_sales,
             }
-
-            # Kapanışta sabitlenen politika kullanılır. Eski kayıtlar için
-            # tarihi değer bilinmediğinden varsayılan 1 TL uygulanır.
-            saved_tolerance = getattr(shift, "reconciliation_tolerance", None)
-            tolerance_val = Decimal(str(saved_tolerance)) if saved_tolerance is not None else DEFAULT_TOLERANCE
 
             result = reconcile(
                 {
@@ -239,6 +238,7 @@ async def _build_shift_response(shift: Shift, db: AsyncSession) -> ShiftResponse
                 ],
             )
             recon_status = reconciliation.status
+        else:
             # Geçersiz/eski kayıt: sayılan nakit açılıştan az — K-001
             # çalıştırılamaz, tolerans kontrolü uygulanır.
             if abs(cash_diff) <= tolerance_val:
@@ -396,6 +396,9 @@ async def open_shift(
     # ── Açık Vardiya Kontrolü ──
     # Eğer pompa seçildiyse: Bu istasyonda aynı pompada zaten açık bir vardiya var mı?
     if data.pump_id:
+        pump = await db.scalar(select(Pump).where(Pump.id == data.pump_id).with_for_update())
+        if pump is None or pump.station_id != data.station_id or not pump.is_active:
+            raise HTTPException(status_code=422, detail="Vardiya pompası bu istasyona ait ve aktif olmalıdır")
         existing_pump = await db.execute(
             select(Shift).where(
                 and_(
