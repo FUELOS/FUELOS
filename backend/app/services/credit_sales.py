@@ -143,6 +143,7 @@ async def create_credit_sale(
         driver_name = res.driver.full_name
         identity_verified = bool(res.identity_verified)
     else:
+        credit_access.require_individual_credit_enabled()
         assert credit.credit_customer_id is not None
         customer = await credit_access.get_credit_customer(
             db, user, credit.credit_customer_id, lock=True
@@ -286,6 +287,7 @@ async def link_existing_transaction(
             driver_id = matched_d.id
             driver_name = matched_d.full_name
     else:
+        credit_access.require_individual_credit_enabled()
         assert request.credit_customer_id is not None
         customer = await credit_access.get_credit_customer(
             db, user, request.credit_customer_id, lock=True

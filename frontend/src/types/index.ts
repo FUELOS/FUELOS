@@ -29,6 +29,7 @@ export interface AuthResponse {
   role: UserRole;
   company_id: string;
   station_id: string | null;
+  individual_credit_enabled?: boolean;
 }
 
 export interface Station {

@@ -47,6 +47,7 @@ export const veresiyeTranslations: Record<Language, Record<string, string>> = {
     // Tabs
     "veresiye.tab_corporate": "Kurumsal Şirketler",
     "veresiye.tab_individual": "Bireysel Müşteriler",
+    "veresiye.tab_individual_archive": "Bireysel Arşiv",
     "veresiye.pending_receipts_title": "Fiş Bekleyen Satışlarım",
     "veresiye.pending_receipts_subtitle": "İmzalı veresiye fişi henüz yüklenmemiş satışlarınız",
     "veresiye.pending_receipts_empty": "Fiş bekleyen satış bulunmuyor.",
@@ -164,6 +165,10 @@ export const veresiyeTranslations: Record<Language, Record<string, string>> = {
 
     // Payment modal
     "veresiye.payment_mode": "Tahsilat",
+    "veresiye.payment_balance": "Tahsil edilebilir tutar {amount}",
+    "veresiye.payment_balance_unavailable": "Güncel borç yüklenemedi.",
+    "veresiye.payment_no_balance": "Bu hesabın tahsil edilecek borcu yok.",
+    "veresiye.payment_exceeds_balance": "Tahsilat tutarı güncel borcu aşamaz.",
     "veresiye.adjustment_mode": "Düzeltme Kaydı",
     "veresiye.amount": "Tutar (₺)",
     "veresiye.adjustment_amount_hint": "Pozitif tutar borcu azaltır (alacak), negatif tutar borcu artırır.",
@@ -227,6 +232,7 @@ export const veresiyeTranslations: Record<Language, Record<string, string>> = {
 
     "veresiye.tab_corporate": "Corporate Companies",
     "veresiye.tab_individual": "Individual Customers",
+    "veresiye.tab_individual_archive": "Individual Account Archive",
     "veresiye.pending_receipts_title": "My Sales Pending Receipt",
     "veresiye.pending_receipts_subtitle": "Credit sales waiting for a signed receipt photo",
     "veresiye.pending_receipts_empty": "No sales pending a signed receipt.",
@@ -339,6 +345,10 @@ export const veresiyeTranslations: Record<Language, Record<string, string>> = {
     "veresiye.voided_badge": "Voided",
 
     "veresiye.payment_mode": "Collection",
+    "veresiye.payment_balance": "Outstanding amount {amount}",
+    "veresiye.payment_balance_unavailable": "The current balance could not be loaded.",
+    "veresiye.payment_no_balance": "This account has no outstanding debt.",
+    "veresiye.payment_exceeds_balance": "The payment cannot exceed the outstanding balance.",
     "veresiye.adjustment_mode": "Adjustment",
     "veresiye.amount": "Amount (₺)",
     "veresiye.adjustment_amount_hint": "Positive reduces balance due; negative increases balance due.",

@@ -28,6 +28,7 @@ export const VeresiyePage: React.FC = () => {
   const isSuperAdmin = user?.role === "super_admin";
   const isManager = user?.role === "station_manager";
   const isCashier = user?.role === "cashier";
+  const individualCreditEnabled = user?.individual_credit_enabled ?? true;
 
   const [activeTab, setActiveTab] = useState<"corporate" | "individual">("corporate");
   const [companySearch, setCompanySearch] = useState("");
@@ -76,7 +77,7 @@ export const VeresiyePage: React.FC = () => {
   }, [debouncedCompanySearch, isSuperAdmin, t]);
 
   const fetchCustomers = useCallback(async () => {
-    if (isSuperAdmin) return;
+    if (isSuperAdmin || activeTab !== "individual") return;
     setLoadingCustomers(true);
     try {
       const res = await apiClient.get<CreditCustomerSummary[]>("/veresiye/customers", {
@@ -88,7 +89,7 @@ export const VeresiyePage: React.FC = () => {
     } finally {
       setLoadingCustomers(false);
     }
-  }, [debouncedCustomerSearch, isSuperAdmin, t]);
+  }, [activeTab, debouncedCustomerSearch, isSuperAdmin, t]);
 
   const fetchMissingReceipts = useCallback(async (offset = 0) => {
     if (isSuperAdmin) return;
@@ -287,7 +288,7 @@ export const VeresiyePage: React.FC = () => {
               }`}
             >
               <UserCircle2 size={14} />
-              <span>{t("veresiye.tab_individual")}</span>
+              <span>{t(individualCreditEnabled ? "veresiye.tab_individual" : "veresiye.tab_individual_archive")}</span>
             </button>
           </div>
 
@@ -330,7 +331,7 @@ export const VeresiyePage: React.FC = () => {
               </button>
             )}
 
-            {activeTab === "individual" && (
+            {activeTab === "individual" && individualCreditEnabled && (
               <button
                 type="button"
                 onClick={() => setCreateCustomerOpen(true)}
@@ -519,7 +520,7 @@ export const VeresiyePage: React.FC = () => {
       />
 
       <CreateCustomerModal
-        open={createCustomerOpen}
+        open={individualCreditEnabled && createCustomerOpen}
         isManager={isManager}
         onClose={() => setCreateCustomerOpen(false)}
         onCreated={(created) => {

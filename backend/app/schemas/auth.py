@@ -40,3 +40,4 @@ class TokenResponse(BaseModel):
     role: str
     company_id: str
     station_id: str | None = None
+    individual_credit_enabled: bool = True

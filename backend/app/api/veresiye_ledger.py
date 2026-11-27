@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user, require_role
 from app.database import get_db
-from app.models.base import CreditAccountType, PaymentMethod, UserRole
+from app.models.base import CreditAccountType, CreditEntryKind, PaymentMethod, UserRole
 from app.models.credit import CreditCompany, CreditCustomer, CreditPayment, CreditSale
 from app.models.transaction import Transaction
 from app.models.user import User
@@ -215,6 +215,17 @@ async def create_credit_payment(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Tahsilat tarihi gelecekte olamaz",
         )
+
+    if data.kind == CreditEntryKind.PAYMENT:
+        # The account stays locked through commit so concurrent collections see the updated balance.
+        balance = await credit_ledger.account_balance(db, data.account_type, account.id)
+        if balance <= credit_ledger.ZERO:
+            raise HTTPException(status_code=409, detail="Bu hesabın tahsil edilecek borcu yok.")
+        if data.amount > balance:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Tahsilat tutarı güncel borcu aşamaz. Güncel borç: {balance:.2f} TL.",
+            )
 
     payment = CreditPayment(
         station_id=account.station_id,

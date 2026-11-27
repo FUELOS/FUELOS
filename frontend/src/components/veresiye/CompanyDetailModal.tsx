@@ -248,9 +248,9 @@ export const CompanyDetailModal: React.FC<CompanyDetailModalProps> = ({
       aria-modal="true"
       aria-label={company?.name || t("veresiye.tab_corporate")}
     >
-      <div className="w-full max-w-5xl bg-white dark:bg-[#111218] border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-[#111218]">
         {/* Header */}
-        <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-slate-100 dark:border-zinc-800">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 dark:border-zinc-800 sm:px-6 sm:py-4">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-2xl bg-blue-600/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
               <Building2 size={20} />
@@ -294,7 +294,7 @@ export const CompanyDetailModal: React.FC<CompanyDetailModalProps> = ({
 
         {/* Sub-tabs */}
         {isManager && company && (
-          <div className="px-6 pt-3 border-b border-slate-100 dark:border-zinc-800 flex items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-100 px-3 pt-3 dark:border-zinc-800 sm:px-6">
             <button
               type="button"
               onClick={() => setTab("info")}
@@ -321,7 +321,7 @@ export const CompanyDetailModal: React.FC<CompanyDetailModalProps> = ({
         )}
 
         {/* Body */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-5">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-3 sm:p-6">
           {error && (
             <div className="px-4 py-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-xs font-semibold text-rose-700 dark:text-rose-300">
               {error}

@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     # kalıcı bir değer tanımlayın — bu anahtar değişirse mevcut şifreli veriler
     # okunamaz ve T.C. eşleştirmeleri bozulur.
     PII_ENCRYPTION_KEY: str = ""
+    INDIVIDUAL_CREDIT_ENABLED: bool = True
     # Yüklenen belgelerin saklandığı dizin (göreli ise backend köküne göre).
     UPLOAD_DIR: str = "uploads"
     # Tek belge için azami boyut (bayt) — varsayılan 8 MB.

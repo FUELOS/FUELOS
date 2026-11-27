@@ -16,3 +16,10 @@ port 8000 and the frontend on localhost port 5173 against that same database.
 Create fresh fixtures for every browser run. The test posts synthetic sales,
 payments and photographs to the real API. Requests are forwarded to localhost
 port 8000, including when the frontend runs inside WSL; no API results are mocked.
+
+To test the individual archive, start a backend with
+`INDIVIDUAL_CREDIT_ENABLED=false` against the same test database. Generate fresh
+fixtures with individual credit enabled, then run the browser script with
+`AUDIT_INDIVIDUAL_DISABLED=1` and `AUDIT_BACKEND_URL` set to the disabled
+backend's local URL. This checks archive collections, corporate sales and
+linking, and shift reconciliation with both account types in its history.

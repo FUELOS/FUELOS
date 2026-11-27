@@ -156,7 +156,7 @@ export const AccountStatementPanel: React.FC<AccountStatementPanelProps> = ({
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs font-semibold text-slate-800 dark:text-zinc-200"
+                className="max-w-full px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs font-semibold text-slate-800 dark:text-zinc-200"
             />
           </div>
           <div>
@@ -168,7 +168,7 @@ export const AccountStatementPanel: React.FC<AccountStatementPanelProps> = ({
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs font-semibold text-slate-800 dark:text-zinc-200"
+                className="max-w-full px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs font-semibold text-slate-800 dark:text-zinc-200"
             />
           </div>
           {(dateFrom || dateTo) && (
@@ -608,9 +608,11 @@ export const AccountStatementPanel: React.FC<AccountStatementPanelProps> = ({
         accountType={accountType}
         accountId={accountId}
         accountName={accountName}
+        currentBalance={statement?.balance.balance ?? null}
         initialMode={paymentModalMode ?? "payment"}
         onClose={() => setPaymentModalMode(null)}
         onSuccess={handleMutationSuccess}
+        onConflict={loadData}
       />
 
       <DocumentViewerModal

@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 from httpx import ASGITransport, AsyncClient
 import pytest
+from app.config import get_settings
 from app.database import async_session_factory, engine
 from app.models.base import PaymentMethod, TransactionType
 from app.models.transaction import Transaction
@@ -20,11 +21,11 @@ from app.main import app
 
 @pytest.mark.skipif(engine.url.host not in ('127.0.0.1', 'localhost') or 'audit' not in (engine.url.database or ''),
                     reason='Requires a migrated, seeded disposable audit database')
-def test_audit_api_regressions():
-    asyncio.run(_run())
+def test_audit_api_regressions(monkeypatch):
+    asyncio.run(_run(monkeypatch))
 
 
-async def _run():
+async def _run(monkeypatch):
     assert engine.url.host in ('127.0.0.1', 'localhost') and 'audit' in engine.url.database
     failures = []
     suffix = uuid.uuid4().hex[:10]
@@ -117,14 +118,47 @@ async def _run():
         assert page1.headers['X-Total-Count'] == '203'
         assert len(page1.json()) == 200 and len(page2.json()) == 3
         assert not {p['id'] for p in page1.json()} & {p['id'] for p in page2.json()}
+
+        limited_customer = await req('POST', '/veresiye/customers', mgr, 201, json=dict(
+            full_name=f'Payment limit {suffix}', tc_no='11111111110', phone='05000000001'))
+        await req('POST', '/transactions', cashier, 201, json={
+            **sale, 'amount': '300.00',
+            'credit': {**sale['credit'], 'credit_customer_id': limited_customer['id']},
+        })
+        limited_payment = {**payment, 'credit_customer_id': limited_customer['id']}
+        await req('POST', '/veresiye/payments', mgr, 409, json={**limited_payment, 'amount': '305.00'})
+        results = await asyncio.gather(*(
+            client.post('/api/veresiye/payments', headers=mgr, json={**limited_payment, 'amount': '180.00'})
+            for _ in range(2)
+        ))
+        assert sorted(result.status_code for result in results) == [201, 409]
+        await req('POST', '/veresiye/payments', mgr, 201, json={**limited_payment, 'amount': '120.00'})
+        await req('POST', '/veresiye/payments', mgr, 409, json={**limited_payment, 'amount': '0.01'})
+        settled = await req('GET', f"/veresiye/customers/{limited_customer['id']}/statement", mgr)
+        assert settled['balance']['balance'] == '0.00'
+        assert settled['balance']['total_payments'] == '300.00'
+
+        async with async_session_factory() as db:
+            legacy = Transaction(shift_id=uuid.UUID(shift['id']), station_id=uuid.UUID(stations[0]['id']),
+                type=TransactionType.FUEL, payment_method=PaymentMethod.VERESIYE, amount=10,
+                liters=1, fuel_type='Motorin', description='AUDIT BROWSER UNLINKED',
+                transaction_time=datetime.now(timezone.utc))
+            db.add(legacy)
+            await db.commit()
+
+        with monkeypatch.context() as disabled:
+            disabled.setattr(get_settings(), 'INDIVIDUAL_CREDIT_ENABLED', False)
+            session = await req('GET', '/auth/me', mgr)
+            assert session.get('individual_credit_enabled') is False
+            await req('POST', '/veresiye/customers', mgr, 403, json=dict(
+                full_name='Disabled customer', tc_no='11111111110', phone='05000000000'))
+            await req('POST', '/transactions', cashier, 403, json=sale)
+            await req('POST', '/veresiye/sales/link', mgr, 403, json=dict(
+                transaction_id=str(legacy.id), account_type='individual', credit_customer_id=customer['id']))
+            assert (await req('POST', '/transactions', sale_key, 201, json=sale))['id'] == a['id']
+            await req('GET', f"/veresiye/customers/{customer['id']}/statement", mgr)
+
         if os.environ.get('AUDIT_BROWSER_FIXTURE_PATH'):
-            async with async_session_factory() as db:
-                legacy = Transaction(shift_id=uuid.UUID(shift['id']), station_id=uuid.UUID(stations[0]['id']),
-                    type=TransactionType.FUEL, payment_method=PaymentMethod.VERESIYE, amount=10,
-                    liters=1, fuel_type='Motorin', description='AUDIT BROWSER UNLINKED',
-                    transaction_time=datetime.now(timezone.utc))
-                db.add(legacy)
-                await db.commit()
             Path(os.environ['AUDIT_BROWSER_FIXTURE_PATH']).write_text(json.dumps({
                 'manager_email': users['manager']['email'], 'cashier_email': users['cashier']['email'],
                 'station_id':stations[0]['id'], 'shift_id':shift['id'], 'customer':customer,

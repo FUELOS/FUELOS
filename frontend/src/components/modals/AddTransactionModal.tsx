@@ -10,6 +10,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { apiClient } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
+import { useAuth } from "@/context/AuthContext";
 import { apiErrorMessage, financialRequestHeaders, normalizePlate } from "@/lib/veresiye";
 import { CreditAccountSection } from "@/components/sales/CreditAccountSection";
 import { ReceiptUploadStep } from "@/components/sales/ReceiptUploadStep";
@@ -75,6 +76,8 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   onSuccess,
 }) => {
   const { t, language } = useLanguage();
+  const { user } = useAuth();
+  const individualCreditEnabled = user?.individual_credit_enabled ?? true;
   const attempt = useRef({ signature: "", key: "" });
   const submitting = useRef(false);
   const initialized = useRef(false);
@@ -88,8 +91,8 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [plateNumber, setPlateNumber] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [creditAccountType, setCreditAccountType] = useState<CreditAccountType>("corporate");
-  const [creditInput, setCreditInput] = useState<CreditSaleInput | null>(null);
+  const [selectedCreditAccountType, setCreditAccountType] = useState<CreditAccountType>("corporate");
+  const [creditSelection, setCreditSelection] = useState<{ stationId: string; input: CreditSaleInput } | null>(null);
   const [createdCreditSale, setCreatedCreditSale] = useState<{
     creditSale: CreditSaleBrief;
     fuelType: string;
@@ -108,6 +111,13 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 
   // Seçili vardiyanın istasyonunun aktif pompalarını çek
   const stationId = activeShifts.find((s) => s.shift_id === selectedShiftId)?.station_id;
+  const creditAccountType = individualCreditEnabled ? selectedCreditAccountType : "corporate";
+  const creditInput = creditSelection && creditSelection.stationId === stationId && creditSelection.input.account_type === creditAccountType
+    ? creditSelection.input
+    : null;
+  const setCreditInput = React.useCallback((input: CreditSaleInput | null) => {
+    setCreditSelection(input && stationId ? { stationId, input } : null);
+  }, [stationId]);
   useEffect(() => {
     let cancelled = false;
     setPumps([]);
@@ -166,7 +176,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       setCreditInput(null);
       setCreatedCreditSale(null);
     }
-  }, [isOpen, defaultShiftId, activeShifts]);
+  }, [isOpen, defaultShiftId, activeShifts, setCreditInput]);
 
   useEffect(() => {
     if (isOpen && !selectedShiftId && activeShifts.length > 0) {
@@ -512,10 +522,13 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 
           {paymentMethod === "veresiye" && (
             <CreditAccountSection
-              stationId={activeShifts.find((s) => s.shift_id === selectedShiftId)?.station_id}
+              key={stationId}
+              stationId={stationId}
               amount={amount}
               accountType={creditAccountType}
+              individualCreditEnabled={individualCreditEnabled}
               onAccountTypeChange={(nextType) => {
+                if (nextType === creditAccountType) return;
                 setCreditAccountType(nextType);
                 setCreditInput(null);
               }}

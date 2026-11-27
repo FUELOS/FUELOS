@@ -930,6 +930,7 @@ async def create_customer(
     db: AsyncSession = Depends(get_db),
 ):
     """Yeni bireysel veresiye müşterisi oluşturur (müdür veya kasiyer)."""
+    credit_access.require_individual_credit_enabled()
     if current_user.role == UserRole.CASHIER and data.credit_limit is not None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

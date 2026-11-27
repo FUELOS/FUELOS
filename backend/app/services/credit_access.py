@@ -16,6 +16,7 @@ import uuid
 from fastapi import HTTPException, status
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.config import get_settings
 
 from app.models.base import UserRole
 from app.models.credit import CreditCompany, CreditCustomer, CreditSale
@@ -24,6 +25,14 @@ from app.models.user import User
 
 MANAGER_ROLES = (UserRole.SUPER_ADMIN, UserRole.STATION_MANAGER)
 ALL_ROLES = (UserRole.SUPER_ADMIN, UserRole.STATION_MANAGER, UserRole.CASHIER)
+
+
+def require_individual_credit_enabled() -> None:
+    if not get_settings().INDIVIDUAL_CREDIT_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Yeni bireysel veresiye işlemleri kapalı",
+        )
 
 
 def is_manager(user: User) -> bool:

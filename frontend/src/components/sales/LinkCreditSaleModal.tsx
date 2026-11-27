@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { AlertCircle, Link2, Loader2, X } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
+import { useAuth } from "@/context/AuthContext";
 import { apiErrorMessage, formatPlate } from "@/lib/veresiye";
 import type {
   CreditAccountType,
@@ -25,7 +26,10 @@ export const LinkCreditSaleModal: React.FC<LinkCreditSaleModalProps> = ({
   onSuccess,
 }) => {
   const { t } = useLanguage();
-  const [accountType, setAccountType] = useState<CreditAccountType>("corporate");
+  const { user } = useAuth();
+  const individualCreditEnabled = user?.individual_credit_enabled ?? true;
+  const [selectedAccountType, setAccountType] = useState<CreditAccountType>("corporate");
+  const accountType = individualCreditEnabled ? selectedAccountType : "corporate";
   const [companies, setCompanies] = useState<CreditCompanySummary[]>([]);
   const [customers, setCustomers] = useState<CreditCustomerSummary[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
@@ -34,6 +38,7 @@ export const LinkCreditSaleModal: React.FC<LinkCreditSaleModalProps> = ({
   const [selectedDriverId, setSelectedDriverId] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,14 +53,10 @@ export const LinkCreditSaleModal: React.FC<LinkCreditSaleModalProps> = ({
 
     let cancelled = false;
     setLoading(true);
-    Promise.all([
-      apiClient.get<CreditCompanySummary[]>("/veresiye/companies"),
-      apiClient.get<CreditCustomerSummary[]>("/veresiye/customers", { params: { active: true } }),
-    ])
-      .then(([compRes, custRes]) => {
+    apiClient.get<CreditCompanySummary[]>("/veresiye/companies")
+      .then((res) => {
         if (cancelled) return;
-        setCompanies(compRes.data);
-        setCustomers(custRes.data);
+        setCompanies(res.data);
       })
       .catch((err) => {
         if (!cancelled) setError(apiErrorMessage(err, t("veresiye.error_load")));
@@ -68,6 +69,24 @@ export const LinkCreditSaleModal: React.FC<LinkCreditSaleModalProps> = ({
       cancelled = true;
     };
   }, [transactionId, t]);
+
+  useEffect(() => {
+    if (!transactionId || accountType !== "individual") return;
+    const controller = new AbortController();
+    setLoadingCustomers(true);
+    setCustomers([]);
+    apiClient.get<CreditCustomerSummary[]>("/veresiye/customers", {
+      params: { active: true },
+      signal: controller.signal,
+    }).then((res) => {
+      if (!controller.signal.aborted) setCustomers(res.data);
+    }).catch((err) => {
+      if (!controller.signal.aborted) setError(apiErrorMessage(err, t("veresiye.error_load")));
+    }).finally(() => {
+      if (!controller.signal.aborted) setLoadingCustomers(false);
+    });
+    return () => controller.abort();
+  }, [transactionId, accountType, t]);
 
   useEffect(() => {
     setCompanyDetail(null);
@@ -104,8 +123,9 @@ export const LinkCreditSaleModal: React.FC<LinkCreditSaleModalProps> = ({
 
   if (!transactionId) return null;
 
-  const canSubmit =
-    accountType === "corporate" ? companyDetail?.id === selectedCompanyId : Boolean(selectedCustomerId);
+  const canSubmit = accountType === "corporate"
+    ? companyDetail?.id === selectedCompanyId
+    : !loadingCustomers && customers.some((customer) => customer.id === selectedCustomerId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -180,6 +200,7 @@ export const LinkCreditSaleModal: React.FC<LinkCreditSaleModalProps> = ({
             <span>{t("creditsale.link_retro_notice")}</span>
           </div>
 
+          {individualCreditEnabled && (
           <div className="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-zinc-900">
             <button
               type="button"
@@ -205,7 +226,8 @@ export const LinkCreditSaleModal: React.FC<LinkCreditSaleModalProps> = ({
             </button>
           </div>
 
-          {loading ? (
+          )}
+          {(accountType === "corporate" ? loading : loadingCustomers) ? (
             <div className="py-4 text-center text-xs text-slate-500">{t("veresiye.loading")}</div>
           ) : accountType === "corporate" ? (
             <div className="space-y-3">

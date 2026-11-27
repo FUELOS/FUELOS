@@ -50,8 +50,8 @@ export const Navbar: React.FC = () => {
 
   return (
     <>
-      <header className="h-16 px-4 sm:px-6 md:px-8 flex items-center justify-between sticky top-0 z-30 bg-[#f4f7fe]/80 dark:bg-[#090a0f]/80 backdrop-blur-md border-b border-transparent dark:border-zinc-800/60 transition-colors duration-200">
-        <div className="flex items-center gap-3">
+      <header className="h-16 px-2 sm:px-6 md:px-8 flex items-center justify-between sticky top-0 z-30 bg-[#f4f7fe]/80 dark:bg-[#090a0f]/80 backdrop-blur-md border-b border-transparent dark:border-zinc-800/60 transition-colors duration-200">
+        <div className="flex items-center gap-1 sm:gap-3">
           {/* Hamburger button — only visible on mobile */}
           <button
             className="md:hidden p-2 rounded-xl text-slate-600 dark:text-zinc-400 hover:bg-white/10 dark:hover:bg-white/5 transition"
@@ -69,7 +69,7 @@ export const Navbar: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 sm:gap-3.5">
+        <div className="flex items-center gap-1.5 sm:gap-3.5">
           {/* Language Switcher */}
           <div className="flex items-center bg-white dark:bg-[#121217] border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-1 shadow-sm">
             <button

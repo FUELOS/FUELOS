@@ -511,6 +511,13 @@ async def run_tests() -> None:
         )
         assert r_fut.status_code == 422
 
+        r_excess = await client.post(
+            "/api/veresiye/payments",
+            headers=mgr_a_h,
+            json={"account_type": "corporate", "credit_company_id": str(comp_id), "amount": "1750.01"},
+        )
+        assert r_excess.status_code == 409, r_excess.text
+
         p1 = await client.post(
             "/api/veresiye/payments",
             headers=mgr_a_h,

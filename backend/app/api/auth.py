@@ -92,6 +92,7 @@ async def login(
         role=user.role.value,
         company_id=str(user.company_id),
         station_id=str(user.station_id) if user.station_id else None,
+        individual_credit_enabled=settings.INDIVIDUAL_CREDIT_ENABLED,
     )
 
 
@@ -190,4 +191,5 @@ async def get_me(
         role=current_user.role.value,
         company_id=str(current_user.company_id),
         station_id=str(current_user.station_id) if current_user.station_id else None,
+        individual_credit_enabled=settings.INDIVIDUAL_CREDIT_ENABLED,
     )
